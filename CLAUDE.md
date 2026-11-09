@@ -52,7 +52,7 @@ Docker-gated integration tests: `ERASER_IMAP_IT=1 cargo test` (GreenMail IMAP), 
 
 ## Adding Brokers
 
-Required fields in `data/brokers.yaml`: `id`, `name`, `email`, `region` (`us`, `eu`, `ch`, `global`, …), `category`. Only use privacy emails seen on the company's own privacy page; never construct addresses or use named employees' addresses. Brokers without an email go to `docs/manual-optouts.md`. Broker tests compare against `tests/golden/brokers_go.json`; regenerate it with `tests/golden/gen/README.txt` (needs the Go version on the `icloud-eu-ch` branch) whenever the broker list changes.
+Required fields in `data/brokers.yaml`: `id`, `name`, `email`, `region` (`us`, `eu`, `ch`, `global`, …), `category`. Only use privacy emails seen on the company's own privacy page; never construct addresses or use named employees' addresses. Brokers without an email go to `docs/manual-optouts.md`. Broker tests compare against `tests/golden/brokers_go.json`; regenerate it with `tests/golden/gen/README.txt` (needs the Go version at tag `go-final`) whenever the broker list changes.
 
 ## Deployment
 

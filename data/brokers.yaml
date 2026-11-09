@@ -7594,3 +7594,213 @@ brokers:
       region: eu
       category: people-search
       tags: [ch, de]
+    - id: ch-eos
+      name: "EOS Schweiz AG"
+      email: info@eos-schweiz.com
+      website: https://www.eos-schweiz.com
+      region: ch
+      category: credit-agency
+      tags: [ch]
+    - id: ch-lowell
+      name: "Lowell Inkasso Service GmbH"
+      email: datenschutz.lis@lowellgroup.ch
+      website: https://www.lowellgroup.ch
+      region: ch
+      category: credit-agency
+      tags: [ch]
+    - id: ch-coeo
+      name: "coeo Inkasso (Schweiz)"
+      email: datenschutz@coeo-inkasso.de
+      website: https://www.coeo-inkasso.ch
+      region: ch
+      category: credit-agency
+      tags: [ch]
+    - id: ch-kredita
+      name: "Kredita Inkasso AG"
+      email: info@kredita-inkasso.ch
+      website: https://www.kredita-inkasso.ch
+      region: ch
+      category: credit-agency
+      tags: [ch]
+    - id: ch-dieinkasso
+      name: "dieInkasso AG"
+      email: info@dieinkasso.ch
+      website: https://www.dieinkasso.ch
+      region: ch
+      category: credit-agency
+      tags: [ch]
+    - id: ch-myntro
+      name: "Myntro Collect AG"
+      email: datenschutz@myntro.ch
+      website: https://myntro.ch
+      region: ch
+      category: credit-agency
+      tags: [ch]
+    - id: ch-inkasso-team
+      name: "Inkasso-Team AG"
+      email: info@inkasso-team.com
+      website: https://inkasso-team.com
+      region: ch
+      category: credit-agency
+      tags: [ch]
+    - id: ch-mfgroup-powerpay
+      name: "MF Group / Powerpay"
+      email: datenschutz@mfgroup.ch
+      website: https://www.powerpay.ch
+      region: ch
+      category: credit-agency
+      tags: [ch]
+    - id: ch-help
+      name: "HELP Media AG (help.ch)"
+      email: dataprotection@help.ch
+      website: https://www.help.ch
+      region: ch
+      category: people-search
+      tags: [ch]
+    - id: ch-swissguide
+      name: "swissguide ag"
+      email: info@swissguide.ch
+      website: https://www.swissguide.ch
+      region: ch
+      category: people-search
+      tags: [ch]
+    - id: ch-smg
+      name: "SMG Swiss Marketplace Group AG (homegate, ImmoScout24, ricardo, tutti, anibis)"
+      email: dpo@swissmarketplace.group
+      website: https://swissmarketplace.group
+      region: ch
+      category: marketing
+      tags: [ch]
+    - id: ch-migros-cumulus
+      name: "Migros-Genossenschafts-Bund (Cumulus)"
+      email: privacy@migros.ch
+      website: https://www.migros.ch
+      region: ch
+      category: marketing
+      tags: [ch]
+    - id: ch-coop-supercard
+      name: "Coop Genossenschaft (Supercard)"
+      email: kundendienst@coop.ch
+      website: https://www.coop.ch
+      region: ch
+      category: marketing
+      tags: [ch]
+    - id: ch-manor
+      name: "Manor AG"
+      email: privacy@manor.ch
+      website: https://www.manor.ch
+      region: ch
+      category: marketing
+      tags: [ch]
+    - id: ch-lidl-plus
+      name: "Lidl Schweiz (Lidl Plus)"
+      email: datenschutz@lidlplus.ch
+      website: https://www.lidl.ch
+      region: ch
+      category: marketing
+      tags: [ch]
+    - id: ch-globus
+      name: "Magazine zum Globus AG"
+      email: datenschutz@globus.ch
+      website: https://www.globus.ch
+      region: ch
+      category: marketing
+      tags: [ch]
+    - id: ch-jelmoli-versand
+      name: "Jelmoli Versand AG"
+      email: datenschutz@jelmoliversand.ch
+      website: https://www.jelmoli-shop.ch
+      region: ch
+      category: marketing
+      tags: [ch]
+    - id: ch-ringier
+      name: "Ringier AG / Ringier Medien Schweiz"
+      email: datenschutz@ringier.ch
+      website: https://www.ringier.com
+      region: ch
+      category: marketing
+      tags: [ch]
+    - id: ch-chmedia
+      name: "CH Media"
+      email: datenschutz@chmedia.ch
+      website: https://www.chmedia.ch
+      region: ch
+      category: marketing
+      tags: [ch]
+    - id: ch-nzz
+      name: "NZZ AG"
+      email: datenschutz@nzz.ch
+      website: https://www.nzz.ch
+      region: ch
+      category: marketing
+      tags: [ch]
+    - id: ch-swisscom
+      name: "Swisscom (Schweiz) AG"
+      email: datenschutz@swisscom.com
+      website: https://www.swisscom.ch
+      region: ch
+      category: marketing
+      tags: [ch]
+    - id: ch-wsag
+      name: "Walter Schmid Fundraising & Data AG"
+      email: info@wsag.ch
+      website: https://www.wsag-fundraising.ch
+      region: ch
+      category: address-broker
+      tags: [ch]
+    - id: ch-intervista
+      name: "intervista AG"
+      email: datenschutz@intervista.ch
+      website: https://www.intervista.ch
+      region: ch
+      category: marketing
+      tags: [ch]
+    - id: ch-demoscope
+      name: "Demo SCOPE AG"
+      email: datenschutz@demoscope.ch
+      website: https://www.demoscope.ch
+      region: ch
+      category: marketing
+      tags: [ch]
+    - id: ch-yougov
+      name: "YouGov Schweiz AG (incl. LINK)"
+      email: dataprotection@yougov.com
+      website: https://yougov.ch
+      region: ch
+      category: marketing
+      tags: [ch]
+    - id: ch-bilendi
+      name: "Bilendi Schweiz (formerly Respondi)"
+      email: gdpr@bilendi.com
+      website: https://www.bilendi.ch
+      region: ch
+      category: marketing
+      tags: [ch]
+    - id: ch-ampuls
+      name: "AmPuls Marktforschung AG"
+      email: info@ampuls.ch
+      website: https://www.ampuls.ch
+      region: ch
+      category: marketing
+      tags: [ch]
+    - id: ch-sotomo
+      name: "Sotomo"
+      email: info@sotomo.ch
+      website: https://sotomo.ch
+      region: ch
+      category: marketing
+      tags: [ch]
+    - id: ch-wemf
+      name: "WEMF AG für Werbemedienforschung"
+      email: datenschutz@wemf.ch
+      website: https://www.wemf.ch
+      region: ch
+      category: marketing
+      tags: [ch]
+    - id: ch-mediapulse
+      name: "Mediapulse AG"
+      email: info@mediapulse.ch
+      website: https://www.mediapulse.ch
+      region: ch
+      category: marketing
+      tags: [ch]

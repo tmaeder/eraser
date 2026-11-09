@@ -1,12 +1,12 @@
 # Eraser
 
-Take back your privacy. Eraser sends data removal requests to 1,150+ data brokers on your behalf—for free.
+Take back your privacy. Eraser sends data removal requests to 1,250+ data brokers on your behalf—for free.
 
 You know those sites like Spokeo, BeenVerified, and Whitepages that have your home address, phone number, and family members' names? They're called data brokers, and there are hundreds of them. Services like Incogni and DeleteMe charge $100+/year to send opt-out requests to these companies. Eraser does the same thing, but it's open source and completely free.
 
 ### What to Expect
 
-**The good:** Eraser automatically sends removal request emails to 1,150+ data brokers. Many brokers process these requests automatically—you send the email, they remove your data, done.
+**The good:** Eraser automatically sends removal request emails to 1,250+ data brokers. Many brokers process these requests automatically—you send the email, they remove your data, done.
 
 **The reality:** Some brokers require additional steps. They might send you a confirmation link to click, ask you to fill out a form on their website, or request identity verification. Eraser tracks these responses and shows you exactly what needs manual attention.
 
@@ -50,7 +50,7 @@ The wizard walks you through entering your personal information (the data broker
 **Step 4: Send Removal Requests**
 
 From the dashboard, you can:
-- Browse the list of 1,150+ data brokers
+- Browse the list of 1,250+ data brokers
 - Send requests one at a time or in bulk
 - Track which requests have been sent and their status
 
@@ -77,9 +77,26 @@ Use your `@icloud.com` / `@me.com` address plus that password in the setup wizar
 
 ### European and Swiss Brokers
 
-The database includes 380+ European and Swiss address brokers, credit agencies (SCHUFA, CRIF, Experian, Equifax, Creditreform, infoscore…) and ad-tech data companies, imported from the CC0 [Datenanfragen.de company database](https://github.com/datenanfragen/data). They use `region: eu` or `region: ch`. The 51 Swiss entries also cover collection agencies, loyalty programs (Migros Cumulus, Coop Supercard, Manor), media groups and market-research panels; every Swiss address was taken from the company's own privacy policy.
+The database includes 500+ European and Swiss address brokers, credit agencies (SCHUFA, CRIF, Experian, Equifax, Creditreform, infoscore…) and ad-tech data companies, imported from the CC0 [Datenanfragen.de company database](https://github.com/datenanfragen/data). They use `region: eu` or `region: ch`. The 51 Swiss entries also cover collection agencies, loyalty programs (Migros Cumulus, Coop Supercard, Manor), media groups and market-research panels; every Swiss address was taken from the company's own privacy policy.
 
 **Swiss tip:** also sign up for the free SDV Robinson list (no unsolicited advertising mail) at [sdv-konsumenteninfo.ch/robinsonliste](https://sdv-konsumenteninfo.ch/robinsonliste/). It does not accept requests by email, so Eraser can't do it for you. To target only those, set:
+
+### Manual opt-outs (web form only)
+
+These companies hold data on Europeans but only accept requests through their own web form, so Eraser can't email them. Submit these yourself:
+
+| Company | Form |
+|---|---|
+| InfobelPRO | https://dpo.infobel.com/ |
+| BoldData | https://www.boldata.com/email/info |
+| INSEE SIRENE opt-out (official online process) | https://www.insee.fr/fr/information/7456564 |
+| Experian Spain (Badexcug) | https://portaldelconsumidor.experian.es |
+| Banco de Portugal (CRC) | https://www.bportugal.pt/area-cidadao/formulario/227 |
+| BG Informatik GmbH | http://www.bg-informatik.ch/kontakt/ |
+| getstone informatik GmbH | https://www.getstone.ch/kontakt/ |
+| Royal Mail (home-mover / Redirection data) | https://privacyportal-de.onetrust.com/webform/e1491f29-851b-4350-bb98-8faa269b4189/efa508f1-1c18-46e2-920f-93d44be4554f |
+
+**Official registers** (INSEE/SIRENE, Bolagsverket, Brønnøysund, CVR, KRS, justice.cz, Banque de France, SISBON, Kreditni biro, CORPME, IRN…) are tagged `category: registry`. They are usually legally required to keep this data, so expect refusals. To skip them, list their ids under `options.excluded_brokers`.
 
 ```yaml
 options:
@@ -124,7 +141,7 @@ go build -o eraser ./cmd/eraser
 | `eraser init` | Interactive config setup |
 | `eraser send` | Send removal requests |
 | `eraser send --dry-run` | Preview without sending |
-| `eraser list-brokers` | Show all 1,150+ brokers |
+| `eraser list-brokers` | Show all 1,250+ brokers |
 | `eraser status` | View history and stats |
 | `eraser status --limit 50` | Show more history |
 | `eraser add-broker` | Add a custom broker |
@@ -302,7 +319,7 @@ eraser/
 │   ├── history/             # SQLite request tracking
 │   ├── template/            # Email template rendering
 │   └── web/                 # Web UI server and handlers
-├── data/brokers.yaml        # 1,150+ broker database (US, EU, CH)
+├── data/brokers.yaml        # 1,250+ broker database (US, EU, CH)
 └── config.example.yaml      # Example configuration
 ```
 

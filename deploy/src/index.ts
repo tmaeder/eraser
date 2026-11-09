@@ -103,7 +103,8 @@ export default {
     if (url.pathname === "/__login" && request.method === "POST") {
       const form = await request.formData();
       const next = safeNext(String(form.get("next") ?? "/"));
-      if (!timingSafeEqual(String(form.get("password") ?? ""), password)) {
+      // trim: pasted passwords often carry a trailing newline
+      if (!timingSafeEqual(String(form.get("password") ?? "").trim(), password)) {
         return loginPage(next, true);
       }
       const expiry = String(Date.now() + SESSION_DAYS * 86400_000);

@@ -1,12 +1,12 @@
 # Eraser
 
-Take back your privacy. Eraser sends data removal requests to 1,250+ data brokers on your behalf—for free.
+Take back your privacy. Eraser sends data removal requests to 1,350+ data brokers on your behalf—for free.
 
 You know those sites like Spokeo, BeenVerified, and Whitepages that have your home address, phone number, and family members' names? They're called data brokers, and there are hundreds of them. Services like Incogni and DeleteMe charge $100+/year to send opt-out requests to these companies. Eraser does the same thing, but it's open source and completely free.
 
 ### What to Expect
 
-**The good:** Eraser automatically sends removal request emails to 1,250+ data brokers. Many brokers process these requests automatically—you send the email, they remove your data, done.
+**The good:** Eraser automatically sends removal request emails to 1,350+ data brokers. Many brokers process these requests automatically—you send the email, they remove your data, done.
 
 **The reality:** Some brokers require additional steps. They might send you a confirmation link to click, ask you to fill out a form on their website, or request identity verification. Eraser tracks these responses and shows you exactly what needs manual attention.
 
@@ -50,7 +50,7 @@ The wizard walks you through entering your personal information (the data broker
 **Step 4: Send Removal Requests**
 
 From the dashboard, you can:
-- Browse the list of 1,250+ data brokers
+- Browse the list of 1,350+ data brokers
 - Send requests one at a time or in bulk
 - Track which requests have been sent and their status
 
@@ -74,6 +74,10 @@ Use your `@icloud.com` / `@me.com` address plus that password in the setup wizar
 **Daily sending limits:** iCloud allows ~1,000 emails per day. Eraser chunks large sends across multiple days (250/day) so you stay well under the limit.
 
 **Still want Gmail?** Set `host: smtp.gmail.com`, `port: 465` in `~/.eraser/config.yaml` with a Google App Password.
+
+### Brokers without an email address
+
+Some brokers only offer a web opt-out form. Eraser can't email those, so they are listed with their opt-out links in [docs/manual-optouts.md](docs/manual-optouts.md) as a checklist to work through by hand.
 
 ### European and Swiss Brokers
 
@@ -141,7 +145,7 @@ go build -o eraser ./cmd/eraser
 | `eraser init` | Interactive config setup |
 | `eraser send` | Send removal requests |
 | `eraser send --dry-run` | Preview without sending |
-| `eraser list-brokers` | Show all 1,250+ brokers |
+| `eraser list-brokers` | Show all 1,350+ brokers |
 | `eraser status` | View history and stats |
 | `eraser status --limit 50` | Show more history |
 | `eraser add-broker` | Add a custom broker |
@@ -319,7 +323,7 @@ eraser/
 │   ├── history/             # SQLite request tracking
 │   ├── template/            # Email template rendering
 │   └── web/                 # Web UI server and handlers
-├── data/brokers.yaml        # 1,250+ broker database (US, EU, CH)
+├── data/brokers.yaml        # 1,350+ broker database (US, EU, CH)
 └── config.example.yaml      # Example configuration
 ```
 

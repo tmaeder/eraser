@@ -2,7 +2,7 @@
 
 use super::AppState;
 use super::csrf::CsrfToken;
-use super::job::{Job, JobStatus, PersistentJobState, go_json_time};
+use super::job::{Job, JobKind, JobStatus, PersistentJobState, go_json_time};
 use super::views::STATIC_FILES;
 use crate::broker::Broker;
 use crate::config::{Config, EmailConfig, InboxConfig, Options, Profile};
@@ -11,6 +11,7 @@ use crate::history::{BrokerResponse, PipelineStatus, Record, Status, TaskType};
 use crate::inbox::Email;
 use crate::inbox::classifier::{ResponseType, classify_by_subject_only, classify_response};
 use crate::inbox::monitor::Monitor as Inbox;
+use crate::scanner::{self, actions};
 use axum::Extension;
 use axum::body::{Body, Bytes};
 use axum::extract::{Path, State};
@@ -28,7 +29,7 @@ use std::sync::atomic::Ordering;
 use std::time::Duration;
 use tokio::time::Instant;
 
-type St = State<Arc<AppState>>;
+pub(super) type St = State<Arc<AppState>>;
 
 const SESSION_COOKIE: &str = "eraser_session";
 const SEND_TIMEOUT: Duration = Duration::from_secs(30);
@@ -41,7 +42,7 @@ const DAILY_LIMIT_RESEND: i64 = 500;
 // ==================== response helpers (net/http equivalents) ====================
 
 /// http.Error
-fn http_error(status: StatusCode, msg: &str) -> Response {
+pub(super) fn http_error(status: StatusCode, msg: &str) -> Response {
     (
         status,
         [
@@ -54,7 +55,7 @@ fn http_error(status: StatusCode, msg: &str) -> Response {
 }
 
 /// http.Redirect with StatusFound (only GET/HEAD get a body).
-fn redirect(method: &Method, to: &str) -> Response {
+pub(super) fn redirect(method: &Method, to: &str) -> Response {
     let mut resp = if method == Method::GET || method == Method::HEAD {
         (
             [(header::CONTENT_TYPE, "text/html; charset=utf-8")],
@@ -111,7 +112,7 @@ fn sniff(body: &str) -> Option<&'static str> {
 }
 
 /// w.Write of an HTML fragment (content type sniffed like Go).
-fn fragment(status: StatusCode, body: impl Into<String>) -> Response {
+pub(super) fn fragment(status: StatusCode, body: impl Into<String>) -> Response {
     let body = body.into();
     let mut resp = (status, body.clone()).into_response();
     match sniff(&body) {
@@ -124,7 +125,7 @@ fn fragment(status: StatusCode, body: impl Into<String>) -> Response {
 }
 
 /// json.NewEncoder(w).Encode (keys sorted, trailing newline).
-fn json_resp(status: StatusCode, v: serde_json::Value) -> Response {
+pub(super) fn json_resp(status: StatusCode, v: serde_json::Value) -> Response {
     (
         status,
         [(header::CONTENT_TYPE, "application/json")],
@@ -133,7 +134,7 @@ fn json_resp(status: StatusCode, v: serde_json::Value) -> Response {
         .into_response()
 }
 
-fn html_escape(s: &str) -> String {
+pub(super) fn html_escape(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     for c in s.chars() {
         match c {
@@ -168,10 +169,10 @@ pub async fn static_file(Path(path): Path<String>) -> Response {
 }
 
 /// r.FormValue: urlencoded body (POST/PUT/PATCH) first, then the query string.
-struct FormValues(HashMap<String, String>);
+pub(super) struct FormValues(HashMap<String, String>);
 
 impl FormValues {
-    fn new(method: &Method, headers: &HeaderMap, uri: &Uri, body: &[u8]) -> Self {
+    pub(super) fn new(method: &Method, headers: &HeaderMap, uri: &Uri, body: &[u8]) -> Self {
         let mut map = HashMap::new();
         let is_form = headers
             .get(header::CONTENT_TYPE)
@@ -188,12 +189,12 @@ impl FormValues {
         Self(map)
     }
 
-    fn get(&self, key: &str) -> String {
+    pub(super) fn get(&self, key: &str) -> String {
         self.0.get(key).cloned().unwrap_or_default()
     }
 }
 
-fn query(uri: &Uri) -> FormValues {
+pub(super) fn query(uri: &Uri) -> FormValues {
     FormValues::new(&Method::GET, &HeaderMap::new(), uri, b"")
 }
 
@@ -229,7 +230,12 @@ fn render_value(st: &AppState, name: &str, ctx: Value) -> Response {
 }
 
 /// renderWithCSRF: page template wrapped in the layout, with the CSRF token and hidden field.
-fn render(st: &AppState, token: &CsrfToken, name: &str, data: serde_json::Value) -> Response {
+pub(super) fn render(
+    st: &AppState,
+    token: &CsrfToken,
+    name: &str,
+    data: serde_json::Value,
+) -> Response {
     let field = format!(
         r#"<input type="hidden" name="gorilla.csrf.Token" value="{}">"#,
         token.0
@@ -277,7 +283,7 @@ struct Stats {
 #[derive(Serialize, Clone)]
 pub(super) struct BrokerWithStatus {
     #[serde(flatten)]
-    broker: Broker,
+    pub(super) broker: Broker,
     /// "never", "sent", "failed"
     status: String,
     last_sent: String,
@@ -454,7 +460,7 @@ fn pending_tasks(
     }
 }
 
-fn needs_setup(cfg: &Option<Config>) -> bool {
+pub(super) fn needs_setup(cfg: &Option<Config>) -> bool {
     cfg.as_ref().is_none_or(|c| c.profile.first_name.is_empty())
 }
 
@@ -560,13 +566,21 @@ pub async fn settings_inbox(
     let saved = {
         let mut guard = st.config.write().unwrap();
         let cfg = guard.get_or_insert_with(Config::default);
+        // Keep the user's folder settings; fill server/port from the provider so scans work
+        // without a restart (the in-memory config is what the handlers use).
+        let previous = std::mem::take(&mut cfg.inbox);
         cfg.inbox = InboxConfig {
             enabled: true,
             provider: "icloud".into(),
             email,
             password,
+            folder: previous.folder,
+            archive_folder: previous.archive_folder,
+            auto_archive: previous.auto_archive,
+            scan_folders: previous.scan_folders,
             ..Default::default()
         };
+        crate::config::apply_inbox_defaults(&mut cfg.inbox);
         crate::config::save(&st.config_path, cfg)
     };
     match saved {
@@ -1311,7 +1325,7 @@ pub async fn api_send_all(
     json_resp(StatusCode::OK, json!({ "job_id": id, "total": total }))
 }
 
-fn spawn_send_job(
+pub(super) fn spawn_send_job(
     st: Arc<AppState>,
     job: Arc<Job>,
     to_send: Vec<BrokerWithStatus>,
@@ -1336,12 +1350,62 @@ fn save_job_progress(st: &AppState, job: &Job, sent: i64, failed: i64, remaining
             total: d.total,
             started_at: go_json_time(&d.started_at),
             remaining_brokers: remaining.to_vec(),
+            kind: d.kind,
             ..Default::default()
         }
     };
     if let Err(e) = st.persistence.save(&state) {
         tracing::warn!("failed to save job progress: {e:#}");
     }
+}
+
+/// One broker removal request (records it in history). Err = template error (counted as failed).
+async fn send_broker_item(
+    st: &AppState,
+    broker: &Broker,
+    sender: &dyn Sender,
+    cfg: &Config,
+) -> Result<SendResult, ()> {
+    let rendered = st
+        .engine
+        .render(&cfg.options.template, &cfg.profile, broker)
+        .map_err(|_| ())?;
+    let msg = Message {
+        to: broker.email.clone(),
+        from: cfg.email.from.clone(),
+        subject: rendered.subject,
+        body: rendered.body,
+    };
+    let result = send_with_timeout(sender, &msg).await;
+    let _ = st
+        .history
+        .add(&mut record_for(broker, &rendered.template, &result));
+    Ok(result)
+}
+
+/// Runs one job item. Returns (result, whether an email was sent); Err = not attempted.
+async fn run_job_item(
+    st: &AppState,
+    kind: JobKind,
+    broker: &Broker,
+    sender: &dyn Sender,
+    cfg: &Config,
+) -> Result<(SendResult, bool), ()> {
+    if kind == JobKind::Broker {
+        return send_broker_item(st, broker, sender, cfg)
+            .await
+            .map(|r| (r, true));
+    }
+    let domain = broker.id.strip_prefix(scanner::BROKER_PREFIX).ok_or(())?;
+    let company = st.history.get_company(domain).ok().flatten().ok_or(())?;
+    Ok(if kind == JobKind::CompanyRequest {
+        let r = actions::send_request(&st.history, &st.engine, sender, cfg, &company, false).await;
+        (r, true)
+    } else {
+        let emails = actions::Unsubscribe::for_company(&company).sends_email();
+        let r = actions::unsubscribe(&st.history, &st.http, sender, cfg, &company, false).await;
+        (r, emails)
+    })
 }
 
 async fn process_send_job(
@@ -1351,7 +1415,12 @@ async fn process_send_job(
     sender: &dyn Sender,
     cfg: &Config,
 ) {
-    let (mut sent, mut failed) = (0i64, 0i64);
+    // A resumed job continues from its persisted counters.
+    let (kind, mut sent, mut failed) = {
+        let d = job.data.lock().unwrap();
+        (d.kind, d.sent, d.failed)
+    };
+    let mut emails_this_run = 0i64;
     let rate_limit_ms = if cfg.options.rate_limit_ms == 0 {
         2000
     } else {
@@ -1374,10 +1443,10 @@ async fn process_send_job(
             return;
         }
         let remaining = &ids[i..];
-        if sent >= daily_limit {
+        if emails_this_run >= daily_limit {
             {
                 let mut d = job.data.lock().unwrap();
-                d.day_sent = sent;
+                d.day_sent = emails_this_run;
                 d.status = JobStatus::Paused;
                 d.error = format!(
                     "Daily limit of {daily_limit} emails reached. Remaining {} brokers will be sent when you restart tomorrow.",
@@ -1394,29 +1463,20 @@ async fn process_send_job(
         let broker = &b.broker;
         job.update(sent, failed, &broker.name);
 
-        let rendered = match st
-            .engine
-            .render(&cfg.options.template, &cfg.profile, broker)
-        {
-            Ok(r) => r,
-            Err(_) => {
-                failed += 1;
-                job.update(sent, failed, &broker.name);
-                save_job_progress(st, job, sent, failed, &ids[i + 1..]);
-                continue;
-            }
+        let outcome = tokio::select! {
+            r = run_job_item(st, kind, broker, sender, cfg) => r,
+            _ = job.cancelled() => Ok((SendResult { success: false, message_id: String::new(), error: Some("context canceled".into()) }, false)),
         };
-        let msg = Message {
-            to: broker.email.clone(),
-            from: cfg.email.from.clone(),
-            subject: rendered.subject,
-            body: rendered.body,
+        let Ok((result, emailed)) = outcome else {
+            failed += 1;
+            job.update(sent, failed, &broker.name);
+            save_job_progress(st, job, sent, failed, &ids[i + 1..]);
+            continue;
         };
-        let result = tokio::select! {
-            r = send_with_timeout(sender, &msg) => r,
-            _ = job.cancelled() => SendResult { success: false, message_id: String::new(), error: Some("context canceled".into()) },
-        };
-        let mut record = record_for(broker, &rendered.template, &result);
+        if emailed {
+            emails_this_run += 1;
+            job.data.lock().unwrap().day_sent = emails_this_run;
+        }
         if result.success {
             sent += 1;
             job.reset_auth_failures();
@@ -1424,7 +1484,6 @@ async fn process_send_job(
             failed += 1;
             let err = result.error.clone().unwrap_or_default();
             if err.to_lowercase().contains("auth") && job.record_auth_failure() {
-                let _ = st.history.add(&mut record);
                 save_job_progress(st, job, sent, failed, &ids[i + 1..]);
                 job.stop_with_error(
                     "auth",
@@ -1436,7 +1495,6 @@ async fn process_send_job(
                 return;
             }
         }
-        let _ = st.history.add(&mut record);
         job.update(sent, failed, &broker.name);
         save_job_progress(st, job, sent, failed, &ids[i + 1..]);
 
@@ -1474,6 +1532,15 @@ pub(super) fn check_pending_job(st: &Arc<AppState>) {
     });
 }
 
+pub(super) fn job_item(broker: Broker) -> BrokerWithStatus {
+    BrokerWithStatus {
+        broker,
+        status: "never".into(),
+        last_sent: String::new(),
+        total_sent: 0,
+    }
+}
+
 pub(super) fn resume_pending_job(st: Arc<AppState>, state: PersistentJobState) {
     let Some(cfg) = st.config().filter(|c| !c.email.provider.is_empty()) else {
         tracing::warn!("Cannot resume job: email not configured");
@@ -1491,20 +1558,23 @@ pub(super) fn resume_pending_job(st: Arc<AppState>, state: PersistentJobState) {
     let to_send: Vec<BrokerWithStatus> = state
         .remaining_brokers
         .iter()
-        .filter_map(|id| st.brokers.find_by_id(id))
-        .map(|b| BrokerWithStatus {
-            broker: b.clone(),
-            status: "never".into(),
-            last_sent: String::new(),
-            total_sent: 0,
+        .filter_map(|id| match id.strip_prefix(scanner::BROKER_PREFIX) {
+            Some(domain) => st
+                .history
+                .get_company(domain)
+                .ok()
+                .flatten()
+                .map(|c| scanner::company_broker(&c)),
+            None => st.brokers.find_by_id(id).cloned(),
         })
+        .map(job_item)
         .collect();
     if to_send.is_empty() {
         tracing::warn!("No valid brokers remaining in pending job");
         let _ = st.persistence.clear();
         return;
     }
-    let job = st.jobs.create(state.total);
+    let job = st.jobs.create_kind(state.total, state.kind);
     {
         let mut d = job.data.lock().unwrap();
         d.sent = state.sent;
@@ -1597,9 +1667,9 @@ pub async fn api_tasks(State(st): St, uri: Uri) -> Response {
 
 // ==================== inbox ====================
 
-const INBOX_NOT_CONFIGURED: &str = "\n\t\t\t<div class=\"bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-3 rounded\">\n\t\t\t\t<strong>Inbox monitoring not configured.</strong>\n\t\t\t\t<p class=\"mt-1 text-sm\">Go to <a href=\"/settings\" class=\"underline\">Settings</a> to configure IMAP access.</p>\n\t\t\t</div>\n\t\t";
+pub(super) const INBOX_NOT_CONFIGURED: &str = "\n\t\t\t<div class=\"bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-3 rounded\">\n\t\t\t\t<strong>Inbox monitoring not configured.</strong>\n\t\t\t\t<p class=\"mt-1 text-sm\">Go to <a href=\"/settings\" class=\"underline\">Settings</a> to configure IMAP access.</p>\n\t\t\t</div>\n\t\t";
 
-fn error_box(indent: &str, title: &str, err: &str) -> Response {
+pub(super) fn error_box(indent: &str, title: &str, err: &str) -> Response {
     fragment(
         StatusCode::OK,
         format!(
@@ -1611,7 +1681,7 @@ fn error_box(indent: &str, title: &str, err: &str) -> Response {
 }
 
 /// Runs `fut` against the request-wide deadline (Go: context.WithTimeout).
-async fn within<T>(
+pub(super) async fn within<T>(
     deadline: Instant,
     fut: impl Future<Output = anyhow::Result<T>>,
 ) -> anyhow::Result<T> {
@@ -1714,7 +1784,7 @@ async fn fetch_all(
     Ok(emails)
 }
 
-fn inbox_config(st: &AppState) -> Option<(InboxConfig, Config)> {
+pub(super) fn inbox_config(st: &AppState) -> Option<(InboxConfig, Config)> {
     st.config()
         .filter(|c| c.inbox.enabled)
         .map(|c| (c.inbox.clone(), c))
@@ -1725,7 +1795,10 @@ pub async fn api_inbox_scan(State(st): St) -> Response {
         return fragment(StatusCode::OK, INBOX_NOT_CONFIGURED);
     };
     let deadline = Instant::now() + Duration::from_secs(60);
-    let mut inbox = Inbox::new(icfg.clone(), &st.brokers.brokers);
+    let mut inbox = Inbox::new(
+        icfg.clone(),
+        &scanner::inbox_brokers(&st.brokers.brokers, &st.history),
+    );
     let emails = match fetch_all(&mut inbox, &icfg, 7, deadline).await {
         Ok(e) => e,
         Err(resp) => return *resp,
@@ -1784,7 +1857,10 @@ pub async fn api_inbox_rescan(State(st): St, uri: Uri) -> Response {
         return error_box("\t\t\t\t", "Failed to clear responses:", &format!("{e:#}"));
     }
     let deadline = Instant::now() + Duration::from_secs(180);
-    let mut inbox = Inbox::new(icfg.clone(), &st.brokers.brokers);
+    let mut inbox = Inbox::new(
+        icfg.clone(),
+        &scanner::inbox_brokers(&st.brokers.brokers, &st.history),
+    );
     let emails = match fetch_all(&mut inbox, &icfg, 30, deadline).await {
         Ok(e) => e,
         Err(resp) => return *resp,
@@ -1873,7 +1949,10 @@ pub async fn api_reclassify(State(st): St) -> Response {
     if missing > 0 && !icfg.server.is_empty() {
         tracing::info!("Found {missing} records missing email bodies, fetching from IMAP...");
         let deadline = Instant::now() + Duration::from_secs(60);
-        let mut inbox = Inbox::new(icfg.clone(), &st.brokers.brokers);
+        let mut inbox = Inbox::new(
+            icfg.clone(),
+            &scanner::inbox_brokers(&st.brokers.brokers, &st.history),
+        );
         match within(deadline, inbox.connect()).await {
             Err(e) => tracing::warn!("failed to connect to IMAP for body fetch: {e:#}"),
             Ok(()) => {

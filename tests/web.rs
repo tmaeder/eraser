@@ -648,3 +648,340 @@ async fn security_headers_and_static() {
             .contains("\"needs_review\": 0")
     );
 }
+
+// ==================== Companies (inbox company scanner) ====================
+
+fn seed_companies(store: &Store) {
+    use eraser::history::ScannedMessage;
+    let m = |key: &str, from: &str, list: bool, mailto: &str| ScannedMessage {
+        key: key.into(),
+        domain: from.rsplit_once('@').unwrap().1.into(),
+        from_addr: from.into(),
+        from_name: "Sender".into(),
+        date: Some(chrono::Utc::now()),
+        is_list: list,
+        unsub_mailto: mailto.into(),
+        ..Default::default()
+    };
+    store
+        .add_scanned_messages(&[
+            m(
+                "<1>",
+                "news@shop.de",
+                true,
+                "mailto:unsub@shop.de?subject=stop",
+            ),
+            m(
+                "<2>",
+                "news@shop.de",
+                true,
+                "mailto:unsub@shop.de?subject=stop",
+            ),
+            m("<3>", "friend@gmail.com", false, ""),
+            m("<4>", "info@nocontact.ch", true, ""),
+        ])
+        .unwrap();
+    let domains = ["shop.de", "gmail.com", "nocontact.ch"]
+        .map(String::from)
+        .into_iter()
+        .collect();
+    eraser::scanner::recompute(store, &eraser::scanner::Identity::default(), &domains).unwrap();
+    store
+        .set_company_contact(
+            "shop.de",
+            "website",
+            "privacy@shop.de",
+            "https://shop.de/datenschutz",
+        )
+        .unwrap();
+    store
+        .set_company_contact("nocontact.ch", "manual", "", "")
+        .unwrap();
+}
+
+async fn wait_job(h: &mut Harness, id: &str) -> serde_json::Value {
+    let mut status = serde_json::Value::Null;
+    for _ in 0..300 {
+        status = serde_json::from_str(&h.get(&format!("/api/job/{id}/status")).await.body).unwrap();
+        if status["status"] == "completed" {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
+    status
+}
+
+#[tokio::test]
+async fn companies_page_filters_and_detail() {
+    let mut h = harness(Some(configured()), None);
+    seed_companies(&h.history);
+    let r = h.get("/companies").await;
+    assert_eq!(r.status, StatusCode::OK);
+    assert!(
+        r.body
+            .contains(r#"href="/companies" class="nav-link active""#)
+    );
+    assert!(r.body.contains("shop.de") && r.body.contains("nocontact.ch"));
+    assert!(
+        !r.body.contains("gmail.com"),
+        "personal domains hidden by default"
+    );
+    let r = h.get("/companies?filter=excluded").await;
+    assert!(r.body.contains("gmail.com") && r.body.contains("personal_domain"));
+    let r = h.get("/companies?filter=manual").await;
+    assert!(r.body.contains("nocontact.ch") && !r.body.contains(">shop.de<"));
+    let r = h.get("/companies?q=shop").await;
+    assert!(!r.body.contains("nocontact.ch"));
+
+    let r = h.get("/companies/shop.de").await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    assert!(r.body.contains("privacy@shop.de"));
+    assert!(
+        r.body
+            .replace("&#x2f;", "/")
+            .contains("https://shop.de/datenschutz"),
+        "source URL shown"
+    );
+    assert!(r.body.contains("news@shop.de"), "sender addresses");
+    assert_eq!(
+        h.get("/companies/unknown.example").await.status,
+        StatusCode::NOT_FOUND
+    );
+
+    // ignore / un-ignore
+    let t = token_from(&r.body);
+    let r = h
+        .post_form("/companies/shop.de/ignore", &t, &[("ignore", "1")])
+        .await;
+    assert_eq!(r.status, StatusCode::FOUND);
+    assert_eq!(
+        h.history.get_company("shop.de").unwrap().unwrap().decision,
+        "ignored"
+    );
+    assert!(!h.get("/companies").await.body.contains(">shop.de<"));
+    h.post_form("/companies/shop.de/ignore", &t, &[("ignore", "0")])
+        .await;
+    assert_eq!(
+        h.history.get_company("shop.de").unwrap().unwrap().decision,
+        ""
+    );
+    let log = h.history.company_actions("shop.de").unwrap();
+    assert_eq!(log.len(), 2);
+}
+
+#[tokio::test]
+async fn companies_bulk_request_and_unsubscribe_with_csrf() {
+    let mut h = harness(Some(configured()), None);
+    seed_companies(&h.history);
+    let t = h.token("/companies").await;
+
+    // CSRF: no token → 403, nothing planned or sent
+    let r = h
+        .call(
+            h.req("POST", "/companies/confirm")
+                .header(header::ORIGIN, h.origin)
+                .header(header::CONTENT_TYPE, "application/x-www-form-urlencoded")
+                .body(Body::from("action=request&domain=shop.de"))
+                .unwrap(),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::FORBIDDEN);
+    let r = h
+        .post_form(
+            "/companies/execute",
+            "bogus",
+            &[
+                ("action", "request"),
+                ("confirmed", "yes"),
+                ("domain", "shop.de"),
+            ],
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::FORBIDDEN);
+
+    // confirmation page lists exactly who gets contacted
+    let r = h
+        .post_form(
+            "/companies/confirm",
+            &t,
+            &[
+                ("action", "request"),
+                ("domain", "shop.de"),
+                ("domain", "nocontact.ch"),
+            ],
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    assert!(
+        r.body
+            .contains("1 of 2 selected companies will be contacted")
+    );
+    assert!(r.body.contains("privacy@shop.de"));
+    assert!(r.body.contains("no published privacy address (manual)"));
+    assert!(
+        r.body
+            .contains(r#"<input type="hidden" name="domain" value="shop.de">"#)
+    );
+    assert!(!r.body.contains(r#"name="domain" value="nocontact.ch""#));
+    assert!(h.mail.0.lock().unwrap().is_empty(), "confirm sends nothing");
+
+    // execute without the confirmation flag is refused
+    let r = h
+        .post_form(
+            "/companies/execute",
+            &t,
+            &[("action", "request"), ("domain", "shop.de")],
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::BAD_REQUEST);
+
+    // execute: server re-plans, the manual company is skipped even if posted
+    let r = h
+        .post_form(
+            "/companies/execute",
+            &t,
+            &[
+                ("action", "request"),
+                ("confirmed", "yes"),
+                ("domain", "shop.de"),
+                ("domain", "nocontact.ch"),
+            ],
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::FOUND);
+    let id = location(&r)
+        .strip_prefix("/companies?job=")
+        .unwrap()
+        .to_string();
+    let job = wait_job(&mut h, &id).await;
+    assert_eq!(job["status"], "completed", "{job}");
+    assert_eq!(
+        (job["sent"].as_i64(), job["total"].as_i64()),
+        (Some(1), Some(1))
+    );
+    assert_eq!(job["kind"], "company_request");
+    {
+        let sent = h.mail.0.lock().unwrap();
+        assert_eq!(sent.len(), 1);
+        assert_eq!(sent[0].to, "privacy@shop.de");
+        assert!(
+            sent[0].subject.contains("GDPR"),
+            "auto → .de is EU: {}",
+            sent[0].subject
+        );
+    }
+    let rec = h
+        .history
+        .get_last_request_for_broker("company:shop.de")
+        .unwrap()
+        .unwrap();
+    assert_eq!((rec.template.as_str(), rec.status), ("gdpr", Status::Sent));
+    assert!(
+        h.history
+            .get_company("shop.de")
+            .unwrap()
+            .unwrap()
+            .requested_at
+            .is_some()
+    );
+    assert!(
+        h.get("/companies?filter=requested")
+            .await
+            .body
+            .contains("shop.de")
+    );
+    assert!(!h.dir.path().join(".eraser/pending_job.json").exists());
+
+    // unsubscribe via mailto (subject from the URI)
+    let r = h
+        .post_form(
+            "/companies/confirm",
+            &t,
+            &[
+                ("action", "unsubscribe"),
+                ("domain", "shop.de"),
+                ("domain", "nocontact.ch"),
+            ],
+        )
+        .await;
+    assert!(r.body.contains("unsubscribe email") && r.body.contains("unsub@shop.de"));
+    assert!(r.body.contains("no List-Unsubscribe header"));
+    let r = h
+        .post_form(
+            "/companies/execute",
+            &t,
+            &[
+                ("action", "unsubscribe"),
+                ("confirmed", "yes"),
+                ("domain", "shop.de"),
+            ],
+        )
+        .await;
+    let id = location(&r)
+        .strip_prefix("/companies?job=")
+        .unwrap()
+        .to_string();
+    assert_eq!(wait_job(&mut h, &id).await["sent"], 1);
+    {
+        let sent = h.mail.0.lock().unwrap();
+        assert_eq!(
+            (sent[1].to.as_str(), sent[1].subject.as_str()),
+            ("unsub@shop.de", "stop")
+        );
+        assert_eq!(sent[1].from, "ada@example.com");
+    }
+    let detail = h.get("/companies/shop.de").await.body;
+    assert!(detail.contains("unsubscribe_mailto") && detail.contains("request"));
+
+    // nothing selected
+    let r = h
+        .post_form("/companies/confirm", &t, &[("action", "request")])
+        .await;
+    assert_eq!(r.status, StatusCode::FOUND);
+}
+
+#[tokio::test]
+async fn companies_scan_without_inbox_and_public_origin() {
+    let mut h = harness(Some(configured()), Some("https://erase.kampa.app"));
+    h.origin = "https://erase.kampa.app";
+    h.host = "erase.kampa.app";
+    let t = h.token("/companies").await;
+    let r = h.post_htmx("/api/companies/scan", &t, "days=30").await;
+    assert_eq!(r.status, StatusCode::OK);
+    assert!(r.body.contains("Inbox monitoring not configured"));
+    let r = h.post_htmx("/api/companies/discover", &t, "").await;
+    assert!(r.body.contains("All companies checked"));
+}
+
+#[tokio::test]
+async fn task_helper_forms_post_with_csrf() {
+    let mut h = harness(Some(configured()), None);
+    let mut task = eraser::history::PendingTask {
+        broker_id: "acme".into(),
+        broker_name: "Acme".into(),
+        task_type: eraser::history::TaskType::Captcha,
+        form_url: "https://acme.example/optout".into(),
+        ..Default::default()
+    };
+    h.history.add_pending_task(&mut task).unwrap();
+    let page = h.get(&format!("/tasks/{}/helper", task.id)).await;
+    assert!(page.body.contains(r#"name="gorilla.csrf.Token""#));
+    assert!(!page.body.contains(r#"name="csrf_token""#));
+    // submit the helper form exactly as the browser would (hidden field from the page)
+    let start = page
+        .body
+        .find(r#"name="gorilla.csrf.Token" value=""#)
+        .unwrap()
+        + 33;
+    let field = &page.body[start..start + page.body[start..].find('"').unwrap()];
+    let field = field
+        .replace("&#x2f;", "/")
+        .replace("&#43;", "+")
+        .replace("&#x3d;", "=");
+    let r = h
+        .post_form(&format!("/tasks/{}/complete", task.id), &field, &[])
+        .await;
+    assert_eq!(r.status, StatusCode::FOUND, "{}", r.body);
+    let done = h.history.get_pending_task_by_id(task.id).unwrap().unwrap();
+    assert_eq!(done.status, "completed");
+}

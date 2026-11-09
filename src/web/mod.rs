@@ -1,5 +1,6 @@
 //! Port of internal/web: the browser UI (`eraser serve`).
 
+mod companies;
 mod csrf;
 mod handlers;
 mod job;
@@ -20,7 +21,7 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};
 
-pub use job::{JobStatus, PersistentJobState};
+pub use job::{JobKind, JobStatus, PersistentJobState};
 
 const DEFAULT_RATE_LIMIT: usize = 30;
 const DEFAULT_RATE_WINDOW: Duration = Duration::from_secs(60);
@@ -94,6 +95,8 @@ pub struct AppState {
     sender_factory: SenderFactory,
     shutting_down: AtomicBool,
     job_tasks: AtomicUsize,
+    /// No-cookie client for one-click unsubscribes.
+    http: reqwest::Client,
 }
 
 impl AppState {
@@ -148,6 +151,7 @@ pub fn app(opts: AppOptions) -> Result<(Router, Arc<AppState>)> {
         sender_factory: opts.sender_factory,
         shutting_down: AtomicBool::new(false),
         job_tasks: AtomicUsize::new(0),
+        http: crate::scanner::actions::http_client(),
     });
 
     use handlers as h;
@@ -166,7 +170,9 @@ pub fn app(opts: AppOptions) -> Result<(Router, Arc<AppState>)> {
         .route("/pipeline/tasks", get(h::api_tasks))
         .route("/inbox/scan", post(h::api_inbox_scan))
         .route("/inbox/rescan", post(h::api_inbox_rescan))
-        .route("/inbox/reclassify", post(h::api_reclassify));
+        .route("/inbox/reclassify", post(h::api_reclassify))
+        .route("/companies/scan", post(companies::api_scan))
+        .route("/companies/discover", post(companies::api_discover));
 
     let router = Router::new()
         .route("/static/{*path}", get(h::static_file))
@@ -184,6 +190,22 @@ pub fn app(opts: AppOptions) -> Result<(Router, Arc<AppState>)> {
         .route("/forms", get(h::forms))
         .route("/forms/{broker_id}/complete", post(h::form_complete))
         .route("/forms/{broker_id}/skip", post(h::form_skip))
+        .route("/companies", get(companies::companies_page))
+        .route("/companies/confirm", post(companies::companies_confirm))
+        .route("/companies/execute", post(companies::companies_execute))
+        .route("/companies/{domain}", get(companies::company_detail))
+        .route(
+            "/companies/{domain}/ignore",
+            post(companies::company_ignore),
+        )
+        .route(
+            "/companies/{domain}/unsubscribed",
+            post(companies::company_mark_unsubscribed),
+        )
+        .route(
+            "/companies/{domain}/discover",
+            post(companies::company_discover),
+        )
         .route("/setup", get(h::setup_welcome))
         .route("/setup/", get(h::setup_welcome))
         .route(
@@ -368,3 +390,6 @@ pub async fn serve(opts: ServeOptions) -> Result<()> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests;

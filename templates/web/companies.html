@@ -1,0 +1,152 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="fade-in-up">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-8">
+        <div>
+            <h1 class="font-display text-3xl font-bold text-primary">Companies</h1>
+            <p class="text-secondary mt-1">Companies that email you, found from message headers only. Nothing is contacted until you confirm.</p>
+        </div>
+        {% if inbox_configured %}
+        <div class="flex flex-wrap items-center gap-3">
+            <select id="scan-days" name="days" class="input" style="width:auto" aria-label="Scan range">
+                {% for d in day_options %}
+                <option value="{{ d }}" {% if d == default_days %}selected{% endif %}>Last {{ d }} days</option>
+                {% endfor %}
+            </select>
+            <button id="scan-companies-btn" class="btn btn-primary"
+                hx-post="/api/companies/scan"
+                hx-include="#scan-days"
+                hx-target="#scan-result"
+                hx-swap="innerHTML"
+                hx-indicator="#companies-spinner">
+                <svg id="companies-spinner" class="htmx-indicator w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                </svg>
+                Scan Inbox
+            </button>
+            <button class="btn btn-secondary"
+                hx-post="/api/companies/discover"
+                hx-target="#scan-result"
+                hx-swap="innerHTML">
+                Find privacy contacts{% if pending_discovery %} ({{ pending_discovery }}){% endif %}
+            </button>
+        </div>
+        {% else %}
+        <a href="/settings" class="btn btn-secondary">Configure Inbox</a>
+        {% endif %}
+    </div>
+
+    <div id="scan-result" class="mb-6"></div>
+
+    {% if error %}
+    <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">{{ error }}</div>
+    {% endif %}
+
+    {% if job_id %}
+    <div id="job-progress" class="card p-4 mb-6" data-job="{{ job_id }}">
+        <p class="text-sm text-secondary" id="job-text">Starting…</p>
+        <div class="w-full bg-[var(--bg-elevated)] rounded h-2 mt-2"><div id="job-bar" class="h-2 rounded bg-[var(--accent)]" style="width:0%"></div></div>
+    </div>
+    <script>
+    (function () {
+        const box = document.getElementById('job-progress');
+        const id = box.dataset.job;
+        async function poll() {
+            try {
+                const resp = await fetch('/api/job/' + encodeURIComponent(id) + '/status');
+                if (!resp.ok) { document.getElementById('job-text').textContent = 'Job finished.'; return; }
+                const j = await resp.json();
+                document.getElementById('job-bar').style.width = j.progress + '%';
+                const what = j.kind === 'company_unsubscribe' ? 'Unsubscribing' : 'Sending deletion requests';
+                let text = `${what}: ${j.sent + j.failed} of ${j.total} (${j.sent} ok, ${j.failed} failed)`;
+                if (j.current_broker) text += ` – ${j.current_broker}`;
+                if (j.error) text += ` – ${j.error}`;
+                document.getElementById('job-text').textContent = text;
+                if (j.status === 'running') setTimeout(poll, 1000);
+                else document.getElementById('job-text').textContent = text + ' – ' + j.status + '. Reload to see updated status.';
+            } catch (e) { setTimeout(poll, 3000); }
+        }
+        poll();
+    })();
+    </script>
+    {% endif %}
+
+    <!-- Filters -->
+    <div class="flex flex-wrap items-center gap-2 mb-4">
+        {% for f in filters %}
+        <a href="/companies{% if f.key %}?filter={{ f.key }}{% endif %}"
+           class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors {% if filter == f.key %}bg-[var(--accent)] text-white{% else %}bg-[var(--bg-elevated)] text-secondary hover:text-primary{% endif %}">
+            {{ f.label }} <span class="opacity-75">{{ f.count }}</span>
+        </a>
+        {% endfor %}
+        <form method="GET" action="/companies" class="ml-auto flex gap-2">
+            <input type="hidden" name="filter" value="{{ filter }}">
+            <input type="text" name="q" value="{{ search }}" placeholder="Search domain or name…" class="input" aria-label="Search companies">
+        </form>
+    </div>
+
+    <form method="POST" action="/companies/confirm">
+        {{ csrf_field }}
+        <div class="card overflow-hidden">
+            <div class="px-4 py-3 border-b border-[var(--border)] bg-elevated flex flex-wrap items-center justify-between gap-3">
+                <p class="text-sm text-secondary"><span class="font-medium text-primary">{{ companies|length }}</span> companies</p>
+                <div class="flex gap-2">
+                    <button type="submit" name="action" value="request" class="btn btn-primary">Send deletion request…</button>
+                    <button type="submit" name="action" value="unsubscribe" class="btn btn-secondary">Unsubscribe…</button>
+                </div>
+            </div>
+            {% if companies %}
+            <div class="overflow-x-auto">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th><input type="checkbox" aria-label="Select all" onclick="document.querySelectorAll('input[name=domain]').forEach(cb => cb.checked = this.checked)"></th>
+                        <th>Company</th>
+                        <th class="text-right">Mails</th>
+                        <th>Last mail</th>
+                        <th>Privacy contact</th>
+                        <th>Unsubscribe</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in companies %}
+                    <tr>
+                        <td><input type="checkbox" name="domain" value="{{ c.domain }}" aria-label="Select {{ c.domain }}"></td>
+                        <td>
+                            <a href="/companies/{{ c.domain }}" class="font-medium text-primary hover:underline">{{ c.display_name or c.domain }}</a>
+                            <div class="text-sm text-muted">{{ c.domain }}</div>
+                        </td>
+                        <td class="text-right">{{ c.message_count }}</td>
+                        <td class="text-sm text-secondary">{% if c.last_seen %}{{ c.last_seen|format_date }}{% else %}—{% endif %}</td>
+                        <td class="text-sm">
+                            {% if c.contact_email %}<span class="text-primary">{{ c.contact_email }}</span>
+                            {% elif c.contact_status == "manual" %}<span class="badge badge-warning">manual</span>
+                            {% else %}<span class="text-muted">not checked</span>{% endif %}
+                        </td>
+                        <td class="text-sm">
+                            {% if c.unsub_kind == "one_click" %}<span class="badge badge-success">one-click</span>
+                            {% elif c.unsub_kind == "mailto" %}<span class="badge badge-neutral">email</span>
+                            {% elif c.unsub_kind == "manual" %}<a href="{{ c.unsub_target|safe_url }}" target="_blank" rel="noopener noreferrer" class="underline">open link</a>
+                            {% else %}<span class="text-muted">—</span>{% endif %}
+                        </td>
+                        <td class="text-sm">
+                            {% if c.excluded_reason %}<span class="badge badge-neutral">excluded: {{ c.excluded_reason }}</span>{% endif %}
+                            {% if c.decision == "ignored" %}<span class="badge badge-neutral">ignored</span>{% endif %}
+                            {% if c.requested_at %}<span class="badge badge-success">requested</span>{% endif %}
+                            {% if c.unsubscribed_at %}<span class="badge badge-success">unsubscribed</span>{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
+            {% else %}
+            <div class="p-8 text-center text-secondary">No companies here yet.{% if inbox_configured %} Run a scan to find the companies that email you.{% endif %}</div>
+            {% endif %}
+        </div>
+    </form>
+</div>
+{% endblock %}

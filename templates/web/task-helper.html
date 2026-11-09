@@ -89,13 +89,13 @@
                 {% if task.status == "pending" %}
                 <div class="flex flex-wrap gap-3">
                     <form action="/tasks/{{ task.id }}/complete" method="POST" class="inline">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        {{ csrf_field }}
                         <button type="submit" class="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition-colors">
                             Mark Complete
                         </button>
                     </form>
                     <form action="/tasks/{{ task.id }}/skip" method="POST" class="inline">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        {{ csrf_field }}
                         <button type="submit" class="bg-gray-500 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg transition-colors">
                             Skip
                         </button>

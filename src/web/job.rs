@@ -21,8 +21,22 @@ pub enum JobStatus {
     Error,
 }
 
+/// What a send job does with each item.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum JobKind {
+    /// Removal request to a broker from the broker DB (the original job type).
+    #[default]
+    Broker,
+    /// Deletion request to a scanned company (`company:<domain>` items).
+    CompanyRequest,
+    /// Unsubscribe from a scanned company's mailing list.
+    CompanyUnsubscribe,
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct JobData {
+    pub kind: JobKind,
     pub id: String,
     pub status: JobStatus,
     pub progress: i64,
@@ -130,6 +144,7 @@ impl Job {
         let j = self.data.lock().unwrap();
         json!({
             "id": j.id,
+            "kind": j.kind,
             "status": j.status,
             "progress": j.progress,
             "sent": j.sent,
@@ -168,10 +183,15 @@ pub struct JobManager {
 
 impl JobManager {
     pub fn create(&self, total: i64) -> Arc<Job> {
+        self.create_kind(total, JobKind::Broker)
+    }
+
+    pub fn create_kind(&self, total: i64, kind: JobKind) -> Arc<Job> {
         let id = new_uuid();
         let job = Arc::new(Job {
             data: Mutex::new(JobData {
                 id: id.clone(),
+                kind,
                 total,
                 started_at: Some(Local::now()),
                 ..Default::default()
@@ -213,6 +233,8 @@ pub struct PersistentJobState {
     pub category: String,
     pub region: String,
     pub status_filter: String,
+    /// Absent in Go-written files (= broker job).
+    pub kind: JobKind,
 }
 
 pub struct JobPersistence {

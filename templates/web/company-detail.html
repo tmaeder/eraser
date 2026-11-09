@@ -1,0 +1,107 @@
+{% extends "layout.html" %}
+{% block content %}
+{% set c = company %}
+<div class="fade-in-up">
+    <a href="/companies" class="text-sm text-secondary hover:text-primary">&larr; All companies</a>
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mt-2 mb-8">
+        <div>
+            <h1 class="font-display text-3xl font-bold text-primary">{{ c.display_name or c.domain }}</h1>
+            <p class="text-secondary mt-1">{{ c.domain }} · {{ c.message_count }} mails{% if c.first_seen %} · {{ c.first_seen|format_date }} – {{ c.last_seen|format_date }}{% endif %}{% if c.is_mailing_list %} · mailing list{% endif %}</p>
+            <div class="mt-2 flex gap-2">
+                {% if c.excluded_reason %}<span class="badge badge-neutral">excluded: {{ c.excluded_reason }}</span>{% endif %}
+                {% if c.decision == "ignored" %}<span class="badge badge-neutral">ignored</span>{% endif %}
+                {% if c.requested_at %}<span class="badge badge-success">requested {{ c.requested_at|format_date }}</span>{% endif %}
+                {% if c.unsubscribed_at %}<span class="badge badge-success">unsubscribed {{ c.unsubscribed_at|format_date }}</span>{% endif %}
+            </div>
+        </div>
+        <div class="flex flex-wrap gap-2">
+            <form method="POST" action="/companies/confirm">
+                {{ csrf_field }}
+                <input type="hidden" name="domain" value="{{ c.domain }}">
+                <button type="submit" name="action" value="request" class="btn btn-primary" {% if request_blocker %}disabled title="{{ request_blocker }}"{% endif %}>Send deletion request…</button>
+                <button type="submit" name="action" value="unsubscribe" class="btn btn-secondary" {% if c.unsub_kind == "none" or c.unsub_kind == "manual" %}disabled{% endif %}>Unsubscribe…</button>
+            </form>
+            <form method="POST" action="/companies/{{ c.domain }}/ignore">
+                {{ csrf_field }}
+                {% if c.decision == "ignored" %}
+                <input type="hidden" name="ignore" value="0"><button type="submit" class="btn btn-ghost">Un-ignore</button>
+                {% else %}
+                <input type="hidden" name="ignore" value="1"><button type="submit" class="btn btn-ghost">Ignore</button>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-6 mb-6">
+        <div class="card p-5">
+            <h2 class="text-lg font-semibold text-primary mb-3">Privacy contact</h2>
+            {% if c.contact_email %}
+            <p class="text-primary font-medium">{{ c.contact_email }}</p>
+            <p class="text-sm text-secondary mt-1">Source:
+                {% if c.contact_source[:7] == "broker:" %}broker database ({{ c.contact_source[7:] }})
+                {% else %}<a href="{{ c.contact_source|safe_url }}" target="_blank" rel="noopener noreferrer" class="underline break-all">{{ c.contact_source }}</a>{% endif %}
+            </p>
+            {% elif c.contact_status == "manual" %}
+            <p class="text-secondary">No published privacy address found. Look up the privacy policy on <a href="https://{{ c.domain }}" target="_blank" rel="noopener noreferrer" class="underline">{{ c.domain }}</a> yourself.</p>
+            {% else %}
+            <p class="text-secondary">Not checked yet.</p>
+            {% endif %}
+            {% if c.contact_checked_at %}<p class="text-xs text-muted mt-2">Checked {{ c.contact_checked_at|format_time }}</p>{% endif %}
+            <form method="POST" action="/companies/{{ c.domain }}/discover" class="mt-3">
+                {{ csrf_field }}
+                <button type="submit" class="btn btn-ghost text-sm">{% if c.contact_status %}Check again{% else %}Find contact{% endif %}</button>
+            </form>
+        </div>
+
+        <div class="card p-5">
+            <h2 class="text-lg font-semibold text-primary mb-3">Unsubscribe</h2>
+            {% if c.unsub_kind == "one_click" %}
+            <p class="text-secondary text-sm">One-click (RFC 8058): Eraser sends an HTTPS POST to</p>
+            <p class="text-primary text-sm break-all">{{ c.unsub_target }}</p>
+            {% elif c.unsub_kind == "mailto" %}
+            <p class="text-secondary text-sm">Unsubscribe email to</p>
+            <p class="text-primary text-sm break-all">{{ c.unsub_target }}</p>
+            {% elif c.unsub_kind == "manual" %}
+            <p class="text-secondary text-sm">This list only offers a web link. Eraser never opens such links automatically (they may track or need a click).</p>
+            <div class="flex gap-2 mt-3">
+                <a href="{{ c.unsub_target|safe_url }}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">Open unsubscribe page</a>
+                <form method="POST" action="/companies/{{ c.domain }}/unsubscribed">
+                    {{ csrf_field }}
+                    <button type="submit" class="btn btn-ghost">Mark as done</button>
+                </form>
+            </div>
+            {% else %}
+            <p class="text-secondary text-sm">No List-Unsubscribe header seen.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card p-5 mb-6">
+        <h2 class="text-lg font-semibold text-primary mb-3">Sender addresses</h2>
+        <ul class="text-sm text-secondary space-y-1">
+            {% for s in c.senders %}<li>{{ s }}</li>{% endfor %}
+        </ul>
+    </div>
+
+    <div class="card p-5">
+        <h2 class="text-lg font-semibold text-primary mb-3">Action log</h2>
+        {% if actions %}
+        <table class="table">
+            <thead><tr><th>When</th><th>Action</th><th>Target</th><th>Result</th></tr></thead>
+            <tbody>
+            {% for a in actions %}
+            <tr>
+                <td class="text-sm">{{ a.created_at|format_time }}</td>
+                <td class="text-sm">{{ a.action }}</td>
+                <td class="text-sm break-all">{{ a.target }}</td>
+                <td class="text-sm"><span class="badge {% if a.status == "ok" %}badge-success{% elif a.status == "failed" %}badge-error{% else %}badge-neutral{% endif %}">{{ a.status }}</span> {{ a.detail }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="text-secondary text-sm">Nothing done yet.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

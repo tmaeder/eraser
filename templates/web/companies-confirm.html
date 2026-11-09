@@ -1,0 +1,51 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="fade-in-up">
+    <a href="/companies" class="text-sm text-secondary hover:text-primary">&larr; Back to companies</a>
+    <h1 class="font-display text-3xl font-bold text-primary mt-2">
+        {% if action == "request" %}Confirm deletion requests{% else %}Confirm unsubscribes{% endif %}
+    </h1>
+    <p class="text-secondary mt-1 mb-6">
+        {{ runnable }} of {{ rows|length }} selected companies will be contacted{% if emails %}; {{ emails }} emails will be sent from {{ from }}{% endif %}.
+        Sending uses your configured rate limit and daily limit.
+    </p>
+
+    <div class="card overflow-hidden mb-6">
+        <table class="table">
+            <thead><tr><th>Company</th><th>What happens</th><th>Address / URL</th><th>Details</th></tr></thead>
+            <tbody>
+            {% for r in rows %}
+            <tr>
+                <td><span class="font-medium text-primary">{{ r.name or r.domain }}</span><div class="text-sm text-muted">{{ r.domain }}</div></td>
+                <td class="text-sm">
+                    {% if r.kind == "email" %}<span class="badge badge-success">deletion request email</span>
+                    {% elif r.kind == "one_click" %}<span class="badge badge-success">one-click POST</span>
+                    {% elif r.kind == "mailto" %}<span class="badge badge-success">unsubscribe email</span>
+                    {% elif r.kind == "manual" %}<span class="badge badge-warning">not automatic</span>
+                    {% else %}<span class="badge badge-neutral">skipped</span>{% endif %}
+                </td>
+                <td class="text-sm break-all">
+                    {% if r.kind == "manual" %}<a href="{{ r.target|safe_url }}" target="_blank" rel="noopener noreferrer" class="underline">open link</a>
+                    {% else %}{{ r.target }}{% endif %}
+                </td>
+                <td class="text-sm text-secondary">{{ r.note }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if runnable %}
+    <form method="POST" action="/companies/execute">
+        {{ csrf_field }}
+        <input type="hidden" name="action" value="{{ action }}">
+        <input type="hidden" name="confirmed" value="yes">
+        {% for r in rows %}{% if r.kind in ["email", "one_click", "mailto"] %}<input type="hidden" name="domain" value="{{ r.domain }}">{% endif %}{% endfor %}
+        <button type="submit" class="btn btn-primary">Confirm: contact {{ runnable }} {% if runnable == 1 %}company{% else %}companies{% endif %}</button>
+        <a href="/companies" class="btn btn-ghost">Cancel</a>
+    </form>
+    {% else %}
+    <p class="text-secondary">Nothing can be done automatically for this selection.</p>
+    {% endif %}
+</div>
+{% endblock %}

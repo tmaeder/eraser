@@ -1,0 +1,59 @@
+# Manual opt-outs
+
+These data brokers publish no privacy email, only a web opt-out form, so Eraser cannot email them. Open each link and follow the steps yourself. Entries marked *(unverified)* could not be checked automatically (bot protection); confirm the link is the real opt-out page.
+
+- [ ] **192.com** (192.com): https://www.192.com/c01/new-request/
+- [ ] **AllBiz** (allbiz.com): https://www.allbiz.com/contact
+- [ ] **AllPeople** (allpeople.com): https://allpeople.com/removal
+- [ ] **AlumniClass.com** (alumniclass.com): https://www.alumniclass.com/contact/
+- [ ] **Alumni US (alumnius.net)** (alumnius.net): https://www.alumnius.net/opt-out
+- [ ] **AmericaPhoneBook** (americaphonebook.com): https://www.americaphonebook.com/contact.php
+- [ ] **AncientFaces** (ancientfaces.com): https://www.ancientfaces.com/content/contact
+- [ ] **Anewstip** (anewstip.com): https://www.anewstip.com/contactus/
+- [ ] **AusCompanies** (auscompanies.com): https://www.auscompanies.com/contact
+- [ ] **Australia247.info** (australia247.info): https://australia247.info/contact-us/
+- [ ] **BackgroundCheckers** (backgroundcheckers.net): https://backgroundcheckers.net *(unverified)*
+- [ ] **Bizapedia, LLC** (bizapedia.com): https://www.bizapedia.com/contact.aspx
+- [ ] **BizDb.co.nz (Datafic sp. z o.o.)** (bizdb.co.nz): https://www.bizdb.co.nz/terms-of-use-and-privacy-policy/
+- [ ] **Washington Business Directory (bizofwa.com)** (bizofwa.com): https://www.bizofwa.com/Contact-Us/
+- [ ] **BizProfile** (bizprofile.net): https://bizprofile.net *(unverified)*
+- [ ] **BlockShopper** (blockshopper.com): https://blockshopper.com *(unverified)*
+- [ ] **BusinessWiki** (businesswiki.info): https://businesswiki.info *(unverified)*
+- [ ] **Cadastro Empresa** (cadastroempresa.com.br): https://www.cadastroempresa.com.br/ *(unverified)*
+- [ ] **CallerCenter** (callercenter.com): https://www.callercenter.com/ *(unverified)*
+- [ ] **Canada Company Registry** (canadacompanyregistry.com): https://www.canadacompanyregistry.com/ *(unverified)*
+- [ ] **CanadaCorporation.info** (canadacorporation.info): https://www.canadacorporation.info/ *(unverified)*
+- [ ] **Canada Pages** (canadapages.com): https://www.canadapages.com/remove-info.php
+- [ ] **ChamberofCommerce.com** (chamberofcommerce.com): https://www.chamberofcommerce.com/request-contact
+- [ ] **Check Company (Infoholic Limited)** (checkcompany.co.uk): https://www.checkcompany.co.uk/contact
+- [ ] **ClustrMaps** (clustrmaps.com): https://clustrmaps.com/bl/opt-out *(unverified)*
+- [ ] **CocoFinder** (cocofinder.com): https://cocofinder.com *(unverified)*
+- [ ] **CompaniesNZ** (companiesnz.com): https://www.companiesnz.com/contact
+- [ ] **CompaniesofCanada** (companiesofcanada.com): https://www.companiesofcanada.com/contact
+- [ ] **Company Check Ltd** (companycheck.co.uk): https://help.companycheck.co.uk/support/tickets/new
+- [ ] **Company Director Check** (companydirectorcheck.com): https://www.companydirectorcheck.com/ *(unverified)*
+- [ ] **Connecticut Resident Directory** (connecticutresidentdirectory.com): https://connecticutresidentdirectory.com/opt-out *(unverified)*
+- [ ] **ConsultaSocio** (consultasocio.com): https://www.consultasocio.com/static/sobre.html
+- [ ] **CriminalRegistry.org** (criminalregistry.org): https://criminalregistry.org/remove.php
+- [ ] **CyberBackgroundChecks** (cyberbackgroundchecks.com): https://www.cyberbackgroundchecks.com/removal
+- [ ] **Cybo** (cybo.com): https://www.cybo.com/contact
+- [ ] **Endole** (endole.co.uk): https://www.endole.co.uk/help/
+- [ ] **FL Business Go** (flbusinessgo.com): https://www.flbusinessgo.com/Contact-Us/
+- [ ] **FloridaParcels (AreaPlot LLC)** (floridaparcels.com): https://floridaparcels.com/about.html
+- [ ] **GeneaFrance** (geneafrance.com): https://geneafrance.com/contact.php
+- [ ] **Infobel** (infobel.com): https://dpo.infobel.com/?languageCode=en
+- [ ] **LeadQuest** (leadquest.co.uk): https://leadquest.co.uk/removal
+- [ ] **LocateFamily** (locatefamily.com): https://www.locatefamily.com/removal.html
+- [ ] **Open Public Records** (open-public-records.com): https://www.open-public-records.com/records_removal.php
+- [ ] **OpenCorpData** (opencorpdata.com): https://opencorpdata.com/contact
+- [ ] **PTIN Directory** (ptindirectory.com): https://ptindirectory.com/ccpa.cfm
+- [ ] **Regrid (Loveland Technologies)** (regrid.com): https://regrid.com/terms/privacy
+- [ ] **RevealPhoneOwner** (revealphoneowner.com): https://www.revealphoneowner.com/data-removal/
+- [ ] **Revonect** (revonect.com): https://revonect.com/privacy_policy
+- [ ] **SearchUSAPeople** (searchusapeople.com): https://www.searchusapeople.com/data-removal-request/
+- [ ] **uFind.name** (ufind.name): https://ufind.name/opt-out
+- [ ] **USA People Search** (usa-people-search.com): https://www.usa-people-search.com/do-not-sell
+- [ ] **Utah Arrests** (utaharrests.org): https://www.utaharrests.org/the-privacy-request-portal/
+- [ ] **Vehicle Related Records** (vehiclerelatedrecords.com): https://vehiclerelatedrecords.com/contact_us.php
+- [ ] **VoterRecords.com** (voterrecords.com): https://voterrecords.com/faq
+- [ ] **White Pages Canada** (whitepagescanada.ca): https://whitepagescanada.ca/contact/

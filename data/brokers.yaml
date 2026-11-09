@@ -8724,3 +8724,683 @@ brokers:
       website: https://www.shopalyst.com
       region: global
       category: marketing
+    - id: 411-ca
+      name: "411.ca (411 Local Search Corp)"
+      email: privacy@411.ca
+      website: https://411.ca
+      region: ca
+      category: phone-directory
+      tags: [user-list]
+    - id: adapt-io
+      name: "Adapt.io (SLI Technologies Inc.)"
+      email: support@adapt.io
+      website: https://www.adapt.io
+      opt_out_url: https://www.adapt.io/check-my-email
+      region: us
+      category: b2b-contacts
+      tags: [user-list]
+    - id: aeroleads-com
+      name: "AeroLeads (WorkMonk Solutions Pvt Ltd)"
+      email: removal@aeroleads.com
+      website: https://aeroleads.com
+      opt_out_url: https://aeroleads.com/remove-my-data
+      region: global
+      category: b2b-contacts
+      tags: [user-list]
+    - id: ancestry-com
+      name: "Ancestry"
+      email: privacy@ancestry.com
+      website: https://www.ancestry.com
+      region: global
+      category: genealogy
+      notes: "Also covers: ancestry.co.uk, ancestry.com.au, ancestry.it, archives.com"
+      tags: [user-list]
+    - id: arounddeal-com
+      name: "AroundDeal (AroundDeal Holdings Limited)"
+      email: support@arounddeal.com
+      website: https://www.arounddeal.com
+      opt_out_url: https://www.arounddeal.com/privacy-center/manage-profile
+      region: global
+      category: b2b-contacts
+      tags: [user-list]
+    - id: arrestwarrant-org
+      name: "ArrestWarrant.org (WorldClick Marketing LLC)"
+      email: support@verifyrecords.com
+      website: https://www.arrestwarrant.org
+      region: us
+      category: background-check
+      tags: [user-list]
+    - id: b2bhint-com
+      name: "B2BHint"
+      email: hello@b2bhint.com
+      website: https://b2bhint.com
+      region: global
+      category: b2b-contacts
+      tags: [user-list]
+    - id: britishphonebook-com
+      name: "BritishPhoneBook.com (Lookup United Kingdom)"
+      email: lookupuk@gmail.com
+      website: https://www.britishphonebook.com/
+      opt_out_url: https://www.britishphonebook.com/contact.php
+      region: uk
+      category: phone-directory
+      tags: [user-list]
+    - id: brokersnapshot-com
+      name: "BrokerSnapshot (Broker Snapshot LLC)"
+      email: support@brokersnapshot.com
+      website: https://brokersnapshot.com
+      region: us
+      category: b2b-contacts
+      tags: [user-list]
+    - id: business-monitor-ch
+      name: "business-monitor.ch (Novertur International SA)"
+      email: dpo@business-monitor.ch
+      website: https://business-monitor.ch
+      region: ch
+      category: b2b-contacts
+      tags: [user-list]
+    - id: buzzfile-com
+      name: "Buzzfile Media"
+      email: info@buzzfile.com
+      website: https://www.buzzfile.com
+      opt_out_url: https://www.buzzfile.com/Company/Remove
+      region: us
+      category: b2b-contacts
+      tags: [user-list]
+    - id: californiabirthindex-org
+      name: "CaliforniaBirthIndex.org"
+      email: removals@californiabirthindex.org
+      website: https://californiabirthindex.org
+      opt_out_url: https://californiabirthindex.org/removals
+      region: us
+      category: genealogy
+      tags: [user-list]
+    - id: canada411-ca
+      name: "Canada411 (Yellow Pages Digital & Media Solutions Limited)"
+      email: privacy@yp.ca
+      website: https://www.canada411.ca
+      opt_out_url: https://www.canada411.ca/help.html
+      region: ca
+      category: phone-directory
+      notes: "Also covers: canpages.ca, yellowpages.ca"
+      tags: [user-list]
+    - id: catfishnumber-com
+      name: "CatfishNumber (CatfishNumr)"
+      email: support@catfishnumr.com
+      website: https://catfishnumber.com
+      region: us
+      category: phone-directory
+      tags: [user-list]
+    - id: ceoemail-com
+      name: "CEOemail.com (Connectotel Limited)"
+      email: privacy@connectotel.com
+      website: https://www.ceoemail.com
+      region: uk
+      category: b2b-contacts
+      tags: [user-list]
+    - id: cience-com
+      name: "CIENCE Technologies"
+      email: privacy@cience.com
+      website: https://www.cience.com
+      opt_out_url: https://graph8.com/privacy-request
+      region: us
+      category: b2b-contacts
+      tags: [user-list]
+    - id: closelyhq-com
+      name: "Closely (Esterson Limited)"
+      email: support@closelyhq.com
+      website: https://closelyhq.com
+      region: eu
+      category: b2b-contacts
+      tags: [user-list]
+    - id: companysearchesmadesimple-com
+      name: "Company Searches Made Simple (The Made Simple Group Limited)"
+      email: privacy@madesimplegroup.com
+      website: https://www.companysearchesmadesimple.com
+      region: uk
+      category: b2b-contacts
+      tags: [user-list]
+    - id: courtcasefinder-com
+      name: "CourtCaseFinder (InfoPay, Inc.)"
+      email: privacy@courtcasefinder.com
+      website: https://courtcasefinder.com
+      opt_out_url: https://courtcasefinder.com/optout
+      region: us
+      category: background-check
+      tags: [user-list]
+    - id: courtrec-com
+      name: "CourtRec"
+      email: support@courtrec.com
+      website: https://www.courtrec.com
+      opt_out_url: https://dashboard.courtrec.com/opt-out
+      region: us
+      category: background-check
+      tags: [user-list]
+    - id: courtrecords-us
+      name: "CourtRecords.us"
+      email: privacy@courtrecords.us
+      website: https://courtrecords.us
+      opt_out_url: https://courtrecords.us/optout/
+      region: us
+      category: background-check
+      notes: "Also covers: alabamacourtrecords.us, alaskacourtrecords.us, arizonacourtrecords.us, arkansascourtrecords.us, californiacourtrecords.us, coloradocourtrecords.us, connecticutcourtrecords.us, delawarecourtrecords.us, floridacourtrecords.us, georgiacourtrecords.us, hawaiicourtrecords.us, idahocourtrecords.us, illinoiscourtrecords.us, indianacourtrecords.us, iowacourtrecords.us, kansascourtrecords.us, kentuckycourtrecords.us, louisianacourtrecords.us, mainecourtrecords.us, marylandcourtrecords.us, massachusettscourtrecords.us, michigancourtrecords.us, minnesotacourtrecords.us, mississippicourtrecords.us, missouricourtrecords.us, montanacourtrecords.us, nebraskacourtrecords.us, nevadacourtrecords.us, newhampshirecourtrecords.us, newjerseycourtrecords.us, newmexicocourtrecords.us, newyorkcourtrecords.us, northcarolinacourtrecords.us, northdakotacourtrecords.us, ohiocourtrecords.us, oklahomacourtrecords.us, oregoncourtrecords.us, pennsylvaniacourtrecords.us, rhodeislandcourtrecords.us, southcarolinacourtrecords.us, southdakotacourtrecords.us, tennesseecourtrecords.us, texascourtrecords.us, utahcourtrecords.us, vermontcourtrecords.us, virginiacourtrecords.us, washingtoncourtrecords.us, westvirginiacourtrecords.us, wisconsincourtrecords.us, wyomingcourtrecords.us"
+      tags: [user-list]
+    - id: cpadirectory-com
+      name: "CPAdirectory (CPAdirect Marketing, Inc.)"
+      email: contact@cpadirectory.com
+      website: https://cpadirectory.com
+      opt_out_url: https://cpadirectory.com/opt-out/
+      region: us
+      category: b2b-contacts
+      tags: [user-list]
+    - id: cufinder-io
+      name: "CUFinder (CUFINDER Computer Systems LLC)"
+      email: info@cufinder.io
+      website: https://cufinder.io
+      opt_out_url: https://cufinder.io/rights
+      region: global
+      category: b2b-contacts
+      tags: [user-list]
+    - id: data-lead-com
+      name: "DataLead"
+      email: support@data-lead.com
+      website: https://data-lead.com
+      opt_out_url: https://data-lead.com/support
+      region: global
+      category: b2b-contacts
+      tags: [user-list]
+    - id: dobsearch-com
+      name: "DOBSearch.com"
+      email: info@dobsearch.com
+      website: https://www.dobsearch.com/
+      opt_out_url: https://www.dobsearch.com/contact/
+      region: us
+      category: people-search
+      tags: [user-list]
+    - id: easyleadz-com
+      name: "EasyLeadz"
+      email: support@easyleadz.com
+      website: https://www.easyleadz.com
+      opt_out_url: https://www.easyleadz.com/gdpr-compliance
+      region: global
+      category: b2b-contacts
+      tags: [user-list]
+    - id: edgein-io
+      name: "EdgeIn / Mentibus"
+      email: privacy@mentibus.com
+      website: https://www.mentibus.xyz
+      opt_out_url: https://edgein.io/privacy/gdpr
+      region: global
+      category: b2b-contacts
+      tags: [user-list]
+    - id: en-52wmb-com
+      name: "52wmb Great Export Import"
+      email: dataservice@52wmb.com
+      website: https://en.52wmb.com
+      region: global
+      category: b2b-contacts
+      tags: [user-list]
+    - id: entreprises-lefigaro-fr
+      name: "Le Figaro Annuaire Entreprises"
+      email: dpo@lefigaro.fr
+      website: https://entreprises.lefigaro.fr
+      region: eu
+      category: b2b-contacts
+      tags: [user-list]
+    - id: firmenbuchgrundbuch-at
+      name: "firmenbuchgrundbuch.at (Compass-Verlag)"
+      email: datenschutz@compass.at
+      website: https://www.firmenbuchgrundbuch.at
+      region: eu
+      category: property-records
+      tags: [user-list]
+    - id: flashintel-ai
+      name: "FlashLabs (Flash Intel)"
+      email: privacy@myflashcloud.com
+      website: https://www.flashlabs.ai
+      region: global
+      category: b2b-contacts
+      tags: [user-list]
+    - id: freebackgroundcheck-org
+      name: "FreeBackgroundCheck.org"
+      email: privacy@freebackgroundcheck.org
+      website: https://freebackgroundcheck.org
+      region: us
+      category: background-check
+      tags: [user-list]
+    - id: genios-de
+      name: "GBI-Genios Deutsche Wirtschaftsdatenbank GmbH"
+      email: loeschanfrage@genios.de
+      website: https://www.genios.de
+      region: eu
+      category: b2b-contacts
+      tags: [user-list]
+    - id: getemail-io
+      name: "GetEmail.io (SAS Prestaleads)"
+      email: getemailsales@dnb.com
+      website: https://getemail.io
+      region: eu
+      category: b2b-contacts
+      tags: [user-list]
+    - id: healthcare4ppl-com
+      name: "HealthCare4PPL"
+      email: contact@healthcare4ppl.com
+      website: https://www.healthcare4ppl.com
+      region: us
+      category: people-search
+      tags: [user-list]
+    - id: hipaaspace-com
+      name: "HIPAASpace"
+      email: support@hipaaspace.com
+      website: https://www.hipaaspace.com
+      region: us
+      category: people-search
+      tags: [user-list]
+    - id: idcaller-com
+      name: "IDCaller"
+      email: support@idcaller.com
+      website: https://idcaller.com
+      region: us
+      category: phone-directory
+      tags: [user-list]
+    - id: idcrawl-com
+      name: "IDCrawl"
+      email: support@idcrawl.com
+      website: https://www.idcrawl.com
+      opt_out_url: https://www.idcrawl.com/remove-my-information
+      region: us
+      category: people-search
+      tags: [user-list]
+    - id: implisense-com
+      name: "Implisense GmbH"
+      email: info@implisense.com
+      website: https://implisense.com
+      region: eu
+      category: b2b-contacts
+      tags: [user-list]
+    - id: importgenius-com
+      name: "ImportGenius"
+      email: privacy@importgenius.com
+      website: https://www.importgenius.com
+      region: global
+      category: b2b-contacts
+      tags: [user-list]
+    - id: importkey-com
+      name: "ImportKey"
+      email: help@importkey.com
+      website: https://importkey.com
+      region: us
+      category: b2b-contacts
+      tags: [user-list]
+    - id: infocif-economia3-com
+      name: "Infonif / Infocif (Economia3)"
+      email: usuarios.infonif@economia3.com
+      website: https://infonif.economia3.com
+      region: eu
+      category: b2b-contacts
+      tags: [user-list]
+    - id: infoempresa-com
+      name: "Infoempresa"
+      email: privacy@infoempresa.com
+      website: https://www.infoempresa.com
+      region: eu
+      category: b2b-contacts
+      tags: [user-list]
+    - id: infotracer-com
+      name: "InfoTracer"
+      email: privacy@infotracer.com
+      website: https://infotracer.com
+      opt_out_url: https://infotracer.com/optout/
+      region: us
+      category: people-search
+      tags: [user-list]
+    - id: instafinancials-com
+      name: "InstaFinancials"
+      email: support@instafinancials.com
+      website: https://www.instafinancials.com
+      region: global
+      category: b2b-contacts
+      tags: [user-list]
+    - id: licensee-io
+      name: "Licensee.io"
+      email: info@licensee.io
+      website: https://licensee.io
+      region: us
+      category: people-search
+      tags: [user-list]
+    - id: locategb-com
+      name: "LocateGB (1st Locate UK Limited)"
+      email: contact@1stlocate.co.uk
+      website: https://www.locategb.com
+      region: uk
+      category: people-search
+      notes: "Also covers: tracegenie.co.uk"
+      tags: [user-list]
+    - id: lokinn-com
+      name: "Lokinn"
+      email: soporte@lokinn.com
+      website: https://www.lokinn.com
+      region: eu
+      category: b2b-contacts
+      tags: [user-list]
+    - id: manta-com
+      name: "Manta"
+      email: optout@manta.com
+      website: https://www.manta.com
+      region: us
+      category: b2b-contacts
+      tags: [user-list]
+    - id: muckrack-com
+      name: "Muck Rack, LLC"
+      email: privacy@muckrack.com
+      website: https://muckrack.com/
+      region: us
+      category: b2b-contacts
+      tags: [user-list]
+    - id: myheritage-com
+      name: "MyHeritage Ltd."
+      email: privacy@myheritage.com
+      website: https://myheritage.com/
+      region: global
+      category: genealogy
+      tags: [user-list]
+    - id: npino-com
+      name: "NPINO"
+      email: info@npino.com
+      website: https://npino.com/
+      region: us
+      category: people-search
+      tags: [user-list]
+    - id: numberguru-com
+      name: "NumberGuru"
+      email: privacy@numberguru.com
+      website: https://numberguru.com/
+      opt_out_url: https://www.beenverified.com/app/optout/search
+      region: us
+      category: phone-directory
+      tags: [user-list]
+    - id: numlookup-com
+      name: "NumLookup"
+      email: hello@numlookup.com
+      website: https://numlookup.com/
+      region: us
+      category: phone-directory
+      tags: [user-list]
+    - id: offenderradar-com
+      name: "OffenderRadar"
+      email: admin@offenderradar.com
+      website: https://offenderradar.com/
+      region: us
+      category: background-check
+      tags: [user-list]
+    - id: okcaller-com
+      name: "OkCaller"
+      email: info@okcaller.com
+      website: https://okcaller.com/
+      region: us
+      category: phone-directory
+      tags: [user-list]
+    - id: omeek-co-uk
+      name: "Omeek"
+      email: help@omeek.com
+      website: https://omeek.co.uk/
+      region: uk
+      category: b2b-contacts
+      tags: [user-list]
+    - id: opencorporates-com
+      name: "OpenCorporates Ltd"
+      email: data.protection@opencorporates.com
+      website: https://opencorporates.com/
+      region: uk
+      category: b2b-contacts
+      tags: [user-list]
+    - id: ourpublicrecords-org
+      name: "OurPublicRecords"
+      email: support@ourpublicrecords.org
+      website: https://ourpublicrecords.org/
+      region: us
+      category: background-check
+      tags: [user-list]
+    - id: ownerly-com
+      name: "Ownerly"
+      email: privacy@ownerly.com
+      website: https://ownerly.com/
+      region: us
+      category: property-records
+      tags: [user-list]
+    - id: pacermonitor-com
+      name: "PacerMonitor (Fitch Group)"
+      email: privacy@thefitchgroup.com
+      website: https://pacermonitor.com/
+      region: us
+      category: background-check
+      tags: [user-list]
+    - id: pagesjaunes-fr
+      name: "Solocal (PagesJaunes)"
+      email: dpo@solocal.com
+      website: https://pagesjaunes.fr/
+      region: eu
+      category: phone-directory
+      tags: [user-list]
+    - id: paginasamarillas-es
+      name: "Beedigital AI, S.A.U."
+      email: protecciondatos@beedigital.es
+      website: https://paginasamarillas.es/
+      region: eu
+      category: phone-directory
+      requires_id: true
+      tags: [user-list]
+    - id: peoplebyname-com
+      name: "PeopleByName"
+      email: support@peoplebyname.com
+      website: https://peoplebyname.com/
+      region: us
+      category: phone-directory
+      tags: [user-list]
+    - id: peoplelooker-com
+      name: "PeopleLooker"
+      email: privacy@peoplelooker.com
+      website: https://peoplelooker.com/
+      region: us
+      category: people-search
+      tags: [user-list]
+    - id: pomanda-com
+      name: "Pomanda"
+      email: theteam@pomanda.com
+      website: https://pomanda.com/
+      region: uk
+      category: b2b-contacts
+      tags: [user-list]
+    - id: prabook-com
+      name: "Prabook"
+      email: contact@prabook.com
+      website: https://prabook.com/
+      region: us
+      category: people-search
+      tags: [user-list]
+    - id: propertyiq-com
+      name: "PropertyIQ"
+      email: privacy@propertyiq.com
+      website: https://propertyiq.com/
+      region: us
+      category: property-records
+      tags: [user-list]
+    - id: propertyrecord-com
+      name: "PropertyRecord.com"
+      email: support@propertyrecord.com
+      website: https://propertyrecord.com/
+      region: us
+      category: property-records
+      tags: [user-list]
+    - id: propertyrecs-com
+      name: "PropertyRecs.com"
+      email: support@propertyrecs.com
+      website: https://propertyrecs.com/
+      region: us
+      category: property-records
+      tags: [user-list]
+    - id: prowly-com
+      name: "Prowly (Semrush)"
+      email: privacy@prowly.com
+      website: https://prowly.com/
+      region: eu
+      category: b2b-contacts
+      tags: [user-list]
+    - id: publicdata-com
+      name: "PublicData.com"
+      email: support@publicdata.com
+      website: https://publicdata.com/
+      region: us
+      category: background-check
+      tags: [user-list]
+    - id: publicrecords-info
+      name: "PublicRecords.info"
+      email: support@publicrecords.info
+      website: https://publicrecords.info/
+      region: us
+      category: background-check
+      tags: [user-list]
+    - id: publicrecords-us
+      name: "PublicRecords.us"
+      email: support@publicrecords.us
+      website: https://publicrecords.us/
+      region: us
+      category: people-search
+      tags: [user-list]
+    - id: publicrecordssearcher-com
+      name: "PublicRecordsSearcher.com"
+      email: contact@publicrecordssearcher.com
+      website: https://publicrecordssearcher.com/
+      region: us
+      category: background-check
+      tags: [user-list]
+    - id: recentlybooked-com
+      name: "RecentlyBooked"
+      email: info@recentlybooked.com
+      website: https://recentlybooked.com/
+      region: us
+      category: background-check
+      tags: [user-list]
+    - id: recordsfinder-com
+      name: "RecordsFinder"
+      email: privacy@recordsfinder.com
+      website: https://recordsfinder.com/
+      region: us
+      category: background-check
+      tags: [user-list]
+    - id: searchelectoralroll-com
+      name: "Search Electoral Roll (Ping 118 171 Ltd)"
+      email: support@searchelectoralroll.com
+      website: https://www.searchelectoralroll.com
+      region: uk
+      category: people-search
+      tags: [user-list]
+    - id: searchpeoplefree-net
+      name: "SearchPeopleFree"
+      email: support@searchpeoplefree.net
+      website: https://searchpeoplefree.net
+      opt_out_url: https://searchpeoplefree.net/resource/remove-my-info
+      region: us
+      category: people-search
+      tags: [user-list]
+    - id: searchquarry-com
+      name: "SearchQuarry (Search Quarry, LLC)"
+      email: privacy@searchquarry.com
+      website: https://www.searchquarry.com
+      opt_out_url: https://www.searchquarry.com/privacy-choices/
+      region: us
+      category: background-check
+      tags: [user-list]
+    - id: signalhire-com
+      name: "SignalHire Sp. z o.o."
+      email: support@signalhire.com
+      website: https://www.signalhire.com
+      opt_out_url: https://www.signalhire.com/opt-out
+      region: eu
+      category: b2b-contacts
+      tags: [user-list]
+    - id: smartbackgroundchecks-com
+      name: "SmartBackgroundChecks"
+      email: support@smartbackgroundchecks.com
+      website: https://www.smartbackgroundchecks.com
+      opt_out_url: https://www.smartbackgroundchecks.com/optout
+      region: us
+      category: people-search
+      tags: [user-list]
+    - id: staterecords-org
+      name: "StateRecords.org"
+      email: privacy@staterecords.org
+      website: https://staterecords.org
+      opt_out_url: https://staterecords.org/optout
+      region: us
+      category: background-check
+      notes: "Also covers: alabama.staterecords.org, alaska.staterecords.org, arizona.staterecords.org, arkansas.staterecords.org, california.staterecords.org, colorado.staterecords.org, connecticut.staterecords.org, delaware.staterecords.org, districtofcolumbia.staterecords.org, florida.staterecords.org, georgia.staterecords.org, hawaii.staterecords.org, idaho.staterecords.org, illinois.staterecords.org, indiana.staterecords.org, iowa.staterecords.org, kansas.staterecords.org, kentucky.staterecords.org, louisiana.staterecords.org, maine.staterecords.org, maryland.staterecords.org, massachusetts.staterecords.org, michigan.staterecords.org, minnesota.staterecords.org, mississippi.staterecords.org, missouri.staterecords.org, montana.staterecords.org, nebraska.staterecords.org, nevada.staterecords.org, newhampshire.staterecords.org, newjersey.staterecords.org, newmexico.staterecords.org, newyork.staterecords.org, northcarolina.staterecords.org, northdakota.staterecords.org, ohio.staterecords.org, oklahoma.staterecords.org, oregon.staterecords.org, pennsylvania.staterecords.org, rhodeisland.staterecords.org, southcarolina.staterecords.org, southdakota.staterecords.org, tennessee.staterecords.org, texas.staterecords.org, utah.staterecords.org, vermont.staterecords.org, virginia.staterecords.org, washington.staterecords.org, westvirginia.staterecords.org, wisconsin.staterecords.org, wyoming.staterecords.org"
+      tags: [user-list]
+    - id: telummedia-com
+      name: "Telum Media"
+      email: support@telummedia.com
+      website: https://www.telummedia.com
+      region: global
+      category: b2b-contacts
+      tags: [user-list]
+    - id: tomba-io
+      name: "Tomba.io"
+      email: privacy@tomba.io
+      website: https://tomba.io
+      opt_out_url: https://tomba.io/legal/privacy-policy
+      region: global
+      category: b2b-contacts
+      tags: [user-list]
+    - id: tracxn-com
+      name: "Tracxn Technologies Ltd"
+      email: dpo@tracxn.com
+      website: https://tracxn.com
+      opt_out_url: https://tracxn.com/gdpr
+      region: global
+      category: b2b-contacts
+      tags: [user-list]
+    - id: ukphonebook-com
+      name: "ukphonebook.com (Simunix Ltd)"
+      email: dpo@simunix.com
+      website: https://www.ukphonebook.com
+      opt_out_url: https://www.ukphonebook.com/remove-me
+      region: uk
+      category: phone-directory
+      tags: [user-list]
+    - id: veripages-com
+      name: "VeriPages"
+      email: removal@veripages.com
+      website: https://veripages.com
+      opt_out_url: https://veripages.com/inner/control-privacy
+      region: us
+      category: people-search
+      tags: [user-list]
+    - id: whitepages-com-au
+      name: "Thryv Australia (White Pages)"
+      email: ThryvPrivacy_au@thryv.com
+      website: https://www.whitepages.com.au
+      region: au
+      category: phone-directory
+      tags: [user-list]
+    - id: wyty-com
+      name: "Wyty"
+      email: privacy@wyty.com
+      website: https://www.wyty.com
+      opt_out_url: https://www.wyty.com/remove/
+      region: us
+      category: phone-directory
+      tags: [user-list]
+    - id: yasni-com
+      name: "yasni GmbH"
+      email: datenschutz@yasni.de
+      website: https://www.yasni.com
+      region: eu
+      category: people-search
+      tags: [user-list]
+    - id: zlookup-com
+      name: "ZLOOKUP"
+      email: hello@zlookup.com
+      website: https://www.zlookup.com
+      region: us
+      category: phone-directory
+      tags: [user-list]

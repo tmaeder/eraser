@@ -55,6 +55,9 @@ pub struct InboxConfig {
     pub auto_archive: bool,
     #[serde(deserialize_with = "nullable")]
     pub archive_folder: String,
+    /// Folders for the company scanner (empty: INBOX + archive_folder + Archive/Newsletter/Promotions if present).
+    #[serde(skip_serializing_if = "Vec::is_empty", deserialize_with = "nullable")]
+    pub scan_folders: Vec<String>,
 }
 
 /// Settings for the automation pipeline.
@@ -205,7 +208,18 @@ pub fn load(path: impl AsRef<Path>) -> Result<Config> {
         cfg.options.rate_limit_ms = DEFAULT_RATE_LIMIT_MS;
     }
 
-    let inbox = &mut cfg.inbox;
+    apply_inbox_defaults(&mut cfg.inbox);
+
+    if cfg.pipeline.browser_timeout_sec == 0 {
+        cfg.pipeline.browser_timeout_sec = 30;
+    }
+    cfg.pipeline.browser_headless = true; // Default to headless (Go overrides unconditionally)
+
+    Ok(cfg)
+}
+
+/// Fills folder names and the provider's IMAP server/port when unset.
+pub fn apply_inbox_defaults(inbox: &mut InboxConfig) {
     if inbox.folder.is_empty() {
         inbox.folder = "INBOX".into();
     }
@@ -224,13 +238,6 @@ pub fn load(path: impl AsRef<Path>) -> Result<Config> {
             inbox.port = 993;
         }
     }
-
-    if cfg.pipeline.browser_timeout_sec == 0 {
-        cfg.pipeline.browser_timeout_sec = 30;
-    }
-    cfg.pipeline.browser_headless = true; // Default to headless (Go overrides unconditionally)
-
-    Ok(cfg)
 }
 
 pub fn save(path: impl AsRef<Path>, cfg: &Config) -> Result<()> {

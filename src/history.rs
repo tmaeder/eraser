@@ -478,6 +478,9 @@ impl Store {
         )
         .context("failed to migrate database")?;
 
+        db.execute_batch(companies::SCHEMA)
+            .context("failed to migrate company tables")?;
+
         // The Go schema never created email_body although AddBrokerResponse writes it.
         let _ = db.execute(
             "ALTER TABLE broker_responses ADD COLUMN email_body TEXT",
@@ -981,6 +984,9 @@ impl Store {
         Ok(stats)
     }
 }
+
+mod companies;
+pub use companies::{Company, CompanyAction, CompanyAggregate, ScannedMessage};
 
 #[cfg(test)]
 mod tests;

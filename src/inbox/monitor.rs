@@ -74,7 +74,20 @@ pub struct Monitor {
     brokers: HashMap<String, Broker>,
     /// Test-only: accept any server certificate (self-signed test servers).
     #[cfg(test)]
-    insecure_tls: bool,
+    pub(crate) insecure_tls: bool,
+}
+
+/// Header fields fetched by the company scanner (never bodies).
+pub const SCAN_HEADER_FIELDS: &str = "FROM REPLY-TO LIST-UNSUBSCRIBE LIST-UNSUBSCRIBE-POST LIST-ID PRECEDENCE AUTO-SUBMITTED DATE MESSAGE-ID";
+
+/// One window of header-only fetches from a folder.
+#[derive(Debug, Default)]
+pub struct HeaderBatch {
+    pub uid_validity: u32,
+    /// Messages in the date range (all windows together).
+    pub total: usize,
+    /// (uid, raw header block)
+    pub headers: Vec<(u32, Vec<u8>)>,
 }
 
 impl Monitor {
@@ -342,6 +355,82 @@ impl Monitor {
         }
     }
 
+    /// Test helper: APPENDs a raw message to `folder` (creating the folder if needed).
+    #[cfg(test)]
+    pub(crate) async fn append_raw(&mut self, folder: &str, raw: &[u8]) -> Result<()> {
+        if folder != "INBOX" {
+            self.ensure_folder_exists(folder).await?;
+        }
+        self.session()?.append(folder, None, None, raw).await?;
+        Ok(())
+    }
+
+    /// Lists all mailbox names.
+    pub async fn list_folders(&mut self) -> Result<Vec<String>> {
+        let names: Vec<_> = self
+            .session()?
+            .list(Some(""), Some("*"))
+            .await
+            .context("failed to list folders")?
+            .try_collect()
+            .await
+            .context("failed to list folders")?;
+        Ok(names.iter().map(|n| n.name().to_string()).collect())
+    }
+
+    /// Header-only fetch for the company scanner: EXAMINEs `folder` (read-only), searches the
+    /// last `days` and fetches `BODY.PEEK[HEADER.FIELDS (...)]` for UIDs `[offset, offset+limit)`
+    /// in batches of 50. Never sets `\Seen`, never downloads bodies.
+    pub async fn fetch_scan_headers(
+        &mut self,
+        folder: &str,
+        days: i64,
+        offset: usize,
+        limit: usize,
+    ) -> Result<HeaderBatch> {
+        let session = self.session()?;
+        let mbox = session
+            .examine(folder)
+            .await
+            .with_context(|| format!("failed to examine folder {folder}"))?;
+        let mut batch = HeaderBatch {
+            uid_validity: mbox.uid_validity.unwrap_or(0),
+            ..Default::default()
+        };
+        if mbox.exists == 0 {
+            return Ok(batch);
+        }
+        let uids = sorted(
+            session
+                .uid_search(format!("SINCE {}", since_date(days)))
+                .await
+                .with_context(|| format!("failed to search emails in {folder}"))?,
+        );
+        batch.total = uids.len();
+        let window = uids
+            .iter()
+            .copied()
+            .skip(offset)
+            .take(limit)
+            .collect::<Vec<_>>();
+        let query = format!("(UID BODY.PEEK[HEADER.FIELDS ({SCAN_HEADER_FIELDS})])");
+        for chunk in window.chunks(FOLDER_BATCH_SIZE) {
+            let fetched: Vec<_> = session
+                .uid_fetch(uid_set(chunk), &query)
+                .await
+                .with_context(|| format!("failed to fetch headers in {folder}"))?
+                .try_collect()
+                .await
+                .with_context(|| format!("failed to fetch headers in {folder}"))?;
+            batch.headers.extend(
+                fetched
+                    .iter()
+                    .filter_map(|f| Some((f.uid?, f.header()?.to_vec()))),
+            );
+        }
+        Ok(batch)
+    }
+
     /// Creates a folder/label if it doesn't already exist (case-insensitive check).
     pub async fn ensure_folder_exists(&mut self, name: &str) -> Result<()> {
         let session = self.session()?;
@@ -570,7 +659,7 @@ pub fn parse_raw_email(uid: u32, raw: &[u8]) -> Email {
 }
 
 #[cfg(test)]
-pub(super) mod tests {
+pub(crate) mod tests {
     use super::*;
     use rustls::DigitallySignedStruct;
     use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
@@ -633,7 +722,7 @@ pub(super) mod tests {
         }
     }
 
-    fn crlf(s: &str) -> Vec<u8> {
+    pub(crate) fn crlf(s: &str) -> Vec<u8> {
         s.replace('\n', "\r\n").into_bytes()
     }
 
@@ -861,7 +950,7 @@ pub(super) mod tests {
     // Run: ERASER_IMAP_IT=1 cargo test --lib inbox::monitor::tests::imap_integration -- --nocapture
     // Requires docker; starts greenmail/standalone:2.1.3 on a random local port.
 
-    struct Container(String);
+    pub(crate) struct Container(String);
     impl Drop for Container {
         fn drop(&mut self) {
             let _ = std::process::Command::new("docker")
@@ -870,7 +959,7 @@ pub(super) mod tests {
         }
     }
 
-    fn start_greenmail() -> (Container, u16) {
+    pub(crate) fn start_greenmail() -> (Container, u16) {
         let out = std::process::Command::new("docker")
             .args([
                 "run",
@@ -907,7 +996,7 @@ pub(super) mod tests {
         (container, port)
     }
 
-    fn it_monitor(port: u16, brokers: &[Broker]) -> Monitor {
+    pub(crate) fn it_monitor(port: u16, brokers: &[Broker]) -> Monitor {
         let cfg = InboxConfig {
             enabled: true,
             provider: "imap".into(),
@@ -918,13 +1007,14 @@ pub(super) mod tests {
             folder: "INBOX".into(),
             auto_archive: true,
             archive_folder: "Eraser".into(),
+            ..Default::default()
         };
         let mut m = Monitor::new(cfg, brokers);
         m.insecure_tls = true;
         m
     }
 
-    async fn connect_with_retry(m: &mut Monitor) {
+    pub(crate) async fn connect_with_retry(m: &mut Monitor) {
         for _ in 0..60 {
             if m.connect().await.is_ok() {
                 return;
@@ -934,7 +1024,7 @@ pub(super) mod tests {
         m.connect().await.expect("greenmail never became ready");
     }
 
-    async fn seen_count(m: &mut Monitor, folder: &str) -> usize {
+    pub(crate) async fn seen_count(m: &mut Monitor, folder: &str) -> usize {
         let s = m.session.as_mut().unwrap();
         s.select(folder).await.unwrap();
         s.uid_search("SEEN").await.unwrap().len()

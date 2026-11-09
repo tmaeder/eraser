@@ -1,7 +1,7 @@
 //! Command implementations (ports of the run* functions in cmd/eraser/main.go).
 
 use super::args::Cmd;
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Context, Result};
 use eraser::history::{PipelineStatus, Record, Status, Store};
 use eraser::{broker, config, email, history, template};
 use std::io::{BufRead, Write};
@@ -431,13 +431,15 @@ pub fn truncate(s: &str, max_len: usize) -> String {
     format!("{}...", &s[..end])
 }
 
-async fn run_serve(
-    _ctx: &Ctx,
-    _host: String,
-    _port: u16,
-    _public_origin: Option<String>,
-) -> Result<()> {
-    Err(anyhow!("serve: web module not yet ported"))
+async fn run_serve(ctx: &Ctx, host: String, port: u16, public_origin: Option<String>) -> Result<()> {
+    eraser::web::serve(eraser::web::ServeOptions {
+        host,
+        port,
+        public_origin: public_origin.filter(|o| !o.is_empty()),
+        config_path: ctx.config_path(),
+        broker_path: ctx.broker_path(),
+    })
+    .await
 }
 
 #[cfg(test)]

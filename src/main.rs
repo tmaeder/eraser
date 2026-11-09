@@ -1,4 +1,4 @@
-//! Eraser CLI (port of cmd/eraser/main.go).
+//! Eraser CLI.
 
 mod cli;
 

@@ -1,4 +1,4 @@
-//! Command implementations (ports of the run* functions in cmd/eraser/main.go).
+//! Command implementations.
 
 use super::args::Cmd;
 use anyhow::{Context, Result};

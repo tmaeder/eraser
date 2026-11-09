@@ -17,7 +17,9 @@ pub struct Ctx {
 
 impl Ctx {
     pub fn config_path(&self) -> PathBuf {
-        self.config.clone().unwrap_or_else(config::default_config_path)
+        self.config
+            .clone()
+            .unwrap_or_else(config::default_config_path)
     }
 
     /// --brokers, else ./data/brokers.yaml if present, else data/brokers.yaml next to the binary.
@@ -49,21 +51,52 @@ pub async fn dispatch(ctx: &Ctx, cmd: Cmd) -> Result<()> {
     match cmd {
         Cmd::Init => run_init(ctx),
         Cmd::Send { dry_run } => run_send(ctx, dry_run).await,
-        Cmd::Serve { port, host, public_origin } => run_serve(ctx, host, port, public_origin).await,
+        Cmd::Serve {
+            port,
+            host,
+            public_origin,
+        } => run_serve(ctx, host, port, public_origin).await,
         Cmd::ListBrokers => run_list_brokers(ctx),
         Cmd::Status { limit } => run_status(limit),
         Cmd::AddBroker => run_add_broker(ctx),
-        Cmd::Monitor { days, once, watch } => super::inbox_cmds::run_monitor(ctx, days, once, watch).await,
-        Cmd::Pipeline => run_pipeline_status(),
-        Cmd::Fill { broker, url, headless, submit, screenshots, pending, wait } => {
-            super::browser_cmds::run_fill(ctx, broker, url, headless, submit, screenshots, pending, wait)
-                .await
+        Cmd::Monitor { days, once, watch } => {
+            super::inbox_cmds::run_monitor(ctx, days, once, watch).await
         }
-        Cmd::Confirm { url, broker, pending, validate_domain, dry_run } => {
+        Cmd::Pipeline => run_pipeline_status(),
+        Cmd::Fill {
+            broker,
+            url,
+            headless,
+            submit,
+            screenshots,
+            pending,
+            wait,
+        } => {
+            super::browser_cmds::run_fill(
+                ctx,
+                broker,
+                url,
+                headless,
+                submit,
+                screenshots,
+                pending,
+                wait,
+            )
+            .await
+        }
+        Cmd::Confirm {
+            url,
+            broker,
+            pending,
+            validate_domain,
+            dry_run,
+        } => {
             super::browser_cmds::run_confirm(ctx, url, broker, pending, validate_domain, dry_run)
                 .await
         }
-        Cmd::CleanupBounces { remove, days } => super::inbox_cmds::run_cleanup_bounces(ctx, remove, days).await,
+        Cmd::CleanupBounces { remove, days } => {
+            super::inbox_cmds::run_cleanup_bounces(ctx, remove, days).await
+        }
         Cmd::Help { .. } => Ok(()),
     }
 }
@@ -115,14 +148,19 @@ fn run_init(ctx: &Ctx) -> Result<()> {
 
     println!();
     println!("iCloud Mail SMTP Configuration:");
-    println!("  (Create an app-specific password at https://account.apple.com → Sign-In and Security)");
+    println!(
+        "  (Create an app-specific password at https://account.apple.com → Sign-In and Security)"
+    );
     println!();
     let smtp = &mut cfg.email.smtp;
     smtp.host = "smtp.mail.me.com".into();
     smtp.port = 587;
     smtp.use_tls = true;
     smtp.username = prompt(&mut input, "  iCloud email address (e.g. you@icloud.com): ");
-    smtp.password = prompt(&mut input, "  App-specific password (xxxx-xxxx-xxxx-xxxx): ");
+    smtp.password = prompt(
+        &mut input,
+        "  App-specific password (xxxx-xxxx-xxxx-xxxx): ",
+    );
     // iCloud rejects mail whose From isn't one of your iCloud addresses
     cfg.email.from = cfg.email.smtp.username.clone();
 
@@ -130,18 +168,20 @@ fn run_init(ctx: &Ctx) -> Result<()> {
     println!("⚙️  Options");
     println!();
 
-    let mut template_choice =
-        prompt(&mut input, "Default template (gdpr/ccpa/fadp/generic) [generic]: ");
+    let mut template_choice = prompt(
+        &mut input,
+        "Default template (auto/gdpr/ccpa/fadp/generic) [auto]: ",
+    );
     if template_choice.is_empty() {
-        template_choice = "generic".into();
+        template_choice = "auto".into();
     }
     // Not in Go (which saves any string): reject names the engine can't render.
     let available = template::Engine::new()
         .context("failed to initialize templates")?
         .available_templates();
-    if !available.contains(&template_choice) {
+    if template_choice != "auto" && !available.contains(&template_choice) {
         anyhow::bail!(
-            "unknown template {template_choice:?} (available: {})",
+            "unknown template {template_choice:?} (available: auto, {})",
             available.join(", ")
         );
     }
@@ -224,7 +264,7 @@ async fn run_send(ctx: &Ctx, dry_run: bool) -> Result<()> {
             broker_id: b.id.clone(),
             broker_name: b.name.clone(),
             email: b.email.clone(),
-            template: cfg.options.template.clone(),
+            template: msg.template.clone(),
             sent_at: Some(chrono::Local::now()),
             ..Default::default()
         };
@@ -284,8 +324,9 @@ fn run_list_brokers(ctx: &Ctx) -> Result<()> {
 fn run_status(limit: i64) -> Result<()> {
     let store = open_store("open")?;
     let (total, sent, failed) = store.get_stats().context("failed to get stats")?;
-    let (monthly_sent, monthly_failed) =
-        store.get_monthly_stats().context("failed to get monthly stats")?;
+    let (monthly_sent, monthly_failed) = store
+        .get_monthly_stats()
+        .context("failed to get monthly stats")?;
 
     println!("📊 Eraser Statistics");
     println!("{RULE}");
@@ -307,7 +348,11 @@ fn run_status(limit: i64) -> Result<()> {
         println!("📜 Recent Requests (last {limit})");
         println!("{RULE}");
         for r in &records {
-            let icon = if r.status == Status::Failed { "❌" } else { "✅" };
+            let icon = if r.status == Status::Failed {
+                "❌"
+            } else {
+                "✅"
+            };
             let at = r
                 .sent_at
                 .map(|t| t.format("%Y-%m-%d %H:%M").to_string())
@@ -336,7 +381,10 @@ fn run_add_broker(ctx: &Ctx) -> Result<()> {
     b.website = prompt(&mut input, "Website (optional): ");
     b.opt_out_url = prompt(&mut input, "Opt-out URL (optional): ");
     b.region = prompt(&mut input, "Region (us/eu/global): ");
-    b.category = prompt(&mut input, "Category (people-search/marketing/background-check): ");
+    b.category = prompt(
+        &mut input,
+        "Category (people-search/marketing/background-check): ",
+    );
 
     // Unlike the other commands, add-broker has no next-to-binary fallback (as in Go).
     let path = ctx
@@ -369,15 +417,42 @@ fn run_pipeline_status() -> Result<()> {
         .context("failed to get pipeline stats")?;
     let n = |s: PipelineStatus| stats.get(&s).copied().unwrap_or(0);
     println!("📊 Pipeline Stage Breakdown:");
-    println!("  📧 Email sent:            {}", n(PipelineStatus::EmailSent));
-    println!("  ⏳ Awaiting response:     {}", n(PipelineStatus::AwaitingResponse));
-    println!("  📝 Form required:         {}", n(PipelineStatus::FormRequired));
-    println!("  ✏️  Form filled:           {}", n(PipelineStatus::FormFilled));
-    println!("  🤖 Awaiting CAPTCHA:      {}", n(PipelineStatus::AwaitingCaptcha));
-    println!("  ✅ CAPTCHA solved:        {}", n(PipelineStatus::CaptchaSolved));
-    println!("  🔗 Awaiting confirmation: {}", n(PipelineStatus::AwaitingConfirmation));
-    println!("  ✅ Confirmed:             {}", n(PipelineStatus::Confirmed));
-    println!("  ❌ Rejected:              {}", n(PipelineStatus::Rejected));
+    println!(
+        "  📧 Email sent:            {}",
+        n(PipelineStatus::EmailSent)
+    );
+    println!(
+        "  ⏳ Awaiting response:     {}",
+        n(PipelineStatus::AwaitingResponse)
+    );
+    println!(
+        "  📝 Form required:         {}",
+        n(PipelineStatus::FormRequired)
+    );
+    println!(
+        "  ✏️  Form filled:           {}",
+        n(PipelineStatus::FormFilled)
+    );
+    println!(
+        "  🤖 Awaiting CAPTCHA:      {}",
+        n(PipelineStatus::AwaitingCaptcha)
+    );
+    println!(
+        "  ✅ CAPTCHA solved:        {}",
+        n(PipelineStatus::CaptchaSolved)
+    );
+    println!(
+        "  🔗 Awaiting confirmation: {}",
+        n(PipelineStatus::AwaitingConfirmation)
+    );
+    println!(
+        "  ✅ Confirmed:             {}",
+        n(PipelineStatus::Confirmed)
+    );
+    println!(
+        "  ❌ Rejected:              {}",
+        n(PipelineStatus::Rejected)
+    );
     println!("  💥 Failed:                {}", n(PipelineStatus::Failed));
 
     match store.get_response_stats() {
@@ -431,7 +506,12 @@ pub fn truncate(s: &str, max_len: usize) -> String {
     format!("{}...", &s[..end])
 }
 
-async fn run_serve(ctx: &Ctx, host: String, port: u16, public_origin: Option<String>) -> Result<()> {
+async fn run_serve(
+    ctx: &Ctx,
+    host: String,
+    port: u16,
+    public_origin: Option<String>,
+) -> Result<()> {
     eraser::web::serve(eraser::web::ServeOptions {
         host,
         port,

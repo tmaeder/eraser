@@ -15,9 +15,18 @@ fn init_writes_icloud_config() {
         .stderr(Stdio::piped())
         .spawn()
         .unwrap();
-    child.stdin.take().unwrap().write_all(answers.as_bytes()).unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(answers.as_bytes())
+        .unwrap();
     let out = child.wait_with_output().unwrap();
-    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
 
     let path = home.path().join(".eraser/config.yaml");
     let stdout = String::from_utf8_lossy(&out.stdout);
@@ -48,7 +57,7 @@ fn init_writes_icloud_config() {
 }
 
 #[test]
-fn init_defaults_template_to_generic_on_eof() {
+fn init_defaults_template_to_auto_on_eof() {
     let home = tempfile::tempdir().unwrap();
     let mut child = Command::new(env!("CARGO_BIN_EXE_eraser"))
         .arg("init")
@@ -57,10 +66,15 @@ fn init_defaults_template_to_generic_on_eof() {
         .stdout(Stdio::null())
         .spawn()
         .unwrap();
-    child.stdin.take().unwrap().write_all(b"Jane\nDoe\n").unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(b"Jane\nDoe\n")
+        .unwrap();
     assert!(child.wait().unwrap().success());
     let cfg = eraser::config::load(home.path().join(".eraser/config.yaml")).unwrap();
-    assert_eq!(cfg.options.template, "generic");
+    assert_eq!(cfg.options.template, "auto");
     assert_eq!(cfg.email.smtp.host, "smtp.mail.me.com");
     assert_eq!(cfg.email.from, "");
 }
@@ -77,7 +91,12 @@ fn init_rejects_unknown_template() {
         .spawn()
         .unwrap();
     let answers = "J\nD\nj@x.com\n\n\n\n\n\n\nj@icloud.com\npw\nnosuch\n";
-    child.stdin.take().unwrap().write_all(answers.as_bytes()).unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(answers.as_bytes())
+        .unwrap();
     let out = child.wait_with_output().unwrap();
     assert_eq!(out.status.code(), Some(1));
     assert!(String::from_utf8_lossy(&out.stderr).contains("unknown template \"nosuch\""));

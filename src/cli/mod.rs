@@ -29,7 +29,9 @@ pub async fn run(argv: Vec<OsString>) -> i32 {
         Ok(c) => c,
         Err(e) => return clap_error(&root, &argv, e),
     };
-    let sub = matches.subcommand_name().and_then(|n| root.find_subcommand(n));
+    let sub = matches
+        .subcommand_name()
+        .and_then(|n| root.find_subcommand(n));
 
     let Some(cmd) = cli.command else {
         print!("{}", help::help(&root, None));
@@ -100,7 +102,10 @@ fn clap_error(root: &Command, argv: &[OsString], e: clap::Error) -> i32 {
             let arg = arg.split('=').next().unwrap_or_default();
             let msg = match arg.strip_prefix('-') {
                 Some(s) if !s.starts_with('-') => {
-                    format!("unknown shorthand flag: '{}' in {arg}", &s[..1.min(s.len())])
+                    format!(
+                        "unknown shorthand flag: '{}' in {arg}",
+                        &s[..1.min(s.len())]
+                    )
                 }
                 _ => format!("unknown flag: {arg}"),
             };
@@ -111,17 +116,34 @@ fn clap_error(root: &Command, argv: &[OsString], e: clap::Error) -> i32 {
             let flag = arg.split([' ', '=', '[']).next().unwrap_or_default();
             let value = context_str(&e, ContextKind::InvalidValue);
             let kind = sub
-                .and_then(|c| c.get_arguments().find(|a| a.get_long() == flag.strip_prefix("--")))
-                .and_then(|a| a.get_value_names().and_then(|v| v.first()).map(|v| v.to_string()));
+                .and_then(|c| {
+                    c.get_arguments()
+                        .find(|a| a.get_long() == flag.strip_prefix("--"))
+                })
+                .and_then(|a| {
+                    a.get_value_names()
+                        .and_then(|v| v.first())
+                        .map(|v| v.to_string())
+                });
             // Go's strconv wording.
             let reason = match kind.as_deref() {
-                Some("int") if !value.is_empty() && value.trim_start_matches('-').bytes().all(|b| b.is_ascii_digit()) => {
+                Some("int")
+                    if !value.is_empty()
+                        && value
+                            .trim_start_matches('-')
+                            .bytes()
+                            .all(|b| b.is_ascii_digit()) =>
+                {
                     format!("strconv.ParseInt: parsing {value:?}: value out of range")
                 }
                 Some("int") => format!("strconv.ParseInt: parsing {value:?}: invalid syntax"),
                 _ => format!("strconv.ParseBool: parsing {value:?}: invalid syntax"),
             };
-            fail(root, sub, &format!("invalid argument {value:?} for {flag:?} flag: {reason}"));
+            fail(
+                root,
+                sub,
+                &format!("invalid argument {value:?} for {flag:?} flag: {reason}"),
+            );
         }
         _ => {
             let rendered = e.render().to_string();

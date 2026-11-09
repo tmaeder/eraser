@@ -4,12 +4,12 @@ use super::commands::{Ctx, RULE, open_store, truncate};
 use anyhow::{Result, anyhow};
 use chrono::Local;
 use eraser::history::{BrokerResponse, PipelineStatus};
+use eraser::inbox::Email;
 use eraser::inbox::classifier::{
     ClassifiedResponse, ResponseType, classify_response, summarize_responses,
 };
 use eraser::inbox::monitor::Monitor;
 use eraser::inbox::parser::extract_bounced_recipient;
-use eraser::inbox::Email;
 use tokio::sync::watch;
 
 fn print_inbox_setup_help() {
@@ -21,11 +21,15 @@ fn print_inbox_setup_help() {
     println!("  enabled: true");
     println!("  provider: icloud");
     println!("  email: you@icloud.com");
-    println!("  password: xxxx-xxxx-xxxx-xxxx  # App-specific password, not your Apple ID password");
+    println!(
+        "  password: xxxx-xxxx-xxxx-xxxx  # App-specific password, not your Apple ID password"
+    );
     println!();
     println!("For iCloud, you'll need to:");
     println!("  1. Enable two-factor authentication for your Apple ID");
-    println!("  2. Generate an app-specific password at https://account.apple.com (Sign-In and Security)");
+    println!(
+        "  2. Generate an app-specific password at https://account.apple.com (Sign-In and Security)"
+    );
 }
 
 fn broker_response(email: &Email, c: &ClassifiedResponse) -> BrokerResponse {
@@ -157,10 +161,8 @@ async fn monitor_session(
             println!("⚠️  Failed to store response: {e:#}");
         }
         // Ignore errors (no matching record), as in Go.
-        let _ = store.update_pipeline_status(
-            &email.broker_id,
-            pipeline_status_for(classified.r#type),
-        );
+        let _ =
+            store.update_pipeline_status(&email.broker_id, pipeline_status_for(classified.r#type));
         print_classified_response(&classified);
         responses.push(classified);
     }
@@ -251,7 +253,10 @@ pub async fn run_cleanup_bounces(ctx: &Ctx, remove: bool, days: i64) -> Result<(
     for email in &bounces {
         let recipient = extract_bounced_recipient(email);
         if recipient.is_empty() {
-            println!("⚠️  Could not extract bounced address from: {}", email.subject);
+            println!(
+                "⚠️  Could not extract bounced address from: {}",
+                email.subject
+            );
             continue;
         }
         let Some(b) = db.find_by_email(&recipient) else {
@@ -282,7 +287,10 @@ pub async fn run_cleanup_bounces(ctx: &Ctx, remove: bool, days: i64) -> Result<(
         return Ok(());
     }
 
-    println!("\n🗑️  Removing {} broker(s) from database...\n", bounced.len());
+    println!(
+        "\n🗑️  Removing {} broker(s) from database...\n",
+        bounced.len()
+    );
     let mut removed = 0;
     for (addr, name) in &bounced {
         if db.remove_by_email(addr).is_some() {

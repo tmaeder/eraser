@@ -145,7 +145,10 @@ async fn fill_forms(
             println!("       Broker: {}", form.broker_id);
         }
 
-        let result = match b.navigate_and_fill(&form.url, &form.broker_id, auto_submit).await {
+        let result = match b
+            .navigate_and_fill(&form.url, &form.broker_id, auto_submit)
+            .await
+        {
             Ok(r) => r,
             Err(e) => {
                 println!("       ❌ Error: {e:#}");
@@ -154,7 +157,10 @@ async fn fill_forms(
         };
 
         if !result.fields_filled.is_empty() {
-            println!("       ✅ Filled fields: {}", result.fields_filled.join(", "));
+            println!(
+                "       ✅ Filled fields: {}",
+                result.fields_filled.join(", ")
+            );
         }
         if !result.fields_missing.is_empty() {
             println!(
@@ -343,7 +349,10 @@ pub async fn run_confirm(
 
     println!("{RULE}");
     if dry_run {
-        println!("📊 Dry run complete: {} links would be clicked", links.len());
+        println!(
+            "📊 Dry run complete: {} links would be clicked",
+            links.len()
+        );
     } else {
         println!("📊 Complete: {success} confirmed, {failed} failed");
     }

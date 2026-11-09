@@ -3,7 +3,9 @@
 //! same temp dir. Skips (passes with a note) when `go` is unavailable.
 
 use chrono::{Duration, Local};
-use eraser::history::{BrokerResponse, PendingTask, PipelineStatus, Record, Status, Store, TaskType};
+use eraser::history::{
+    BrokerResponse, PendingTask, PipelineStatus, Record, Status, Store, TaskType,
+};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -71,7 +73,12 @@ fn run(bin: &Path, home: &Path, args: &[&str], stdin: &str) -> Output {
         .stderr(Stdio::piped())
         .spawn()
         .expect("spawn");
-    child.stdin.take().unwrap().write_all(stdin.as_bytes()).unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(stdin.as_bytes())
+        .unwrap();
     let out = child.wait_with_output().unwrap();
     Output {
         stdout: String::from_utf8_lossy(&out.stdout).into_owned(),
@@ -112,7 +119,11 @@ fn seed_history(home: &Path) {
             template: "gdpr".into(),
             status: if failed { Status::Failed } else { Status::Sent },
             message_id: format!("<{i}@eraser>"),
-            error: if failed { "550 mailbox unavailable".into() } else { String::new() },
+            error: if failed {
+                "550 mailbox unavailable".into()
+            } else {
+                String::new()
+            },
             sent_at: Some(now - Duration::hours(i * 30)),
             ..Default::default()
         };
@@ -155,21 +166,34 @@ fn both(args: &[&str], stdin: &str, setup: fn(&Path)) -> Option<(Output, Output)
         setup(home.path());
         run(bin, home.path(), args, stdin)
     };
-    Some((run_in_fresh_home(go), run_in_fresh_home(Path::new(RUST_BIN))))
+    Some((
+        run_in_fresh_home(go),
+        run_in_fresh_home(Path::new(RUST_BIN)),
+    ))
 }
 
 fn no_setup(_: &Path) {}
 
 fn assert_same(args: &[&str], setup: fn(&Path)) {
-    let Some((go, rs)) = both(args, "", setup) else { return };
+    let Some((go, rs)) = both(args, "", setup) else {
+        return;
+    };
     assert_eq!(go, rs, "output differs for `eraser {}`", args.join(" "));
 }
 
 #[test]
 fn help_matches() {
     let subcommands = [
-        "init", "send", "list-brokers", "status", "add-broker", "monitor", "pipeline", "fill",
-        "confirm", "cleanup-bounces",
+        "init",
+        "send",
+        "list-brokers",
+        "status",
+        "add-broker",
+        "monitor",
+        "pipeline",
+        "fill",
+        "confirm",
+        "cleanup-bounces",
     ];
     for sub in subcommands {
         assert_same(&[sub, "--help"], no_setup);
@@ -182,7 +206,9 @@ fn help_matches() {
 #[test]
 fn root_help_matches_except_completion() {
     for args in [&["--help"][..], &[]] {
-        let Some((mut go, rs)) = both(args, "", no_setup) else { return };
+        let Some((mut go, rs)) = both(args, "", no_setup) else {
+            return;
+        };
         go.stdout = go
             .stdout
             .lines()
@@ -196,7 +222,9 @@ fn root_help_matches_except_completion() {
 /// Intentional difference: serve gains --host and --public-origin (column width changes).
 #[test]
 fn serve_help_matches_except_new_flags() {
-    let Some((go, rs)) = both(&["serve", "--help"], "", no_setup) else { return };
+    let Some((go, rs)) = both(&["serve", "--help"], "", no_setup) else {
+        return;
+    };
     let norm = |s: &str| -> String {
         s.lines()
             .filter(|l| !l.contains("--host") && !l.contains("--public-origin"))
@@ -204,7 +232,10 @@ fn serve_help_matches_except_new_flags() {
             .collect()
     };
     assert_eq!(norm(&go.stdout), norm(&rs.stdout));
-    assert!(rs.stdout.contains("--host string            Address to listen on (default \"127.0.0.1\")"));
+    assert!(
+        rs.stdout
+            .contains("--host string            Address to listen on (default \"127.0.0.1\")")
+    );
     assert_eq!((go.stderr, go.code), (rs.stderr, rs.code));
 }
 
@@ -254,7 +285,14 @@ fn missing_config_matches() {
         );
     }
     // The usage block in between is identical.
-    let usage = |o: &Output| o.stderr.lines().skip(2).take(10).collect::<Vec<_>>().join("\n");
+    let usage = |o: &Output| {
+        o.stderr
+            .lines()
+            .skip(2)
+            .take(10)
+            .collect::<Vec<_>>()
+            .join("\n")
+    };
     assert_eq!(usage(&go_out), usage(&rs_out));
 }
 
@@ -279,11 +317,6 @@ fn init_matches() {
     std::fs::remove_dir_all(home.path().join(".eraser")).unwrap();
     let rs_out = run(Path::new(RUST_BIN), home.path(), &["init"], answers);
     let rs_cfg = eraser::config::load(&path).unwrap();
-    // Intentional difference: the template prompt also lists the Swiss "fadp" template.
-    let mut go_out = go_out;
-    go_out.stdout = go_out
-        .stdout
-        .replace("(gdpr/ccpa/generic)", "(gdpr/ccpa/fadp/generic)");
     assert_eq!(go_out, rs_out);
     assert_eq!(go_cfg, rs_cfg);
 }
@@ -291,7 +324,10 @@ fn init_matches() {
 fn seed_confirmations(home: &Path) {
     let store = Store::new(home.join(".eraser/history.db")).unwrap();
     for (id, url) in [
-        ("spokeo", "https://www.spokeo.com/optout/confirm?token=abcdefghijklmnopqrstuvwxyz0123456789"),
+        (
+            "spokeo",
+            "https://www.spokeo.com/optout/confirm?token=abcdefghijklmnopqrstuvwxyz0123456789",
+        ),
         ("shady", "https://phish.example.net/confirm?t=1"),
     ] {
         store
@@ -312,10 +348,67 @@ fn confirm_dry_run_matches() {
     assert_same(&["confirm"], no_setup);
     assert_same(&["confirm", "--pending"], no_setup);
     assert_same(&["confirm", "--pending", "--dry-run"], seed_confirmations);
-    assert_same(&["confirm", "--broker", "spokeo", "--dry-run"], seed_confirmations);
-    assert_same(&["confirm", "--broker", "nobody", "--dry-run"], seed_confirmations);
     assert_same(
-        &["confirm", "--url", "https://mail.spokeo.com/c?x=1", "--dry-run"],
+        &["confirm", "--broker", "spokeo", "--dry-run"],
+        seed_confirmations,
+    );
+    assert_same(
+        &["confirm", "--broker", "nobody", "--dry-run"],
+        seed_confirmations,
+    );
+    assert_same(
+        &[
+            "confirm",
+            "--url",
+            "https://mail.spokeo.com/c?x=1",
+            "--dry-run",
+        ],
         no_setup,
+    );
+}
+
+/// Rust-only: `send` records the template actually used ("auto" resolved per region).
+/// SMTP points at a closed local port, so every send fails without leaving the machine.
+#[test]
+fn send_records_resolved_template() {
+    let home = home_with_config();
+    let cfg_path = home.path().join(".eraser/config.yaml");
+    let cfg = FIXTURE_CONFIG
+        .replace("template: gdpr", "template: auto")
+        .replace("regions: [eu]", "regions: []");
+    std::fs::write(&cfg_path, cfg).unwrap();
+    let brokers = home.path().join("brokers.yaml");
+    std::fs::write(
+        &brokers,
+        "brokers:
+  - {id: swiss, name: Swiss Co, email: privacy@swiss.example, region: ch}
+  - {id: euro, name: Euro Co, email: privacy@euro.example, region: eu}
+  - {id: usa, name: US Co, email: privacy@us.example, region: us}
+",
+    )
+    .unwrap();
+    let out = run(
+        Path::new(RUST_BIN),
+        home.path(),
+        &["--brokers", brokers.to_str().unwrap(), "send"],
+        "",
+    );
+    assert_eq!(out.code, 0, "{out:?}");
+    assert!(
+        out.stdout.contains("📊 Complete: 0 sent, 3 failed"),
+        "{out:?}"
+    );
+    let store = Store::new(home.path().join(".eraser/history.db")).unwrap();
+    let mut got: Vec<(String, String)> = store
+        .get_recent_requests(10)
+        .unwrap()
+        .into_iter()
+        .map(|r| (r.broker_id, r.template))
+        .collect();
+    got.sort();
+    assert_eq!(
+        got,
+        [("euro", "gdpr"), ("swiss", "fadp"), ("usa", "generic")]
+            .map(|(a, b)| (a.to_string(), b.to_string()))
     );
 }

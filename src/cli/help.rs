@@ -55,7 +55,11 @@ fn render_flags(mut lines: Vec<FlagLine>) -> String {
     let width = lines.iter().map(|l| l.left.len()).max().unwrap_or(0);
     lines
         .iter()
-        .map(|l| format!("{:width$}   {}", l.left, l.usage).trim_end().to_string())
+        .map(|l| {
+            format!("{:width$}   {}", l.left, l.usage)
+                .trim_end()
+                .to_string()
+        })
         .collect::<Vec<_>>()
         .join("\n")
 }

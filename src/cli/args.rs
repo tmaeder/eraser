@@ -21,7 +21,8 @@ This opens a visual dashboard where you can:
 
 The server runs locally on your machine - no data is sent to external servers.";
 
-const MONITOR_LONG: &str = "Connect to your email inbox via IMAP and monitor for responses from data brokers.
+const MONITOR_LONG: &str =
+    "Connect to your email inbox via IMAP and monitor for responses from data brokers.
 
 This command will:
 - Fetch recent emails from known broker domains
@@ -99,9 +100,19 @@ Examples:
     disable_version_flag = true
 )]
 pub struct Cli {
-    #[arg(long, global = true, value_name = "string", help = "config file (default is $HOME/.eraser/config.yaml)")]
+    #[arg(
+        long,
+        global = true,
+        value_name = "string",
+        help = "config file (default is $HOME/.eraser/config.yaml)"
+    )]
     pub config: Option<PathBuf>,
-    #[arg(long, global = true, value_name = "string", help = "broker database file (default is ./data/brokers.yaml)")]
+    #[arg(
+        long,
+        global = true,
+        value_name = "string",
+        help = "broker database file (default is ./data/brokers.yaml)"
+    )]
     pub brokers: Option<PathBuf>,
     #[arg(short, long, global = true, action = ArgAction::SetTrue, hide = true)]
     pub help: bool,
@@ -111,53 +122,112 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Cmd {
-    #[command(about = "Initialize configuration interactively", long_about = "Create a new configuration file with your personal information and email settings.")]
+    #[command(
+        about = "Initialize configuration interactively",
+        long_about = "Create a new configuration file with your personal information and email settings."
+    )]
     Init,
-    #[command(about = "Send removal requests to data brokers", long_about = "Send data removal requests to all configured data brokers.")]
+    #[command(
+        about = "Send removal requests to data brokers",
+        long_about = "Send data removal requests to all configured data brokers."
+    )]
     Send {
         #[arg(long, action = ArgAction::Set, num_args = 0..=1, require_equals = true, default_missing_value = "true", default_value = "false", value_parser = BoolishValueParser::new(), help = "Preview emails without sending")]
         dry_run: bool,
     },
     #[command(about = "Start the local web interface", long_about = SERVE_LONG)]
     Serve {
-        #[arg(long, default_value_t = 8080, value_name = "int", help = "Port to listen on")]
+        #[arg(
+            long,
+            default_value_t = 8080,
+            value_name = "int",
+            help = "Port to listen on"
+        )]
         port: u16,
-        #[arg(long, default_value = "127.0.0.1", value_name = "string", help = "Address to listen on")]
+        #[arg(
+            long,
+            default_value = "127.0.0.1",
+            value_name = "string",
+            help = "Address to listen on"
+        )]
         host: String,
-        #[arg(long, value_name = "string", help = "Public origin (scheme://host[:port]) when served behind a proxy")]
+        #[arg(
+            long,
+            value_name = "string",
+            help = "Public origin (scheme://host[:port]) when served behind a proxy"
+        )]
         public_origin: Option<String>,
     },
-    #[command(about = "List all data brokers in the database", long_about = "Show all data brokers that will receive removal requests.")]
+    #[command(
+        about = "List all data brokers in the database",
+        long_about = "Show all data brokers that will receive removal requests."
+    )]
     ListBrokers,
-    #[command(about = "Show removal request history and statistics", long_about = "Display recent removal requests and overall statistics.")]
+    #[command(
+        about = "Show removal request history and statistics",
+        long_about = "Display recent removal requests and overall statistics."
+    )]
     Status {
-        #[arg(long, default_value_t = 20, value_name = "int", allow_negative_numbers = true, help = "Number of recent requests to show")]
+        #[arg(
+            long,
+            default_value_t = 20,
+            value_name = "int",
+            allow_negative_numbers = true,
+            help = "Number of recent requests to show"
+        )]
         limit: i64,
     },
-    #[command(about = "Add a new data broker to the database", long_about = "Interactively add a new data broker to the local broker database.")]
+    #[command(
+        about = "Add a new data broker to the database",
+        long_about = "Interactively add a new data broker to the local broker database."
+    )]
     AddBroker,
     #[command(about = "Monitor inbox for broker responses", long_about = MONITOR_LONG)]
     Monitor {
-        #[arg(long, default_value_t = 7, value_name = "int", allow_negative_numbers = true, help = "Number of days to look back for emails")]
+        #[arg(
+            long,
+            default_value_t = 7,
+            value_name = "int",
+            allow_negative_numbers = true,
+            help = "Number of days to look back for emails"
+        )]
         days: i64,
         #[arg(long, action = ArgAction::Set, num_args = 0..=1, require_equals = true, default_missing_value = "true", default_value = "false", value_parser = BoolishValueParser::new(), help = "Check inbox once and exit (don't watch for new emails)")]
         once: bool,
         #[arg(long, action = ArgAction::Set, num_args = 0..=1, require_equals = true, default_missing_value = "true", default_value = "false", value_parser = BoolishValueParser::new(), help = "Continuously watch for new emails")]
         watch: bool,
     },
-    #[command(about = "Show pipeline status and statistics", long_about = "Display the current status of the removal pipeline, including pending tasks and response classifications.")]
+    #[command(
+        about = "Show pipeline status and statistics",
+        long_about = "Display the current status of the removal pipeline, including pending tasks and response classifications."
+    )]
     Pipeline,
     #[command(about = "Fill opt-out forms using browser automation", long_about = FILL_LONG)]
     Fill {
-        #[arg(long, default_value = "", value_name = "string", help = "Broker ID to fill form for (uses URL from pipeline)")]
+        #[arg(
+            long,
+            default_value = "",
+            value_name = "string",
+            help = "Broker ID to fill form for (uses URL from pipeline)"
+        )]
         broker: String,
-        #[arg(long, default_value = "", value_name = "string", help = "Direct URL to the opt-out form")]
+        #[arg(
+            long,
+            default_value = "",
+            value_name = "string",
+            help = "Direct URL to the opt-out form"
+        )]
         url: String,
         #[arg(long, action = ArgAction::Set, num_args = 0..=1, require_equals = true, default_missing_value = "true", default_value = "true", value_parser = BoolishValueParser::new(), help = "Run browser in headless mode")]
         headless: bool,
         #[arg(long, action = ArgAction::Set, num_args = 0..=1, require_equals = true, default_missing_value = "true", default_value = "false", value_parser = BoolishValueParser::new(), help = "Automatically submit the form after filling")]
         submit: bool,
-        #[arg(long, default_value = "", value_name = "string", help = "Directory to save screenshots (default: ~/.eraser/screenshots)")]
+        #[arg(
+            long,
+            default_value = "",
+            value_name = "string",
+            help = "Directory to save screenshots (default: ~/.eraser/screenshots)"
+        )]
         screenshots: String,
         #[arg(long, action = ArgAction::Set, num_args = 0..=1, require_equals = true, default_missing_value = "true", default_value = "false", value_parser = BoolishValueParser::new(), help = "Fill all pending forms from the pipeline")]
         pending: bool,
@@ -166,9 +236,19 @@ pub enum Cmd {
     },
     #[command(about = "Click confirmation links from broker emails", long_about = CONFIRM_LONG)]
     Confirm {
-        #[arg(long, default_value = "", value_name = "string", help = "Direct confirmation URL to click")]
+        #[arg(
+            long,
+            default_value = "",
+            value_name = "string",
+            help = "Direct confirmation URL to click"
+        )]
         url: String,
-        #[arg(long, default_value = "", value_name = "string", help = "Broker ID to confirm for (uses URL from pipeline)")]
+        #[arg(
+            long,
+            default_value = "",
+            value_name = "string",
+            help = "Broker ID to confirm for (uses URL from pipeline)"
+        )]
         broker: String,
         #[arg(long, action = ArgAction::Set, num_args = 0..=1, require_equals = true, default_missing_value = "true", default_value = "false", value_parser = BoolishValueParser::new(), help = "Confirm all pending confirmation links")]
         pending: bool,
@@ -181,9 +261,18 @@ pub enum Cmd {
     CleanupBounces {
         #[arg(long, action = ArgAction::Set, num_args = 0..=1, require_equals = true, default_missing_value = "true", default_value = "false", value_parser = BoolishValueParser::new(), help = "Actually remove bounced brokers from database")]
         remove: bool,
-        #[arg(long, default_value_t = 30, value_name = "int", allow_negative_numbers = true, help = "Number of days to scan for bounced emails")]
+        #[arg(
+            long,
+            default_value_t = 30,
+            value_name = "int",
+            allow_negative_numbers = true,
+            help = "Number of days to scan for bounced emails"
+        )]
         days: i64,
     },
-    #[command(about = "Help about any command", long_about = "Help provides help for any command in the application.\nSimply type eraser help [path to command] for full details.")]
+    #[command(
+        about = "Help about any command",
+        long_about = "Help provides help for any command in the application.\nSimply type eraser help [path to command] for full details."
+    )]
     Help { topic: Vec<String> },
 }

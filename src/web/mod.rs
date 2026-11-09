@@ -73,7 +73,8 @@ impl RateLimiter {
     fn cleanup(&self) {
         let now = Instant::now();
         let mut map = self.requests.lock().unwrap();
-        map.values_mut().for_each(|v| v.retain(|t| now.duration_since(*t) < self.window));
+        map.values_mut()
+            .for_each(|v| v.retain(|t| now.duration_since(*t) < self.window));
         map.retain(|_, v| !v.is_empty());
     }
 }
@@ -123,7 +124,10 @@ pub fn app(opts: AppOptions) -> Result<(Router, Arc<AppState>)> {
         trusted.push(origin_host(origin)?);
     }
     let secure = opts.public_origin.is_some();
-    let csrf = Arc::new(csrf::Csrf { trusted_origins: trusted, secure });
+    let csrf = Arc::new(csrf::Csrf {
+        trusted_origins: trusted,
+        secure,
+    });
 
     let state = Arc::new(AppState {
         config: RwLock::new(opts.config),
@@ -182,7 +186,10 @@ pub fn app(opts: AppOptions) -> Result<(Router, Arc<AppState>)> {
         .route("/forms/{broker_id}/skip", post(h::form_skip))
         .route("/setup", get(h::setup_welcome))
         .route("/setup/", get(h::setup_welcome))
-        .route("/setup/profile", get(h::setup_profile).post(h::setup_profile))
+        .route(
+            "/setup/profile",
+            get(h::setup_profile).post(h::setup_profile),
+        )
         .route("/setup/email", get(h::setup_email).post(h::setup_email))
         .route("/setup/test", get(h::setup_test))
         .route("/setup/test/send", post(h::setup_test_send))
@@ -222,7 +229,10 @@ async fn security_headers(
     set(header::REFERRER_POLICY, "strict-origin-when-cross-origin");
     set(header::CONTENT_SECURITY_POLICY, CSP);
     if !is_static {
-        set(header::CACHE_CONTROL, "no-store, no-cache, must-revalidate, private");
+        set(
+            header::CACHE_CONTROL,
+            "no-store, no-cache, must-revalidate, private",
+        );
         set(header::PRAGMA, "no-cache");
         set(header::EXPIRES, "0");
     }
@@ -295,7 +305,12 @@ pub async fn serve(opts: ServeOptions) -> Result<()> {
 
     let listener = tokio::net::TcpListener::bind((opts.host.as_str(), opts.port))
         .await
-        .with_context(|| format!("server error: failed to listen on {}:{}", opts.host, opts.port))?;
+        .with_context(|| {
+            format!(
+                "server error: failed to listen on {}:{}",
+                opts.host, opts.port
+            )
+        })?;
 
     let cleanup_state = state.clone();
     tokio::spawn(async move {
@@ -318,7 +333,10 @@ pub async fn serve(opts: ServeOptions) -> Result<()> {
         });
     }
     match &opts.public_origin {
-        Some(origin) => println!("Starting Eraser web UI at {origin} (listening on {}:{})", opts.host, opts.port),
+        Some(origin) => println!(
+            "Starting Eraser web UI at {origin} (listening on {}:{})",
+            opts.host, opts.port
+        ),
         None => println!("Starting Eraser web UI at {url}"),
     }
     println!("Press Ctrl+C to stop");

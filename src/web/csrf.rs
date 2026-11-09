@@ -69,7 +69,10 @@ fn scheme_host(raw: &str) -> (String, String) {
 }
 
 fn header_str(headers: &HeaderMap, name: impl header::AsHeaderName) -> &str {
-    headers.get(name).and_then(|v| v.to_str().ok()).unwrap_or("")
+    headers
+        .get(name)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
 }
 
 impl Csrf {
@@ -136,7 +139,10 @@ pub async fn protect(State(csrf): State<Arc<Csrf>>, req: Request, next: Next) ->
     };
     parts.extensions.insert(CsrfToken(mask(&real)));
 
-    let safe = matches!(parts.method, Method::GET | Method::HEAD | Method::OPTIONS | Method::TRACE);
+    let safe = matches!(
+        parts.method,
+        Method::GET | Method::HEAD | Method::OPTIONS | Method::TRACE
+    );
     let verdict = if safe {
         Ok(())
     } else {
@@ -148,7 +154,9 @@ pub async fn protect(State(csrf): State<Arc<Csrf>>, req: Request, next: Next) ->
                     .starts_with("application/x-www-form-urlencoded");
                 let has_body = matches!(parts.method, Method::POST | Method::PUT | Method::PATCH);
                 if issued.is_empty() && is_form && has_body {
-                    let bytes = axum::body::to_bytes(body, MAX_FORM_BYTES).await.unwrap_or_default();
+                    let bytes = axum::body::to_bytes(body, MAX_FORM_BYTES)
+                        .await
+                        .unwrap_or_default();
                     issued = url::form_urlencoded::parse(&bytes)
                         .find(|(k, _)| k == FIELD_NAME)
                         .map(|(_, v)| v.into_owned())
@@ -170,7 +178,8 @@ pub async fn protect(State(csrf): State<Arc<Csrf>>, req: Request, next: Next) ->
     let mut resp = match verdict {
         Ok(()) => {
             let mut r = next.run(Request::from_parts(parts, body)).await;
-            r.headers_mut().append(header::VARY, "Cookie".parse().unwrap());
+            r.headers_mut()
+                .append(header::VARY, "Cookie".parse().unwrap());
             r
         }
         Err(reason) => {
@@ -179,7 +188,8 @@ pub async fn protect(State(csrf): State<Arc<Csrf>>, req: Request, next: Next) ->
         }
     };
     if let Some(c) = set_cookie {
-        resp.headers_mut().append(header::SET_COOKIE, c.parse().unwrap());
+        resp.headers_mut()
+            .append(header::SET_COOKIE, c.parse().unwrap());
     }
     resp
 }
@@ -202,7 +212,10 @@ mod tests {
 
     #[test]
     fn origin_rules() {
-        let c = Csrf { trusted_origins: vec!["localhost:8080".into()], secure: false };
+        let c = Csrf {
+            trusted_origins: vec!["localhost:8080".into()],
+            secure: false,
+        };
         let mut h = HeaderMap::new();
         h.insert(header::HOST, "localhost:8080".parse().unwrap());
         assert_eq!(c.check_origin(&h), Err("referer not supplied"));

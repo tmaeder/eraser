@@ -34,7 +34,10 @@ pub(crate) fn random_hex(bytes: usize) -> String {
 
 impl SessionStore {
     pub fn new(ttl: Duration) -> Self {
-        Self { sessions: Mutex::new(HashMap::new()), ttl }
+        Self {
+            sessions: Mutex::new(HashMap::new()),
+            ttl,
+        }
     }
 
     pub fn create(&self) -> String {

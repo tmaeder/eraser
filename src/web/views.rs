@@ -23,12 +23,18 @@ const TEMPLATES: &[(&str, &str)] = embed!("templates/web":
 pub const STATIC_FILES: &[(&str, &[u8], &str)] = &[
     (
         "css/tailwind.min.css",
-        include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/static/css/tailwind.min.css")),
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/static/css/tailwind.min.css"
+        )),
         "text/css; charset=utf-8",
     ),
     (
         "js/htmx.min.js",
-        include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/static/js/htmx.min.js")),
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/static/js/htmx.min.js"
+        )),
         "text/javascript; charset=utf-8",
     ),
 ];
@@ -111,12 +117,18 @@ mod tests {
     fn templates_compile_and_filters() {
         let env = environment();
         assert!(env.get_template("partials/task-list.html").is_ok());
-        assert_eq!(format_time(Value::from("2026-03-14T09:26:53.5+01:00")), "Mar 14, 2026 9:26 AM");
+        assert_eq!(
+            format_time(Value::from("2026-03-14T09:26:53.5+01:00")),
+            "Mar 14, 2026 9:26 AM"
+        );
         assert_eq!(format_date(Value::from(())), "Jan 1, 0001");
         assert_eq!(gofloat(Value::from(85.0)), "85");
         assert_eq!(gofloat(Value::from(0.5)), "0.5");
         assert_eq!(safe_url(Value::from("javascript:alert(1)")), "#ZgotmplZ");
-        assert_eq!(safe_url(Value::from("https://x.com/a b?q=1")), "https://x.com/a%20b?q=1");
+        assert_eq!(
+            safe_url(Value::from("https://x.com/a b?q=1")),
+            "https://x.com/a%20b?q=1"
+        );
         assert_eq!(safe_url(Value::from("/rel/path")), "/rel/path");
     }
 }

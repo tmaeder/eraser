@@ -36,8 +36,8 @@ type Config struct {
 // InboxConfig holds IMAP settings for monitoring broker responses
 type InboxConfig struct {
 	Enabled       bool   `yaml:"enabled"`
-	Provider      string `yaml:"provider"`       // "gmail", "outlook", "imap"
-	Server        string `yaml:"server"`         // e.g., "imap.gmail.com"
+	Provider      string `yaml:"provider"`       // "icloud", "gmail", "outlook", "imap"
+	Server        string `yaml:"server"`         // e.g., "imap.mail.me.com"
 	Port          int    `yaml:"port"`           // e.g., 993
 	Email         string `yaml:"email"`          // Email address to monitor
 	Password      string `yaml:"password"`       // App password (not main password)
@@ -132,6 +132,10 @@ func Load(path string) (*Config, error) {
 	}
 	if cfg.Inbox.Provider == "gmail" && cfg.Inbox.Server == "" {
 		cfg.Inbox.Server = "imap.gmail.com"
+		cfg.Inbox.Port = 993
+	}
+	if cfg.Inbox.Provider == "icloud" && cfg.Inbox.Server == "" {
+		cfg.Inbox.Server = "imap.mail.me.com"
 		cfg.Inbox.Port = 993
 	}
 	if cfg.Inbox.Provider == "outlook" && cfg.Inbox.Server == "" {

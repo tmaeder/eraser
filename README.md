@@ -1,12 +1,12 @@
 # Eraser
 
-Take back your privacy. Eraser sends data removal requests to 750+ data brokers on your behalf—for free.
+Take back your privacy. Eraser sends data removal requests to 1,100+ data brokers on your behalf—for free.
 
 You know those sites like Spokeo, BeenVerified, and Whitepages that have your home address, phone number, and family members' names? They're called data brokers, and there are hundreds of them. Services like Incogni and DeleteMe charge $100+/year to send opt-out requests to these companies. Eraser does the same thing, but it's open source and completely free.
 
 ### What to Expect
 
-**The good:** Eraser automatically sends removal request emails to 750+ data brokers. Many brokers process these requests automatically—you send the email, they remove your data, done.
+**The good:** Eraser automatically sends removal request emails to 1,100+ data brokers. Many brokers process these requests automatically—you send the email, they remove your data, done.
 
 **The reality:** Some brokers require additional steps. They might send you a confirmation link to click, ask you to fill out a form on their website, or request identity verification. Eraser tracks these responses and shows you exactly what needs manual attention.
 
@@ -21,7 +21,7 @@ If you're not comfortable with command-line tools, Eraser has a visual interface
 ### What You'll Need
 
 1. **Go** installed on your computer ([download here](https://go.dev/dl/))
-2. A **Gmail account** to send emails from (with an App Password—setup instructions below)
+2. An **iCloud Mail account** to send emails from (with an app-specific password—setup instructions below)
 
 ### Getting Started
 
@@ -50,27 +50,40 @@ The wizard walks you through entering your personal information (the data broker
 **Step 4: Send Removal Requests**
 
 From the dashboard, you can:
-- Browse the list of 750+ data brokers
+- Browse the list of 1,100+ data brokers
 - Send requests one at a time or in bulk
 - Track which requests have been sent and their status
 
 That's it. The whole process takes about 10 minutes to set up, and then Eraser handles the rest.
 
-### Setting Up Gmail
+### Setting Up iCloud Mail
 
-Eraser uses your Gmail account to send removal requests. You'll need to create an "App Password" (Google doesn't allow third-party apps to use your regular password).
+Eraser sends removal requests from your iCloud Mail account. Apple requires an **app-specific password** for third-party apps.
 
 **One-time setup (takes 2 minutes):**
 
-1. Go to your [Google Account](https://myaccount.google.com)
-2. Enable **2-Factor Authentication** if you haven't already (Security → 2-Step Verification)
-3. Go to [App Passwords](https://myaccount.google.com/apppasswords)
-4. Select "Mail" and your device, then click "Generate"
-5. Copy the 16-character password (looks like `xxxx xxxx xxxx xxxx`)
+1. Make sure two-factor authentication is on for your Apple Account (it is for most accounts)
+2. Sign in at [account.apple.com](https://account.apple.com)
+3. Go to **Sign-In and Security → App-Specific Passwords**
+4. Click **+**, name it "Eraser", and copy the password (looks like `xxxx-xxxx-xxxx-xxxx`)
 
-That's the password you'll use in Eraser's setup wizard. Your regular Gmail password won't work.
+Use your `@icloud.com` / `@me.com` address plus that password in the setup wizard. Eraser connects to `smtp.mail.me.com:587` (STARTTLS) and, for inbox monitoring, `imap.mail.me.com:993`.
 
-**Daily sending limits:** Gmail allows ~500 emails per day. Eraser automatically chunks large sends across multiple days (250/day to stay safe) so you don't hit rate limits.
+**Note:** iCloud only sends mail whose *From* address is one of your iCloud addresses, so Eraser uses your iCloud login as the sender.
+
+**Daily sending limits:** iCloud allows ~1,000 emails per day. Eraser chunks large sends across multiple days (250/day) so you stay well under the limit.
+
+**Still want Gmail?** Set `host: smtp.gmail.com`, `port: 465` in `~/.eraser/config.yaml` with a Google App Password.
+
+### European and Swiss Brokers
+
+The database includes 340+ European and Swiss address brokers, credit agencies (SCHUFA, CRIF, Experian, Equifax, Creditreform, infoscore…) and ad-tech data companies, imported from the CC0 [Datenanfragen.de company database](https://github.com/datenanfragen/data). They use `region: eu` or `region: ch`. To target only those, set:
+
+```yaml
+options:
+  template: gdpr
+  regions: [eu, ch]
+```
 
 ---
 
@@ -109,7 +122,7 @@ go build -o eraser ./cmd/eraser
 | `eraser init` | Interactive config setup |
 | `eraser send` | Send removal requests |
 | `eraser send --dry-run` | Preview without sending |
-| `eraser list-brokers` | Show all 750+ brokers |
+| `eraser list-brokers` | Show all 1,100+ brokers |
 | `eraser status` | View history and stats |
 | `eraser status --limit 50` | Show more history |
 | `eraser add-broker` | Add a custom broker |
@@ -136,13 +149,13 @@ profile:
 
 email:
   provider: smtp
-  from: jane@gmail.com
+  from: jane@icloud.com  # must be one of your iCloud addresses
 
   smtp:
-    host: smtp.gmail.com
-    port: 465
-    username: jane@gmail.com
-    password: your-16-char-app-password  # From Google App Passwords
+    host: smtp.mail.me.com
+    port: 587  # STARTTLS
+    username: jane@icloud.com
+    password: xxxx-xxxx-xxxx-xxxx  # Apple app-specific password
     use_tls: true
 
 options:
@@ -207,13 +220,13 @@ Want Eraser to run automatically every month? Fork the repo and set up GitHub Ac
 |--------|-------|
 | `ERASER_FIRST_NAME` | Your first name |
 | `ERASER_LAST_NAME` | Your last name |
-| `ERASER_EMAIL` | Your Gmail address |
+| `ERASER_EMAIL` | Your iCloud address |
 | `ERASER_EMAIL_PROVIDER` | `smtp` |
 | `ERASER_TEMPLATE` | `gdpr`, `ccpa`, or `generic` |
-| `ERASER_SMTP_HOST` | `smtp.gmail.com` |
-| `ERASER_SMTP_PORT` | `465` |
-| `ERASER_SMTP_USERNAME` | Your Gmail address |
-| `ERASER_SMTP_PASSWORD` | Your Gmail App Password |
+| `ERASER_SMTP_HOST` | `smtp.mail.me.com` |
+| `ERASER_SMTP_PORT` | `587` |
+| `ERASER_SMTP_USERNAME` | Your iCloud address |
+| `ERASER_SMTP_PASSWORD` | Your Apple app-specific password |
 
 **Optional (but recommended):**
 | Secret | Value |
@@ -232,7 +245,7 @@ The workflow runs on the 1st of every month. You can also trigger it manually fr
 ## Security Notes
 
 - **Your config file contains personal data.** Don't commit it to git. The file is created with restricted permissions (readable only by you).
-- **Use app passwords, not your real password.** For Gmail, this is required. For other providers, it's still a good idea.
+- **Use app passwords, not your real password.** For iCloud and Gmail, this is required. For other providers, it's still a good idea.
 - **Consider using a dedicated email.** This keeps your removal request activity separate from your main inbox.
 
 ---
@@ -287,7 +300,7 @@ eraser/
 │   ├── history/             # SQLite request tracking
 │   ├── template/            # Email template rendering
 │   └── web/                 # Web UI server and handlers
-├── data/brokers.yaml        # 750+ broker database
+├── data/brokers.yaml        # 1,100+ broker database (US, EU, CH)
 └── config.example.yaml      # Example configuration
 ```
 

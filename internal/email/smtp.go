@@ -74,18 +74,31 @@ func sanitizeSMTPError(err error) error {
 }
 
 func (s *SMTPSender) sendWithTLS(addr string, auth smtp.Auth, from, to string, msg []byte) error {
-	conn, err := tls.Dial("tcp", addr, &tls.Config{
-		ServerName: s.config.Host,
-		MinVersion: tls.VersionTLS12,
-	})
-	if err != nil {
-		return fmt.Errorf("TLS connection failed: %w", err)
-	}
-	defer conn.Close()
+	tlsCfg := &tls.Config{ServerName: s.config.Host, MinVersion: tls.VersionTLS12}
 
-	client, err := smtp.NewClient(conn, s.config.Host)
-	if err != nil {
-		return fmt.Errorf("SMTP client creation failed: %w", err)
+	var client *smtp.Client
+	if s.config.Port == 587 {
+		// Port 587 (iCloud, Outlook) uses STARTTLS instead of implicit TLS
+		c, err := smtp.Dial(addr)
+		if err != nil {
+			return fmt.Errorf("SMTP connection failed: %w", err)
+		}
+		if err := c.StartTLS(tlsCfg); err != nil {
+			c.Close()
+			return fmt.Errorf("STARTTLS failed: %w", err)
+		}
+		client = c
+	} else {
+		conn, err := tls.Dial("tcp", addr, tlsCfg)
+		if err != nil {
+			return fmt.Errorf("TLS connection failed: %w", err)
+		}
+		c, err := smtp.NewClient(conn, s.config.Host)
+		if err != nil {
+			conn.Close()
+			return fmt.Errorf("SMTP client creation failed: %w", err)
+		}
+		client = c
 	}
 	defer client.Close()
 

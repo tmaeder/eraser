@@ -5119,3 +5119,2478 @@ brokers:
       opt_out_url: https://www.zs.com/data-request
       region: us
       category: marketing
+    - id: eu-1plus-agency
+      name: "Werbeagentur 1Plus Agency GmbH"
+      email: info@1plus-agency.com
+      website: https://www.1plus-agency.com/
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-1plusx
+      name: "1plusX GmbH"
+      email: privacy@1plusx.com
+      website: https://www.1plusx.com/
+      region: ch
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-4wave
+      name: "blueleads GmbH"
+      email: datenschutz@blueleads.online
+      website: http://www.blueleads.online/
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-7sections
+      name: "7sections GmbH"
+      email: datenschutz@7sections.de
+      website: https://www.7sections.de/
+      region: eu
+      category: marketing
+      tags: [at, ch, de, datenanfragen]
+    - id: eu-abis
+      name: "ABIS GmbH"
+      email: datenschutz@abis-online.de
+      region: eu
+      category: address-broker
+      tags: [de, datenanfragen]
+    - id: eu-accordantmedia
+      name: "Accordant Media, LLC"
+      email: privacy@accordantmedia.com
+      website: https://accordantmedia.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-activeleads-se
+      name: "Active Leads AB"
+      email: privacy@activeleads.se
+      website: https://www.activeleads.se/
+      region: eu
+      category: address-broker
+      tags: [se, datenanfragen]
+    - id: eu-acuityads
+      name: "AcuityAds Inc."
+      email: privacy@acuityads.com
+      website: https://www.acuityads.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-acxiom-gb
+      name: "Acxiom Ltd."
+      email: dataprotection@acxiom.com
+      website: https://www.acxiom.co.uk/
+      region: eu
+      category: address-broker
+      tags: [gb, datenanfragen]
+    - id: eu-acxiom
+      name: "Acxiom Deutschland GmbH"
+      email: datenschutz@acxiom.com
+      website: http://www.acxiom.de/
+      region: eu
+      category: address-broker
+      tags: [de, datenanfragen]
+    - id: eu-adagio
+      name: "Onfocus SAS"
+      email: dpo@adagio.io
+      website: https://adagio.io
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-adcolony
+      name: "Digital Turbine, Inc."
+      email: privacy@digitalturbine.com
+      website: https://www.digitalturbine.com
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-addconti
+      name: "Add Conti GmbH"
+      email: datenschutz@addconti.ch
+      website: https://addconti.ch/
+      region: ch
+      category: address-broker
+      tags: [at, ch, de, datenanfragen]
+    - id: eu-adelphic
+      name: "Adelphic LLC"
+      email: dpo@adelphic.com
+      website: https://www.adelphic.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-adform
+      name: "Adform A/S"
+      email: dpo@adform.com
+      website: https://site.adform.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-adgear
+      name: "AdGear Technologies, Inc."
+      email: privacy@adgear.com
+      website: https://adgear.com/en/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-adhese
+      name: "Adhese"
+      email: info@adhese.com
+      website: https://www.adhese.eu
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-adikteev
+      name: "Adikteev SA"
+      email: dpo@adikteev.com
+      website: https://www.adikteev.com
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-adition
+      name: "ADITION technologies AG"
+      email: info@adition.com
+      website: https://www.adition.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-adjoe
+      name: "Adjoe GmbH"
+      email: privacy@adjoe.io
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-adjust-com
+      name: "Adjust GmbH"
+      email: privacy@adjust.com
+      website: https://www.adjust.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-adkernel
+      name: "Adkernel"
+      email: contact@adkernel.com
+      website: https://adkernel.com
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-adludio-limited
+      name: "Adludio Ltd."
+      email: privacy@adludio.com
+      website: https://www.adludio.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-admedo
+      name: "Admedo Ltd."
+      email: privacy-request@admedo.com
+      website: https://www.admedo.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-adpublisher
+      name: "adpublisher AG"
+      email: datenschutz@adpublisher.com
+      website: https://www.adpublisher.com
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-adressbar
+      name: "Fabian Wolf – Data Services"
+      email: datenschutz@adressbar.de
+      website: https://adressbar.de
+      region: eu
+      category: address-broker
+      tags: [de, datenanfragen]
+    - id: eu-adressdruck
+      name: "adressdruck.de"
+      email: datenschutz@kreativrecht.de
+      website: https://www.adressdruck.de
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-adressmonster
+      name: "B2B Monster UG haftungsbeschränkt"
+      email: support@adressmonster.de
+      website: https://adressmonster.de
+      region: eu
+      category: address-broker
+      tags: [de, datenanfragen]
+    - id: eu-adroll
+      name: "NextRoll Limited"
+      email: support@nextroll.com
+      website: https://www.adroll.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-adtargeting-de
+      name: "Adtargeting GmbH"
+      email: datenschutz@adtargeting.de
+      website: https://www.adtargeting.de/
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-adux
+      name: "AdUX"
+      email: privacy@adux.com
+      website: http://www.adux.com
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-advanced-store-com
+      name: "advanced store GmbH"
+      email: privacy@advanced-store.com
+      website: https://www.advanced-store.com/en/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-agentur-smash
+      name: "Smash Online GmbH"
+      email: mail@agentur-smash.de
+      website: https://agentur-smash.de/
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-aklamio
+      name: "aklamio GmbH"
+      email: datenschutzbeauftragter@datenschutzexperte.de
+      website: https://www.aklamio.com
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-akv-at
+      name: "AKV EUROPA – Alpenländischer Kreditorenverband"
+      email: datenschutz@akveuropa.at
+      website: https://www.akv.at/
+      region: eu
+      category: credit-agency
+      tags: [at, datenanfragen]
+    - id: eu-all-travel-marketing
+      name: "All Travel Marketing GmbH"
+      email: datenschutz@all-travel-marketing.de
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-alphonso-tv
+      name: "Alphonso Inc."
+      email: infoEU@alphonso.tv
+      website: https://alphonso.tv/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-amazinghiring
+      name: "AmazingHiring"
+      email: dpo@amazinghiring.com
+      website: https://amazinghiring.com/
+      region: eu
+      category: address-broker
+      tags: [all, datenanfragen]
+    - id: eu-amobee
+      name: "Amobee, Inc."
+      email: amobeeprivacy@amobee.com
+      website: https://www.amobee.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-amplitude-com
+      name: "Amplitude, Inc."
+      email: privacy@amplitude.com
+      website: https://amplitude.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-apollo-optik
+      name: "Apollo-Optik Holding GmbH & Co. KG"
+      email: datenschutz@apollo-optik.com
+      website: https://www.apollo.de/
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-applovin
+      name: "AppLovin Corporation"
+      email: dataprotection@applovin.com
+      website: https://www.applovin.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-appreciate-mobi
+      name: "Triapodi Ltd."
+      email: privacy@appreciate.mobi
+      website: https://appreciate.mobi/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-appsflyer
+      name: "AppsFlyer Germany GmbH"
+      email: privacy@appsflyer.com
+      website: https://www.appsflyer.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-arena-direkt
+      name: "ARENA Direkt GmbH"
+      email: datenschutz@arena-direkt.de
+      website: https://www.arena-direkt.de/
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-arkoselabs
+      name: "Arkose Labs, Inc."
+      email: privacy@arkoselabs.com
+      website: https://www.arkoselabs.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-arnold-demmerer
+      name: "Arnold, Demmerer & Partner GmbH"
+      email: datenschutz@arnold-demmerer.de
+      website: http://www.arnold-demmerer.de
+      region: eu
+      category: address-broker
+      requires_id: true
+      tags: [de, datenanfragen]
+    - id: eu-arvato-infoscore
+      name: "Riverty Group GmbH"
+      email: dataprotection@riverty.com
+      website: https://www.riverty.com/de/
+      region: eu
+      category: credit-agency
+      tags: [de, datenanfragen]
+    - id: eu-aspirantic
+      name: "Aspirantic"
+      email: privacy@aspirantic.com
+      website: https://aspirantic.com
+      region: eu
+      category: address-broker
+      tags: [de, datenanfragen]
+    - id: eu-avast
+      name: "AVAST Software s.r.o"
+      email: dpo@avast.com
+      website: https://www.avast.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-aventura
+      name: "Aventura Post GmbH"
+      email: privacy@aventurapost.com
+      website: https://www.aventurapost.com/
+      region: eu
+      category: marketing
+      tags: [at, ch, de, datenanfragen]
+    - id: eu-awin
+      name: "AWIN AG"
+      email: global-privacy@awin.com
+      website: https://www.awin.com
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-az-direct-at
+      name: "AZ Direct Österreich GmbH"
+      email: office@bertelsmann.at
+      region: eu
+      category: address-broker
+      tags: [at, datenanfragen]
+    - id: eu-az-direct
+      name: "AZ Direct GmbH"
+      email: datenschutz@az-direct.com
+      website: https://www.az-direct.com
+      region: eu
+      category: address-broker
+      tags: [de, datenanfragen]
+    - id: eu-b2b-datenbank-de
+      name: "b2b-datenbank.de"
+      email: datenschutz@b2b-datenbank.de
+      website: https://www.b2b-datenbank.de
+      region: eu
+      category: address-broker
+      tags: [all, datenanfragen]
+    - id: eu-base-plus
+      name: "Base Plus SAS"
+      email: dpo@base-plus.fr
+      website: https://www.base-plus.fr
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-bazaarvoice
+      name: "Bazaarvoice, Inc."
+      email: privacy@bazaarvoice.com
+      website: https://www.bazaarvoice.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-bedirect
+      name: "beDirect GmbH & Co. KG"
+      email: datenschutz@bedirect.de
+      website: https://www.bedirect-online.de
+      region: eu
+      category: address-broker
+      tags: [at, de, datenanfragen]
+    - id: eu-berlinfive
+      name: "BerlinFive GmbH"
+      email: office@berlinfive.com
+      website: https://berlinfive.com
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-best-relations-digital
+      name: "Best Relations Digital GmbH"
+      email: datenschutz@best-relations-digital.de
+      website: https://www.best-relations-digital.de/
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-better-mail-media
+      name: "Better Mail Media GmbH"
+      email: info@better-mail-media.de
+      website: https://better-mail-media.de
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-bfs-finance
+      name: "BFS finance GmbH"
+      email: datenschutz@bfs-finance.com
+      website: https://www.bfs-finance.com/
+      region: eu
+      category: credit-agency
+      tags: [de, datenanfragen]
+    - id: eu-bfs-health-finance
+      name: "BFS health finance GmbH"
+      email: datenschutz@meinebfs.de
+      website: https://meinebfs.de/
+      region: eu
+      category: credit-agency
+      tags: [de, datenanfragen]
+    - id: eu-bisnode-be
+      name: "Black Tiger Belgium SA/NV"
+      email: dpo@blacktigerbelgium.tech
+      website: https://www.blacktigerbelgium.tech/
+      region: eu
+      category: address-broker
+      tags: [be, datenanfragen]
+    - id: eu-bisnode-de
+      name: "Bisnode Deutschland GmbH"
+      email: datenschutz.de@bisnode.com
+      website: https://www.bisnode.de/
+      region: eu
+      category: credit-agency
+      tags: [de, datenanfragen]
+    - id: eu-bitmaster-online
+      name: "Bitmaster Online B.V."
+      email: support@bitmaster-online.com
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-boesche-de
+      name: "Boesche KG"
+      email: service@boesche.de
+      website: https://www.boesche.de
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-branch-io
+      name: "Branch Metrics, Inc."
+      email: privacy@branch.io
+      website: https://branch.io/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-brandmaker
+      name: "BrandMaker GmbH"
+      email: info@brandmaker.com
+      website: https://www.brandmaker.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-burda-direct-services
+      name: "Burda Direkt Services GmbH"
+      email: burdadirektservices@datenschutzanfrage.de
+      website: https://www.burdadirect.com/
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-burda-forward
+      name: "BurdaForward GmbH"
+      email: burdaforward@datenschutzanfrage.de
+      website: https://www.burda-forward.de
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-callcredit-gb
+      name: "Callcredit Information Group"
+      email: dpo@callcreditgroup.com
+      website: https://www.callcredit.co.uk/
+      region: eu
+      category: credit-agency
+      tags: [gb, datenanfragen]
+    - id: eu-calldorado
+      name: "Appvestor ApS"
+      email: info@appvestor.com
+      website: https://calldorado.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-campaign-services-de
+      name: "direct services Gütersloh GmbH"
+      email: datenschutz@bertelsmann.de
+      website: https://www.campaign-services.de/
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-captify
+      name: "Captify Technologies Ltd."
+      email: privacy@captify.co.uk
+      website: https://www.captify.co.uk/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-chartboost
+      name: "Chartboost, Inc."
+      email: privacy@chartboost.com
+      website: https://www.chartboost.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-check24
+      name: "CHECK24 Vergleichsportal GmbH"
+      email: kundenmanagement_datenschutz@check24.de
+      website: https://www.check24.de/
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-chooseleads
+      name: "ChooseLeads Ltd."
+      email: hello@chooseleads.co.uk
+      website: https://chooseleads.co.uk/
+      region: eu
+      category: address-broker
+      tags: [gb, datenanfragen]
+    - id: eu-choozle
+      name: "Choozle, Inc."
+      email: privacy@choozle.com
+      website: https://choozle.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-cleverreach
+      name: "CleverReach GmbH & Co. KG"
+      email: info@cleverreach.com
+      website: https://www.cleverreach.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-clickagy
+      name: "Clickagy, LLC"
+      email: privacy@clickagy.com
+      website: https://www.clickagy.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-clicksco
+      name: "Havas SA"
+      email: data.protectionuk@havas.com
+      website: https://www.clicksco.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-cogora
+      name: "Cogora Group Ltd."
+      email: data@cogora.com
+      website: https://www.cogora.com
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-companyhouse-ag
+      name: "CompanyHouse AG"
+      email: datenschutz@companyhouse.de
+      website: https://www.companyhouse.de/
+      region: ch
+      category: people-search
+      tags: [de, datenanfragen]
+    - id: eu-complead
+      name: "complead GmbH"
+      email: datenschutz@complead.de
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-condenast
+      name: "Condé Nast Holdings Limited"
+      email: dpo@condenast.com
+      website: https://www.condenast.com
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-connatix
+      name: "Connatix Holdings Inc."
+      email: privacy@connatix.com
+      website: https://www.connatix.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-connexity
+      name: "Connexity, Inc."
+      email: dataprotection@connexity.com
+      website: https://connexity.com
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-cpx-onlineactive
+      name: "cpx online active AG"
+      email: datenschutz@cpx-onlineactive.com
+      website: http://cpx-onlineactive.com
+      region: ch
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-creditreform-gb
+      name: "Federation of Creditreform Associations"
+      email: info@creditreform.co.uk
+      website: https://creditreform.co.uk
+      region: eu
+      category: credit-agency
+      tags: [gb, datenanfragen]
+    - id: eu-creditreform-verband
+      name: "Verband der Vereine Creditreform e.V."
+      email: datenschutz@verband.creditreform.de
+      website: https://www.creditreform.de
+      region: eu
+      category: credit-agency
+      tags: [de, datenanfragen]
+    - id: eu-crif-at
+      name: "CRIF GmbH"
+      email: auskunft@crif.com
+      website: https://www.crif.at/
+      region: eu
+      category: credit-agency
+      tags: [at, datenanfragen]
+    - id: eu-crif-it
+      name: "CRIF SpA"
+      email: dirprivacy@crif.com
+      website: https://www.crif.it
+      region: eu
+      category: credit-agency
+      tags: [it, datenanfragen]
+    - id: eu-crifbuergel
+      name: "CRIF GmbH"
+      email: datenschutz.de@crif.com
+      website: https://www.crif.de
+      region: eu
+      category: credit-agency
+      tags: [de, datenanfragen]
+    - id: eu-criteo
+      name: "Criteo"
+      email: dpo@criteo.com
+      website: https://www.criteo.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-cs-connect
+      name: "CS Connect GmbH & Co. KG"
+      email: datenschutz@cs-connect.de
+      website: https://www.cs-connect.de
+      region: eu
+      category: credit-agency
+      tags: [de, datenanfragen]
+    - id: eu-csob
+      name: "Československá obchodní banka, a.s."
+      email: osobni-data@csob.cz
+      website: https://www.csob.cz/
+      region: eu
+      category: credit-agency
+      tags: [cz, datenanfragen]
+    - id: eu-dailymotion
+      name: "Dailymotion Inc."
+      email: feedback@dailymotion.com
+      website: https://www.dailymotion.com
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-dastelefonbuch
+      name: "DTM Deutsche Tele Medien GmbH"
+      email: datenschutz@dtme.de
+      website: https://www.dastelefonbuch.de/
+      region: eu
+      category: address-broker
+      tags: [de, datenanfragen]
+    - id: eu-data-broker-gb
+      name: "Databroker Ltd."
+      email: info@data-broker.co.uk
+      website: https://www.data-broker.co.uk/
+      region: eu
+      category: address-broker
+      tags: [gb, datenanfragen]
+    - id: eu-dataplusmath
+      name: "Data Plus Math Corporation"
+      email: privacy@dataplusmath.com
+      website: https://www.dataplusmath.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-datarade
+      name: "Datarade GmbH"
+      email: privacy@datarade.ai
+      website: https://datarade.ai/
+      region: eu
+      category: credit-agency
+      tags: [all, datenanfragen]
+    - id: eu-dataxtrade
+      name: "dataXtrade GmbH"
+      email: privacy@dataxtrade.com
+      website: https://dataxtrade.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-dealfront-group-gmbh
+      name: "Dealfront Group GmbH"
+      email: privacy@dealfront.com
+      website: https://www.dealfront.com
+      region: eu
+      category: address-broker
+      tags: [all, datenanfragen]
+    - id: eu-deltaprojects
+      name: "Delta Projects AB"
+      email: privacy@deltaprojects.com
+      website: https://www.deltaprojects.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-demda
+      name: "DEMDA Deutsche Mieter Datenbank GmbH & Co. KG"
+      email: info@demda.de
+      website: https://www.demda.de/
+      region: eu
+      category: credit-agency
+      tags: [de, datenanfragen]
+    - id: eu-deutsche-post-adress
+      name: "Deutsche Post Adress GmbH & Co. KG"
+      email: datenschutz@postadress.de
+      website: https://www.deutschepost.de/de/p/postadress.html
+      region: eu
+      category: address-broker
+      tags: [de, datenanfragen]
+    - id: eu-deutsche-post-direkt
+      name: "Deutsche Post Direkt GmbH"
+      email: datenschutz@postdirekt.de
+      website: https://service.postdirekt.de/portal/
+      region: eu
+      category: address-broker
+      tags: [de, datenanfragen]
+    - id: eu-deutschlandcard
+      name: "DeutschlandCard GmbH"
+      email: datenschutz@deutschlandcard.de
+      website: https://www.deutschlandcard.de/
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-digital-dialog-lab
+      name: "Digital Dialog Lab GmbH"
+      email: info@digital-dialog-lab.de
+      website: https://www.digital-dialog-lab.de
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-digitalmedialine
+      name: "Digital Media Line"
+      email: info@digitalmedialine.com
+      website: https://digitalmedialine.com/
+      region: eu
+      category: marketing
+      tags: [gb, datenanfragen]
+    - id: eu-digitize-ie
+      name: "Digitize New Media Ltd."
+      email: privacy@digitize.ie
+      website: https://www.digitize.ie/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-digitrust
+      name: "DigiTrust"
+      email: digitrust@iabtechlab.com
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-directscouts
+      name: "Direct Scouts GmbH"
+      email: datenschutz@directscouts.de
+      website: https://directscouts.de/
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-duckduckgo
+      name: "DuckDuckGo"
+      email: legal@duckduckgo.com
+      website: https://duckduckgo.com
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-e2ma-de
+      name: "E2Ma GmbH"
+      email: datenschutz@e2ma.de
+      region: eu
+      category: address-broker
+      tags: [de, datenanfragen]
+    - id: eu-egentic
+      name: "eGENTIC GmbH"
+      email: info@egentic.com
+      website: https://www.egentic.com
+      region: eu
+      category: address-broker
+      tags: [de, datenanfragen]
+    - id: eu-einsaperformance
+      name: "einsaperformance GmbH"
+      email: datenschutz@einsaperformance.de
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-emerse
+      name: "Emerse Sverige AB"
+      email: dataprotectionofficer@emerse.com
+      website: https://www.emerse.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-emetriq
+      name: "emetriq GmbH"
+      email: datenschutz@telekom.de
+      website: https://www.emetriq.com/
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-entertainment-at
+      name: "Entertainment Media GmbH"
+      email: datenschutz@entertainment.at
+      website: https://entertainment.at/
+      region: eu
+      category: marketing
+      tags: [at, datenanfragen]
+    - id: eu-epicgames
+      name: "Epic Games International S.à r.l."
+      email: dpo@support.epicgames.com
+      website: https://www.epicgames.com
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-equifax-gb
+      name: "Equifax Ltd."
+      email: UKDPO@equifax.com
+      website: https://www.equifax.co.uk/
+      region: eu
+      category: credit-agency
+      tags: [gb, datenanfragen]
+    - id: eu-europro
+      name: "EURO-PRO Ges. für Data Processing mbH"
+      email: datenschutz@europro.de
+      website: https://www.europro.de/
+      region: eu
+      category: credit-agency
+      tags: [de, datenanfragen]
+    - id: eu-evocate-inkasso
+      name: "Evocate Inkasso GmbH"
+      email: info@evocate.de
+      website: https://www.evocate-inkasso.de
+      region: eu
+      category: address-broker
+      tags: [de, datenanfragen]
+    - id: eu-ewealth-cc
+      name: "Ewealth.cc"
+      email: support@ewealth.cc
+      website: https://ewealth.cc/
+      region: eu
+      category: marketing
+      tags: [de, es, gb, it, datenanfragen]
+    - id: eu-experian-ch
+      name: "Experian Switzerland AG"
+      email: DACH-BDN-data-information@experian.com
+      website: https://www.experian.ch/
+      region: ch
+      category: credit-agency
+      tags: [ch, datenanfragen]
+    - id: eu-experian-gb
+      name: "Experian Ltd."
+      email: UK.DPOBusinessEnquiries@Experian.com
+      website: https://www.experian.co.uk/
+      region: eu
+      category: credit-agency
+      tags: [gb, datenanfragen]
+    - id: eu-exponential-com
+      name: "Exponential Interactive, Inc."
+      email: privacy@exponential.com
+      website: http://exponential.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-ezoic
+      name: "Ezoic, Inc."
+      email: legal@ezoic.com
+      website: https://www.ezoic.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-fcrmedia
+      name: "FCR Media Belgium NV"
+      email: info@fcrmedia.be
+      website: https://fcrmedia.be/
+      region: eu
+      category: marketing
+      tags: [be, datenanfragen]
+    - id: eu-fernsehlotterie
+      name: "Deutsche Fernsehlotterie gemeinnützige GmbH"
+      email: datenschutz@fernsehlotterie.de
+      website: https://www.fernsehlotterie.de
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-firmenhai
+      name: "Talenthai e.U."
+      email: office@firmenhai.at
+      website: https://firmenhai.at
+      region: eu
+      category: address-broker
+      tags: [at, datenanfragen]
+    - id: eu-firmenliste
+      name: "Adresskontor GmbH"
+      email: email@iitr.de
+      website: https://www.firmenliste.net
+      region: eu
+      category: address-broker
+      tags: [all, datenanfragen]
+    - id: eu-flashtalking
+      name: "Simplicity Marketing Ltd."
+      email: privacy@flashtalking.com
+      website: http://www.flashtalking.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-fonecta-fi
+      name: "Fonecta Oy"
+      email: tietosuoja@fonecta.com
+      website: https://www.fonecta.fi/
+      region: eu
+      category: marketing
+      tags: [fi, datenanfragen]
+    - id: eu-gabriele-altpeter-internet-marketing-services
+      name: "Gabriele Altpeter, Internet Marketing-Services"
+      email: datenschutz@gabriele-altpeter.info
+      website: https://gabriele-altpeter.info
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-gameforge
+      name: "Gameforge AG"
+      email: datenschutz@gameforge.com
+      website: https://corporate.gameforge.com
+      region: eu
+      category: marketing
+      tags: [de, es, fr, gb, it, datenanfragen]
+    - id: eu-gamned
+      name: "Gamned SAS"
+      email: privacy@gamned.com
+      website: https://www.gamned.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-ganzeinfach
+      name: "Ganz Einfach GmbH"
+      email: info@ganzeinfach.de
+      website: https://www.ganzeinfach.de
+      region: eu
+      category: marketing
+      tags: [at, ch, de, datenanfragen]
+    - id: eu-gartentraum
+      name: "Gartentraum.de"
+      email: service@gartentraum.de
+      website: https://www.gartentraum.de/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-gb-group
+      name: "GB Group Plc"
+      email: DPO@gbgplc.com
+      website: https://www.gbgplc.com
+      region: eu
+      category: credit-agency
+      tags: [gb, datenanfragen]
+    - id: eu-geminidirect
+      name: "GEMINI DIRECT marketing solutions GmbH"
+      email: datenschutz@geminidirect.de
+      website: https://geminidirect.de
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-geno-media-circle
+      name: "Geno Media Circle GmbH"
+      email: datenschutz@geno-media-circle.de
+      website: https://www.geno-media-circle.de
+      region: eu
+      category: address-broker
+      tags: [de, datenanfragen]
+    - id: eu-gfk-ch
+      name: "GfK Switzerland AG"
+      email: dpo.ch@gfk.com
+      website: https://www.gfk.com
+      region: ch
+      category: marketing
+      tags: [ch, datenanfragen]
+    - id: eu-global-group-de
+      name: "Global Group TDA Germany GmbH"
+      email: datenschutz@global-group.de
+      website: https://www.global-group.de
+      region: eu
+      category: address-broker
+      tags: [de, datenanfragen]
+    - id: eu-goldbach-at
+      name: "Goldbach Austria GmbH"
+      email: oba@at.goldbach.com
+      website: https://goldbach.com/at/de
+      region: eu
+      category: marketing
+      tags: [at, datenanfragen]
+    - id: eu-google
+      name: "Google LLC"
+      email: data-access-requests@google.com
+      website: https://www.google.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-greenheads-onlineperformance
+      name: "Green Heads Online-Performance GmbH"
+      email: info@greenheads-onlineperformance.de
+      website: https://greenheads-onlineperformance.de/
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-hcc-gmbh
+      name: "HCC GmbH"
+      email: info-hcc@email.de
+      website: https://www.hcc-gmbh.net
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-hd-toner
+      name: "TRENSCO GmbH & Co. KG"
+      email: info@hd-toner.de
+      website: https://www.hd-toner.de/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-heinekingmedia
+      name: "heinekingmedia GmbH"
+      email: datenschutz@heinekingmedia.de
+      website: https://heinekingmedia.de/
+      region: eu
+      category: marketing
+      tags: [at, ch, de, datenanfragen]
+    - id: eu-helpshift
+      name: "Helpshift, Inc."
+      email: privacy@helpshift.com
+      website: https://www.helpshift.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-herold
+      name: "HEROLD Business Data GmbH"
+      email: office@herold.at
+      website: https://www.herold.at
+      region: eu
+      category: address-broker
+      tags: [at, datenanfragen]
+    - id: eu-houseofkaizen
+      name: "House of Kaizen Ltd."
+      email: justask@houseofkaizen.com
+      website: https://www.houseofkaizen.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-iab
+      name: "Interactive Advertising Bureau, Inc."
+      email: support@iabtechlab.com
+      website: https://iabtechlab.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-idaia-group
+      name: "IDAIA"
+      email: dpo@cartegie.com
+      website: https://www.idaia.group/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-idealo
+      name: "idealo internet GmbH"
+      email: privacy@idealo.de
+      website: https://www.idealo.de/
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-ihd-kredit
+      name: "IHD Gesellschaft für Kredit- und Forderungsmanagement mbH"
+      email: datenschutz@ihd.de
+      website: https://www.ihd.de
+      region: eu
+      category: credit-agency
+      tags: [de, datenanfragen]
+    - id: eu-indexexchange
+      name: "Index Exchange, Inc."
+      email: gdpr@legalarmy.net
+      website: https://www.indexexchange.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-infonline-de
+      name: "INFOnline GmbH"
+      email: datenschutz@infonline.de
+      website: https://www.infonline.de/
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-informa-his
+      name: "Besurance HIS GmbH"
+      email: datenschutz@besurance-his.de
+      website: https://besurance-his.de/
+      region: eu
+      category: credit-agency
+      tags: [de, datenanfragen]
+    - id: eu-infoscore-at
+      name: "Riverty Services Austria GmbH"
+      email: datenschutz.at@riverty.com
+      website: https://at.flow.riverty.com/
+      region: eu
+      category: credit-agency
+      tags: [at, datenanfragen]
+    - id: eu-infoscore-ch
+      name: "infoscore AG"
+      email: dataprotection@infoscore.ch
+      website: https://www.infoscoreag.ch/
+      region: ch
+      category: credit-agency
+      tags: [ch, datenanfragen]
+    - id: eu-infoscore
+      name: "infoscore Consumer Data GmbH"
+      email: ICD-Datenschutz@experian.com
+      website: https://www.experian.de/
+      region: eu
+      category: credit-agency
+      tags: [de, datenanfragen]
+    - id: eu-inmobi
+      name: "InMobi Pte Ltd"
+      email: dsr@inmobi.com
+      website: https://www.inmobi.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-innity
+      name: "Innity"
+      email: privacy@innity.com
+      website: https://www.innity.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-innovid
+      name: "Innovid, Inc."
+      email: privacy@innovid.com
+      website: https://www.innovid.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-inside-lead
+      name: "Inside Lead GmbH"
+      email: service@inside-lead.com
+      website: https://www.inside-lead.com
+      region: eu
+      category: marketing
+      tags: [at, ch, de, datenanfragen]
+    - id: eu-internet-marketing-mallorca
+      name: "Internet Marketing Mallorca S.L."
+      email: support@bewertungen-kaufen24.com
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-intrum-information-services-deutschland-gmbh
+      name: "Intrum Information Services Deutschland GmbH"
+      email: datenschutz.de@intrum.com
+      website: https://www.intrum.de
+      region: eu
+      category: credit-agency
+      tags: [de, datenanfragen]
+    - id: eu-ipromote
+      name: "2KDirect, Inc."
+      email: privacy@ipromote.com
+      website: https://www.ipromote.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-iqm
+      name: "IQM Corporation"
+      email: privacy@iqm.com
+      website: https://iqm.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-isic-de
+      name: "rds Reisedienst Deutscher Studentenschaften GmbH"
+      email: datenschutz@isic.de
+      website: https://www.isic.de/
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-italiaonline
+      name: "Italiaonline S.p.A."
+      email: info@italiaonline.it
+      website: https://www.italiaonline.it/
+      region: eu
+      category: address-broker
+      tags: [it, datenanfragen]
+    - id: eu-jaduda
+      name: "Jaduda GmbH"
+      email: oba@goldbach.jaduda.com
+      website: https://www.jaduda.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-jaksch-partner
+      name: "JAKSCH & PARTNER - Jaksch Research GmbH"
+      email: datenschutzbeauftragter@jaksch-partner.at
+      website: https://www.jaksch-partner.at/
+      region: eu
+      category: marketing
+      tags: [at, datenanfragen]
+    - id: eu-joe-club-at
+      name: "Unser Ö-Bonus Club GmbH"
+      email: datenschutz@joe-club.at
+      website: https://www.joe-club.at/
+      region: eu
+      category: marketing
+      tags: [at, datenanfragen]
+    - id: eu-justwatch
+      name: "JustWatch GmbH"
+      email: privacy@justwatch.com
+      website: https://www.justwatch.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-kaeuferportal-de
+      name: "be Around GmbH"
+      email: datenschutz@aroundhome.de
+      website: https://www.aroundhome.de/
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-karma-response
+      name: "KARMA RESPONSE, S.L."
+      email: dpo@karmaresponse.com
+      website: http://karmaresponse.com/
+      region: eu
+      category: marketing
+      tags: [es, it, datenanfragen]
+    - id: eu-kaspr
+      name: "KASPR SAS"
+      email: privacy@kaspr.io
+      website: https://www.kaspr.io/
+      region: eu
+      category: address-broker
+      tags: [all, datenanfragen]
+    - id: eu-kesselhaus
+      name: "kesselhaus GmbH"
+      email: Datenschutzbeauftragter@kesselhaus.com
+      website: https://www.kesselhaus.com
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-kidoz
+      name: "KIDOZ Ltd."
+      email: dpo@kidoz.net
+      website: https://kidoz.net/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-knorex
+      name: "Knorex"
+      email: privacy@knorex.com
+      website: https://www.knorex.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-ksv1870
+      name: "KSV1870 Holding AG"
+      email: ksv1870.datenschutzbeauftragter@ksv.at
+      website: https://www.ksv.at
+      region: eu
+      category: credit-agency
+      requires_id: true
+      tags: [at, datenanfragen]
+    - id: eu-kupona
+      name: "KUPONA GmbH"
+      email: datenschutz@kupona.de
+      website: https://www.kupona.de/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-leadspot
+      name: "Lead Spot Media GmbH"
+      email: datenschutz@leadspot.de
+      website: https://www.leadspot.de/
+      region: eu
+      category: marketing
+      tags: [at, ch, de, datenanfragen]
+    - id: eu-leanplum
+      name: "Leanplum, Inc."
+      email: privacy@leanplum.com
+      website: https://www.leanplum.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-leiki
+      name: "DoubleVerify, Inc."
+      email: privacy-policy@doubleverify.com
+      website: https://doubleverify.com
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-liveintent
+      name: "LiveIntent, Inc."
+      email: privacy@liveintent.com
+      website: https://www.liveintent.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-liveramp-de
+      name: "LiveRamp France SAS"
+      email: privacy.de@liveramp.com
+      website: https://liveramp.de/
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-liveramp-es
+      name: "LiveRamp France SAS"
+      email: privacy.es@liveramp.com
+      website: https://liveramp.es/
+      region: eu
+      category: marketing
+      tags: [es, datenanfragen]
+    - id: eu-liveramp-fr
+      name: "LiveRamp France SAS"
+      email: cil@liveramp.com
+      website: https://liveramp.fr/
+      region: eu
+      category: marketing
+      tags: [fr, datenanfragen]
+    - id: eu-liveramp-gb
+      name: "LiveRamp UK Limited"
+      email: ukprivacy@liveramp.com
+      website: https://liveramp.uk/
+      region: eu
+      category: marketing
+      tags: [gb, datenanfragen]
+    - id: eu-liveramp-it
+      name: "LiveRamp France SAS"
+      email: privacy.it@liveramp.com
+      website: https://liveramp.it/
+      region: eu
+      category: marketing
+      tags: [it, datenanfragen]
+    - id: eu-lusha
+      name: "Lusha Systems Inc."
+      email: Privacy@Lusha.com
+      website: https://www.lusha.co/
+      region: eu
+      category: address-broker
+      tags: [all, datenanfragen]
+    - id: eu-madsack
+      name: "Verlagsgesellschaft Madsack GmbH & Co. KG"
+      email: datenschutz@madsack.de
+      website: https://www.madsack.de
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-mailchimp
+      name: "The Rocket Science Group LLC"
+      email: personaldatarequests@mailchimp.com
+      website: https://mailchimp.com
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-mailcommerce
+      name: "mailcommerce GmbH"
+      email: datenschutz@mailcommerce.de
+      website: https://www.mailcommerce.de/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-marcapo
+      name: "marcapo GmbH"
+      email: kontakt@marcapo.com
+      website: https://www.marcapo.com/
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-marchex
+      name: "Marchex, Inc."
+      email: privacy@marchex.com
+      website: https://www.marchex.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-marketmind
+      name: "marketmind GmbH"
+      email: datenschutz@marketmind.at
+      website: https://www.marketmind.at
+      region: eu
+      category: marketing
+      tags: [at, datenanfragen]
+    - id: eu-marketscan-gb
+      name: "Marketscan Ltd."
+      email: info@marketscan.co.uk
+      website: https://www.marketscan.co.uk/terms-privacy/
+      region: eu
+      category: address-broker
+      tags: [gb, datenanfragen]
+    - id: eu-marketwing
+      name: "marketwing GmbH"
+      email: datenschutz@marketwing.de
+      website: https://marketwing.de
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-meap-de
+      name: "meap GmbH"
+      email: datenschutz@meap.de
+      website: https://www.meap.de/
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-meapp
+      name: "N.F.O software development Ltd."
+      email: help@me.app
+      website: https://me.app/
+      region: eu
+      category: address-broker
+      tags: [all, datenanfragen]
+    - id: eu-mediainformationsystems
+      name: "Media Information Systems Deutschland GmbH"
+      email: datenschutz@mismail.de
+      website: https://mediainformationsystems.de
+      region: eu
+      category: address-broker
+      tags: [de, datenanfragen]
+    - id: eu-mediavine
+      name: "Mediavine, Inc."
+      email: privacy@mediavine.com
+      website: https://www.mediavine.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-meinestadt-de
+      name: "meinestadt.de GmbH"
+      email: datenschutz@meinestadt.de
+      website: https://www.meinestadt.de
+      region: eu
+      category: address-broker
+      tags: [all, datenanfragen]
+    - id: eu-memolife
+      name: "memo AG"
+      email: datenschutz@memo.de
+      website: https://www.memolife.de
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-miles-and-more
+      name: "Miles & More GmbH"
+      email: datenschutz@dlh.de
+      website: https://www.miles-and-more.com
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-mintegral
+      name: "Mobvista (Guangzhou) Technology Company Limited"
+      email: privacy@mintegral.com
+      website: https://www.mintegral.com
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-mixpanel
+      name: "Mixpanel, S.L."
+      email: dpo@mixpanel.com
+      website: https://mixpanel.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-mmf-ug
+      name: "MMF UG"
+      email: kontakt@mmf-ug.de
+      website: http://mmf-ug.de
+      region: eu
+      category: address-broker
+      tags: [de, datenanfragen]
+    - id: eu-mobile-de
+      name: "mobile.de GmbH"
+      email: datenschutz@team.mobile.de
+      website: https://www.mobile.de/
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-mp-newmedia-com
+      name: "M,P,NEWMEDIA, GmbH"
+      email: info@mp-newmedia.com
+      website: https://www.mp-newmedia.com
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-mydealz
+      name: "Atolls Germany GmbH"
+      email: privacy@mydealz.de
+      website: https://www.mydealz.de
+      region: eu
+      category: marketing
+      tags: [at, de, datenanfragen]
+    - id: eu-mygimi
+      name: "MyGimi GmbH"
+      email: privacy@mygimi.com
+      website: https://www.mygimi.com
+      region: eu
+      category: marketing
+      tags: [at, ch, de, datenanfragen]
+    - id: eu-myntelligence
+      name: "MINT S.p.A"
+      email: dpo@mint.ai
+      website: https://www.mint.ai/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-nanointeractive
+      name: "Nano Interactive GmbH"
+      email: privacy@nanointeractive.com
+      website: https://www.nanointeractive.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-narrativ
+      name: "Howl Technologies, Inc."
+      email: privacy@howl.link
+      website: https://www.howl.link
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-ncaudienceexchange
+      name: "NC Audience Exchange, LLC"
+      email: privacypolicy@newscorp.com
+      website: http://www.ncaudienceexchange.com/about/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-neodatagroup
+      name: "Neodata Group S.r.l."
+      email: dpo@neodatagroup.com
+      website: https://www.neodatagroup.com
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-neory
+      name: "NEORY GmbH"
+      email: privacy@neory.com
+      website: https://www.neory.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-netgemacht-event
+      name: "NETgemacht EVENT UG (haftungsbeschränkt)"
+      email: tiger@os-golfcup.de
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-netzpiloten
+      name: "Netzpiloten AG"
+      email: datenschutz@netzpiloten.com
+      website: https://www.netzpiloten.com
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-neustar
+      name: "Neustar, Inc."
+      email: privacy@team.neustar
+      website: https://www.home.neustar/
+      region: eu
+      category: credit-agency
+      tags: [all, datenanfragen]
+    - id: eu-nexiga
+      name: "Nexiga GmbH"
+      email: datenschutzbeauftragter@nexiga.com
+      website: https://www.nexiga.com
+      region: eu
+      category: address-broker
+      tags: [de, datenanfragen]
+    - id: eu-nexstardigital
+      name: "Nexstar Media Inc."
+      email: PrivacyAdministrator@nexstar.tv
+      website: https://www.nexstar.tv
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-next14
+      name: "Next14 S.r.l."
+      email: dpo@next14.com
+      website: https://next14.com
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-nhi2
+      name: "nhi² AG Interviews International"
+      email: ds-beauftragter@nhi2.de
+      website: https://www.nhi2.de/
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-numberly
+      name: "1000mercis Group"
+      email: dpo@numberly.com
+      website: https://numberly.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-omnicommediagroup
+      name: "Omnicom Media Group"
+      email: privacy@omnicommediagroup.com
+      website: https://www.omnicommediagroup.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-onesignal
+      name: "OneSignal"
+      email: Privacy@OneSignal.com
+      website: https://onesignal.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-optilyz
+      name: "optilyz GmbH"
+      email: datenschutz@optilyz.com
+      website: https://optilyz.com/de/
+      region: eu
+      category: address-broker
+      tags: [all, datenanfragen]
+    - id: eu-optimizely
+      name: "Optimizely, Inc."
+      email: privacy@optimizely.com
+      website: https://www.optimizely.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-padsquad
+      name: "PadSquad, LLC"
+      email: privacy@padsquad.com
+      website: https://padsquad.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-panadress
+      name: "panadress marketing intelligence GmbH"
+      email: datenschutz@panadress.de
+      website: http://www.panadress.de
+      region: eu
+      category: address-broker
+      tags: [de, datenanfragen]
+    - id: eu-payback
+      name: "PAYBACK GmbH"
+      email: datenschutz@payback.de
+      website: https://www.payback.de
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-performance-profis-de
+      name: "Performance Profis Marketing GmbH"
+      email: datenschutz@performance-profis.de
+      website: https://www.performance-profis.de/
+      region: eu
+      category: marketing
+      tags: [at, de, datenanfragen]
+    - id: eu-performancelead-de
+      name: "Performance Lead GmbH"
+      email: datenschutz@performancelead.de
+      website: https://www.performancelead.de/
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-permodo
+      name: "PERMODO GmbH"
+      email: privacy@permodo.com
+      website: https://permodo.com
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-pixelprose
+      name: "PixelProse SARL"
+      email: privacy@pixelprose.fr
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-planet49
+      name: "Planet49 GmbH"
+      email: privacy@planet49.com
+      website: https://www.planet49.com
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-platform161
+      name: "Platform161"
+      email: privacy@platform161.com
+      website: https://platform161.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-printpeter
+      name: "PlusPeter GmbH"
+      email: datenschutz@charly.education
+      website: https://www.charly.education
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-profileaddress
+      name: "DPIT GmbH"
+      email: auskunft@dp-it.at
+      website: https://dp-it.at/
+      region: eu
+      category: address-broker
+      tags: [at, datenanfragen]
+    - id: eu-publicismedia
+      name: "Publicis Media GmbH"
+      email: privacy@publicismedia.de
+      website: https://www.publicismedia.de/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-pulpo
+      name: "Entravision Communications Corporation"
+      email: privacy@entravision.com
+      website: https://entravision.com
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-purovivo
+      name: "PuroVivo"
+      email: info@purovivo.de
+      website: https://www.purovivo.de/
+      region: eu
+      category: marketing
+      tags: [at, ch, de, datenanfragen]
+    - id: eu-pxn-digital
+      name: "PXN GmbH"
+      email: datenschutz@pxn-digital.de
+      website: https://pxn-digital.de/
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-q-division
+      name: "Q division GmbH"
+      email: datenschutz@q-division.de
+      website: https://q-division.de/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-quadress
+      name: "QUADRESS GmbH"
+      email: dsb.quadress@zb-datenschutz.de
+      website: http://www.quadress.de/
+      region: eu
+      category: address-broker
+      tags: [de, datenanfragen]
+    - id: eu-quantcast
+      name: "Quantcast International Ltd."
+      email: privacy.qil@quantcast.com
+      website: https://www.quantcast.com
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-quantyoo
+      name: "quantyoo"
+      email: privacy@quantyoo.de
+      website: https://quantyoo.de
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-quentn
+      name: "Quentn.com GmbH"
+      email: datenschutz@quentn.com
+      website: https://quentn.com/datenschutz
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-rakutenmarketing
+      name: "Rakuten Marketing Europe Ltd."
+      email: rm-privacy@mail.rakuten.com
+      website: https://rakutenmarketing.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-ranger-marketing-vertriebs-gmbh
+      name: "Ranger Marketing & Vertriebs GmbH"
+      email: datenschutz@ranger.de
+      website: https://www.ranger.de/
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-rb-information-services
+      name: "RB Information Services"
+      email: contact@rbinformationservices.de
+      website: https://rbinformationservices.de
+      region: eu
+      category: address-broker
+      tags: [de, datenanfragen]
+    - id: eu-regis24
+      name: "Regis24 GmbH"
+      email: datenschutz@regis24.de
+      website: https://www.regis24.de
+      region: eu
+      category: credit-agency
+      tags: [de, datenanfragen]
+    - id: eu-rhythmone
+      name: "RhythmOne, LLC."
+      email: privacy@tremorinternational.com
+      website: https://www.rhythmone.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-rockerbox
+      name: "Rockerbox, Inc."
+      email: privacy@rockerbox.com
+      website: https://www.rockerbox.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-roku
+      name: "Roku International BV"
+      email: privacy@roku.com
+      website: https://www.roku.com/de-de/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-rtbmarkt
+      name: "EASYmedia GmbH"
+      email: info@easymedia-gmbh.de
+      website: https://www.rtbmarkt.de
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-rubiconproject
+      name: "The Rubicon Project Ltd."
+      email: privacy@rubiconproject.com
+      website: https://rubiconproject.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-sales-rocks-bv
+      name: "Sales.Rocks BV"
+      email: datasubjectrequest@sales.rocks
+      website: https://sales.rocks/
+      region: eu
+      category: address-broker
+      tags: [all, datenanfragen]
+    - id: eu-saz
+      name: "SAZ Services AG"
+      email: datenschutz.ch@saz.com
+      website: https://www.saz.com/de
+      region: ch
+      category: address-broker
+      tags: [at, ch, de, datenanfragen]
+    - id: eu-schober
+      name: "Capaneo GmbH"
+      email: datenschutz@capaneo.de
+      website: https://capaneo.de
+      region: eu
+      category: address-broker
+      tags: [de, datenanfragen]
+    - id: eu-schufa
+      name: "SCHUFA Holding AG"
+      email: datenschutz@schufa.de
+      website: https://www.schufa.de
+      region: eu
+      category: credit-agency
+      tags: [de, datenanfragen]
+    - id: eu-scoota
+      name: "Rockabox Media Ltd."
+      email: info@scoota.com
+      website: https://scoota.com
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-sendinblue
+      name: "Sendinblue SAS"
+      email: privacy@sendinblue.com
+      website: https://www.sendinblue.com
+      region: eu
+      category: marketing
+      tags: [de, es, fr, gb, it, pt, datenanfragen]
+    - id: eu-sevenonemedia
+      name: "SevenOne Media GmbH"
+      email: mysevenone@sevenonemedia.de
+      website: https://www.sevenonemedia.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-sharethis
+      name: "ShareThis, Inc."
+      email: dpo@sharethis.com
+      website: https://www.sharethis.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-shoop
+      name: "Shoop Germany GmbH"
+      email: datenschutz@shoop.de
+      website: https://www.shoop.de/
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-simpli-fi
+      name: "Simplifi Europe IVS"
+      email: privacy@simpli.fi
+      website: https://simpli.fi/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-skimlinks
+      name: "Skimbit Ltd t/a Skimlinks"
+      email: dpo@skimlinks.com
+      website: https://skimlinks.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-skyhire
+      name: "SkyHire GmbH"
+      email: datenschutz@skyhire.de
+      website: https://skyhire.de
+      region: eu
+      category: address-broker
+      tags: [de, datenanfragen]
+    - id: eu-sls-data
+      name: "SLS Data"
+      email: dpo@sls-data.com
+      website: https://www.sls-data.com
+      region: eu
+      category: marketing
+      tags: [fr, datenanfragen]
+    - id: eu-smartadserver
+      name: "Smart AdServer SAS"
+      email: privacy@smartadserver.com
+      website: https://smartadserver.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-smartclip
+      name: "smartclip Europe GmbH"
+      email: privacy@smartclip.tv
+      website: http://www.smartclip.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-sociomantic
+      name: "dunnhumby Limited"
+      email: individualrights@dunnhumby.com
+      website: https://www.dunnhumby.com
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-sojern
+      name: "Sojern, Inc."
+      email: sojernprivacy@sojern.com
+      website: https://www.sojern.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-sovendus-se
+      name: "Sovendus AB"
+      email: data-protection@sovendus.com
+      website: https://sovendus.com/se/
+      region: eu
+      category: marketing
+      tags: [se, datenanfragen]
+    - id: eu-spezi-haus-de
+      name: "Spezialitäten-Haus G. Schulteis GmbH"
+      email: info@spezi-haus.de
+      website: https://www.spezi-haus.de
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-spiegel-de
+      name: "DER SPIEGEL GmbH & Co. KG"
+      email: datenschutz@spiegelgruppe.de
+      website: https://www.spiegel.de
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-sport1
+      name: "SPORT1 GmbH"
+      email: datenschutz@sport1.de
+      website: https://www.sport1.de
+      region: eu
+      category: marketing
+      tags: [at, ch, de, datenanfragen]
+    - id: eu-spot-im
+      name: "Open Web Technologies Ltd."
+      email: privacy@openweb.com
+      website: https://www.openweb.com
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-stellar-performance
+      name: "Stellar Performance Marketing GmbH"
+      email: datenschutz@stellar-performance.de
+      website: http://stellar-performance.de
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-stroeer-digital-publishing
+      name: "Ströer Digital Publishing GmbH"
+      email: sdp-datenschutz@stroeer.de
+      website: https://www.t-online.de
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-stroeer-x
+      name: "Ströer X GmbH"
+      email: datenschutz@stroeer-x.de
+      website: https://www.stroeer-x.de
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-supersonic-com
+      name: "SUPERSONIC STUDIOS Ltd."
+      email: dpo@ironsrc.com
+      website: https://supersonic.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-supreme-me
+      name: "Supreme Media AG"
+      email: datenschutz@supreme.me
+      website: https://supreme.me
+      region: ch
+      category: marketing
+      tags: [ch, de, datenanfragen]
+    - id: eu-talkingdata
+      name: "Beijing Tendcloud Tianxia Technology Co., Ltd"
+      email: td_legal@tendcloud.com
+      website: https://www.talkingdata.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-tapjoy
+      name: "Tapjoy Ltd."
+      email: privacy@tapjoy.com
+      website: https://www.tapjoy.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-target-team-europe
+      name: "TARGET TEAM EUROPE S.L."
+      email: service@target-team-europe.com
+      website: http://www.target-team-europe.com
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-taz-de
+      name: "taz Verlags u. Vertriebs GmbH"
+      email: datenschutz@taz.de
+      website: https://taz.de
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-teads
+      name: "Teads France SA"
+      email: dpo@teads.com
+      website: https://www.teads.com
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-telaria
+      name: "Telaria, Inc."
+      email: privacy@telaria.com
+      website: https://telaria.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-temelio
+      name: "Temelio S.A.S"
+      email: dpo@temelio.com
+      website: https://www.temelio.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-theadex
+      name: "Virtual Minds GmbH"
+      email: legal@theadex.com
+      website: https://www.theadex.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-thetradedesk
+      name: "The UK Trade Desk Ltd."
+      email: dpo@thetradedesk.com
+      website: https://www.thetradedesk.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-toleadoo
+      name: "toleadoo GmbH"
+      email: info@de.toleadoo.com
+      website: https://www.toleadoo.com
+      region: eu
+      category: marketing
+      tags: [at, ch, de, datenanfragen]
+    - id: eu-tradedoubler
+      name: "Tradedoubler AB"
+      email: privacy@tradedoubler.com
+      website: https://www.tradedoubler.com
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-traffego
+      name: "Traffego GmbH"
+      email: datenschutz@traffego.de
+      website: https://www.traffego.de
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-trulioo-information-services-inc
+      name: "Trulioo (Ireland) Limited"
+      email: privacy@trulioo.com
+      website: https://www.trulioo.com/
+      region: eu
+      category: address-broker
+      tags: [all, datenanfragen]
+    - id: eu-trusted-traffic
+      name: "TT Online Marketing GmbH"
+      email: datenschutz@trusted-traffic.de
+      website: http://www.trusted-traffic.de
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-trustpilot
+      name: "Trustpilot A/S"
+      email: privacy@trustpilot.com
+      website: https://www.trustpilot.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-undertone
+      name: "Perion Network Ltd."
+      email: privacy@perion.com
+      website: https://perion.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-uniserv
+      name: "Uniserv GmbH"
+      email: datenschutz@uniserv.com
+      website: https://www.uniserv.com
+      region: eu
+      category: address-broker
+      tags: [de, datenanfragen]
+    - id: eu-united-internet-media
+      name: "United Internet Media GmbH"
+      email: datenschutz@united-internet-media.de
+      website: https://www.united-internet-media.de
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-urban-airship
+      name: "Airship Group, Inc."
+      email: privacy@airship.com
+      website: https://www.airship.com
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-useartemis
+      name: "useArtemis"
+      email: hello@useartemis.co
+      website: https://useartemis.co/
+      region: eu
+      category: address-broker
+      tags: [all, datenanfragen]
+    - id: eu-utiq
+      name: "Utiq SA/NV"
+      email: privacy@utiq.com
+      website: https://utiq.com
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-valassisdigital
+      name: "Valassis Digital Corp."
+      email: privacyrequests@valassis.com
+      website: https://valassis.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-varickmm
+      name: "Varick"
+      email: info@varickmm.com
+      website: https://varickmm.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-verivox
+      name: "Verivox GmbH"
+      email: datenschutz@verivox.de
+      website: https://www.verivox.de/
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-verizon-media
+      name: "Yahoo EMEA Limited"
+      email: dpo-contact@yahooinc.com
+      website: https://yahoo.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-vibrantmedia
+      name: "Vibrant Media, Inc."
+      email: intellitxtsupport@vibrantmedia.com
+      website: https://www.vibrantmedia.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-visualdna
+      name: "VisualDNA"
+      email: nmcdata@nielsen.com
+      website: https://www.visualdna.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-vitalox
+      name: "vitalox Informationssysteme GmbH"
+      email: datenschutz@vitalox.de
+      website: https://www.vitalox.de
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-vivalu
+      name: "VIVALU GmbH"
+      email: datenschutz@vivalu.com
+      website: https://www.vivalu.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-vmg-mbh
+      name: "VMG, Vertriebs-Marketing-Gesellschaft mbH"
+      email: info@vmg-mbh.de
+      website: https://vmg-mbh.de/
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-vungle
+      name: "Vungle Limited"
+      email: privacy@vungle.com
+      website: https://vungle.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-we-conect
+      name: "we.CONECT Global Leaders GmbH"
+      email: privacy@we-conect.com
+      website: https://www.we-conect.com/de/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-weareilluma
+      name: "Illuma technology Ltd."
+      email: privacy@weareilluma.com
+      website: https://www.weareilluma.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-wearemiq
+      name: "MiQ Digital Ltd."
+      email: privacy@miqdigital.com
+      website: https://www.wearemiq.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-weborama
+      name: "Weborama"
+      email: privacy@weborama.com
+      website: https://weborama.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-wilmingtonplc
+      name: "Wilmington plc"
+      email: dataprotection@wilmingtonplc.com
+      website: https://www.wilmingtonplc.com/
+      region: eu
+      category: credit-agency
+      tags: [gb, datenanfragen]
+    - id: eu-windaten
+      name: "WINDATEN"
+      email: info@win-daten.de
+      website: https://win-daten.de/
+      region: eu
+      category: address-broker
+      tags: [de, datenanfragen]
+    - id: eu-winfuture
+      name: "WinFuture.de"
+      email: sk@winfuture.de
+      website: https://www.winfuture.de
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-wm-beautysystems
+      name: "WM BEAUTYSYSTEMS AG & Co. KG"
+      email: Datenschutz@wm-beautysystems.com
+      website: https://www.wm-beautysystems.com/
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-xaxis-com
+      name: "Xaxis, LLC"
+      email: privacy@xaxis.com
+      website: https://www.xaxis.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-yandex
+      name: "YANDEX LLC"
+      email: gdpr@yandex-team.ru
+      website: https://yandex.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-yieldmo
+      name: "Yieldmo, Inc."
+      email: privacy@yieldmo.com
+      website: https://www.yieldmo.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-yieldr
+      name: "Yieldr UK Ltd."
+      email: privacy@yieldr.com
+      website: https://www.yieldr.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-yoc-ag
+      name: "YOC AG"
+      email: privacy@yoc.com
+      website: https://yoc.com
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-yourdata-de
+      name: "yourdata GmbH"
+      email: datenschutz@yourdata.de
+      website: https://www.yourdata.de/
+      region: eu
+      category: address-broker
+      tags: [de, datenanfragen]
+    - id: eu-zarenga
+      name: "Zarenga GmbH"
+      email: datenschutz@zarenga.de
+      website: https://www.zarenga.com
+      region: eu
+      category: marketing
+      tags: [de, datenanfragen]
+    - id: eu-zemanta
+      name: "Zemanta, Inc."
+      email: Privacy@outbrain.com
+      website: http://www.zemanta.com/
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-zetaglobal-com
+      name: "Zeta Global Corp."
+      email: privacy@zetaglobal.com
+      website: https://zetaglobal.com
+      region: eu
+      category: marketing
+      tags: [all, datenanfragen]
+    - id: eu-zoominfo
+      name: "Zoom Information, Inc."
+      email: privacy@zoominfo.com
+      website: https://zoominfo.com
+      region: eu
+      category: address-broker
+      tags: [all, datenanfragen]
+    - id: ch-crif
+      name: "CRIF AG"
+      email: info.ch@crif.com
+      website: https://www.crif.ch
+      region: ch
+      category: credit-agency
+      tags: [ch]
+    - id: ch-teledata
+      name: "Teledata (CRIF AG)"
+      email: ch.teledata@crif.com
+      website: https://www.teledata.ch
+      region: ch
+      category: credit-agency
+      tags: [ch]
+    - id: ch-moneyhouse
+      name: "Moneyhouse AG"
+      email: contact@moneyhouse.ch
+      website: https://www.moneyhouse.ch
+      region: ch
+      category: people-search
+      tags: [ch]
+    - id: ch-creditreform
+      name: "Schweizerischer Verband Creditreform"
+      email: info@creditreform.ch
+      website: https://www.creditreform.ch
+      region: ch
+      category: credit-agency
+      tags: [ch]
+    - id: ch-intrum
+      name: "Intrum AG"
+      email: credit.check@intrum.com
+      website: https://www.intrum.ch
+      region: ch
+      category: credit-agency
+      tags: [ch]
+    - id: ch-dnb
+      name: "Dun & Bradstreet Schweiz AG (formerly Bisnode)"
+      email: customerservice.ch@dnb.com
+      website: https://www.dnb.com/de-ch
+      region: ch
+      category: credit-agency
+      tags: [ch]
+    - id: ch-azdirect
+      name: "AZ Direct AG"
+      email: datenschutz@az-direct.ch
+      website: https://www.az-direct.ch
+      region: ch
+      category: address-broker
+      tags: [ch]
+    - id: ch-kbdirect
+      name: "KünzlerBachmann Directmarketing AG (incl. Schober Schweiz)"
+      email: datenschutz@kbdirect.ch
+      website: https://kbdirect.ch
+      region: ch
+      category: address-broker
+      tags: [ch]
+    - id: ch-localsearch
+      name: "localsearch / Swisscom Directories AG (local.ch, search.ch)"
+      email: dataprivacy@localsearch.ch
+      website: https://www.localsearch.ch
+      region: ch
+      category: people-search
+      tags: [ch]
+    - id: ch-post
+      name: "Die Schweizerische Post AG (Adressdienste)"
+      email: betroffenenrechte@post.ch
+      website: https://www.post.ch
+      region: ch
+      category: address-broker
+      tags: [ch]
+    - id: ch-zek
+      name: "ZEK Zentralstelle für Kreditinformation"
+      email: info@zek.ch
+      website: https://www.zek.ch
+      region: ch
+      category: credit-agency
+      tags: [ch]
+    - id: ch-txgroup
+      name: "TX Group AG (Tamedia)"
+      email: kommunikation@tx.group
+      website: https://tx.group
+      region: ch
+      category: marketing
+      tags: [ch]
+    - id: ch-northdata
+      name: "North Data"
+      email: privacy@northdata.de
+      website: https://www.northdata.de
+      region: eu
+      category: people-search
+      tags: [ch, de]

@@ -314,7 +314,7 @@ func ExtractBouncedRecipient(email *Email) string {
 	allEmails := emailRegex.FindAllString(content, -1)
 	excludePatterns := []string{
 		"mailer-daemon", "postmaster", "noreply", "no-reply",
-		"@gmail.com", "@yahoo.com", "@outlook.com", "@hotmail.com", // sender's own domain
+		"@icloud.com", "@me.com", "@mac.com", "@gmail.com", "@yahoo.com", "@outlook.com", "@hotmail.com", // sender's own domain
 	}
 
 	for _, addr := range allEmails {

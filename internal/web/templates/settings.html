@@ -83,7 +83,7 @@
                 <div class="flex items-start justify-between py-3 border-b border-[var(--border-subtle)]">
                     <div>
                         <p class="text-sm text-muted">Provider</p>
-                        <p class="text-primary font-medium">Gmail SMTP</p>
+                        <p class="text-primary font-medium">iCloud SMTP</p>
                     </div>
                     <span class="badge badge-success">Active</span>
                 </div>
@@ -148,7 +148,7 @@
                 <div class="flex items-start justify-between py-3">
                     <div>
                         <p class="text-sm text-muted">Provider</p>
-                        <p class="text-secondary">{{if eq .Config.Inbox.Provider "gmail"}}Gmail IMAP{{else}}{{.Config.Inbox.Provider}}{{end}}</p>
+                        <p class="text-secondary">{{if eq .Config.Inbox.Provider "icloud"}}iCloud IMAP{{else if eq .Config.Inbox.Provider "gmail"}}Gmail IMAP{{else}}{{.Config.Inbox.Provider}}{{end}}</p>
                     </div>
                 </div>
             </div>
@@ -170,21 +170,20 @@
                 {{.CSRFField}}
 
                 <div class="p-4 rounded-xl" style="background: rgba(245, 158, 11, 0.1);">
-                    <h3 class="font-medium text-warning mb-2">Gmail Setup Instructions</h3>
+                    <h3 class="font-medium text-warning mb-2">iCloud Setup Instructions</h3>
                     <ol class="text-sm text-secondary space-y-1 list-decimal list-inside">
-                        <li>Enable 2-Step Verification in your Google Account</li>
-                        <li>Go to <a href="https://myaccount.google.com/apppasswords" target="_blank" class="text-accent hover:underline">App Passwords</a></li>
-                        <li>Create a new app password for "Mail"</li>
-                        <li>Enable IMAP in Gmail: Settings → See all settings → Forwarding and POP/IMAP</li>
-                    </ol>
+                        <li>Make sure two-factor authentication is on for your Apple Account</li>
+                        <li>Go to <a href="https://account.apple.com" target="_blank" class="text-accent hover:underline">account.apple.com</a> → Sign-In and Security → App-Specific Passwords</li>
+                        <li>Generate a new password (you can reuse the one from setup)</li>
+                                            </ol>
                 </div>
 
                 <div>
-                    <label for="inbox_email" class="label">Gmail Address</label>
+                    <label for="inbox_email" class="label">iCloud Email Address</label>
                     <input type="email" name="inbox_email" id="inbox_email"
                         value="{{if and .Config .Config.Inbox}}{{.Config.Inbox.Email}}{{else if .Config}}{{.Config.Profile.Email}}{{end}}"
                         class="input"
-                        placeholder="you@gmail.com">
+                        placeholder="you@icloud.com">
                 </div>
 
                 <div>
@@ -193,7 +192,7 @@
                         value="{{if and .Config .Config.Inbox}}{{.Config.Inbox.Password}}{{end}}"
                         class="input"
                         placeholder="xxxx xxxx xxxx xxxx">
-                    <p class="text-xs text-muted mt-1">Your 16-character Google App Password (not your regular password)</p>
+                    <p class="text-xs text-muted mt-1">Your app-specific password (not your Apple Account password)</p>
                 </div>
 
                 <div class="flex items-center gap-3 pt-2">

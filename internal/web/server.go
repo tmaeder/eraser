@@ -604,7 +604,7 @@ func (s *Server) handleSettingsInbox(w http.ResponseWriter, r *http.Request) {
 
 	s.config.Inbox = config.InboxConfig{
 		Enabled:  true,
-		Provider: "gmail",
+		Provider: "icloud",
 		Email:    email,
 		Password: password,
 	}
@@ -856,7 +856,7 @@ func (s *Server) handleAPISendAll(w http.ResponseWriter, r *http.Request) {
 
 // Daily send limits by provider to avoid rate limiting
 const (
-	DailyLimitSMTP     = 250 // Gmail/SMTP: stay well under 500/day
+	DailyLimitSMTP     = 250 // iCloud allows ~1000/day, Gmail ~500/day; stay well under both
 	DailyLimitSendGrid = 500 // SendGrid free tier
 	DailyLimitResend   = 500 // Resend reasonable daily batch
 )
@@ -1265,19 +1265,18 @@ func (s *Server) handleSetupEmail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method == "POST" {
-		emailCfg := config.Email{
-			Provider: "smtp",
-			From:     session.Profile.Email,
-		}
+		emailCfg := config.Email{Provider: "smtp"}
 
 		errors := make(map[string]string)
 
-		// Parse SMTP configuration (Gmail SMTP)
+		// Parse SMTP configuration (iCloud SMTP)
 		emailCfg.SMTP.Host = strings.TrimSpace(r.FormValue("smtp_host"))
 		fmt.Sscanf(r.FormValue("smtp_port"), "%d", &emailCfg.SMTP.Port)
 		emailCfg.SMTP.Username = strings.TrimSpace(r.FormValue("smtp_username"))
 		emailCfg.SMTP.Password = strings.TrimSpace(r.FormValue("smtp_password"))
 		emailCfg.SMTP.UseTLS = r.FormValue("smtp_tls") == "on"
+		// iCloud rejects mail whose From isn't one of your iCloud addresses
+		emailCfg.From = emailCfg.SMTP.Username
 
 		// Validate required fields
 		if emailCfg.SMTP.Host == "" {
@@ -1287,19 +1286,19 @@ func (s *Server) handleSetupEmail(w http.ResponseWriter, r *http.Request) {
 			errors["smtp_port"] = "SMTP port is required"
 		}
 		if emailCfg.SMTP.Username == "" {
-			errors["smtp_username"] = "Gmail address is required"
+			errors["smtp_username"] = "iCloud email address is required"
 		}
 		if emailCfg.SMTP.Password == "" {
 			errors["smtp_password"] = "App password is required"
 		}
 		// Enforce TLS when using authentication
 		if !emailCfg.SMTP.UseTLS && emailCfg.SMTP.Username != "" {
-			errors["smtp_tls"] = "TLS is required for Gmail"
+			errors["smtp_tls"] = "TLS is required for iCloud"
 		}
 
 		if len(errors) > 0 {
 			data := map[string]interface{}{
-				"Title":   "Setup - Gmail",
+				"Title":   "Setup - iCloud",
 				"Step":    "email",
 				"Profile": session.Profile,
 				"Email":   emailCfg,
@@ -1318,16 +1317,16 @@ func (s *Server) handleSetupEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Set Gmail defaults for new setups
+	// Set iCloud defaults for new setups
 	emailCfg := session.Email
 	if emailCfg.SMTP.Host == "" {
-		emailCfg.SMTP.Host = "smtp.gmail.com"
-		emailCfg.SMTP.Port = 465
+		emailCfg.SMTP.Host = "smtp.mail.me.com"
+		emailCfg.SMTP.Port = 587
 		emailCfg.SMTP.UseTLS = true
 	}
 
 	data := map[string]interface{}{
-		"Title":   "Setup - Gmail",
+		"Title":   "Setup - iCloud",
 		"Step":    "email",
 		"Profile": session.Profile,
 		"Email":   emailCfg,

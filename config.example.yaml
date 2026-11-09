@@ -19,13 +19,13 @@ profile:
 email:
   # Email provider: "smtp" or "sendgrid"
   provider: smtp
-  from: john.doe@example.com
+  from: john.doe@icloud.com  # iCloud requires From to be one of your iCloud addresses
 
-  # SMTP configuration (for Gmail, Outlook, etc.)
+  # SMTP configuration (iCloud by default; Gmail: smtp.gmail.com:465)
   smtp:
-    host: smtp.gmail.com
-    port: 465
-    username: john.doe@gmail.com
+    host: smtp.mail.me.com
+    port: 587  # iCloud uses STARTTLS on 587
+    username: john.doe@icloud.com
     password: your-app-password  # Use app password, not your regular password!
     use_tls: true
 

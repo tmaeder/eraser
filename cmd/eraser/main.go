@@ -55,7 +55,7 @@ func main() {
 requests to data brokers, helping you protect your privacy.
 
 It supports GDPR, CCPA, and generic removal request templates, and can
-send via Gmail SMTP.`,
+send via iCloud Mail SMTP.`,
 	}
 
 	// Global flags
@@ -199,17 +199,18 @@ func runInit() error {
 	fmt.Println()
 
 	cfg.Email.Provider = "smtp"
-	cfg.Email.From = cfg.Profile.Email
 
 	fmt.Println()
-	fmt.Println("Gmail SMTP Configuration:")
-	fmt.Println("  (See https://support.google.com/accounts/answer/185833 for app password setup)")
+	fmt.Println("iCloud Mail SMTP Configuration:")
+	fmt.Println("  (Create an app-specific password at https://account.apple.com → Sign-In and Security)")
 	fmt.Println()
-	cfg.Email.SMTP.Host = "smtp.gmail.com"
-	cfg.Email.SMTP.Port = 465
+	cfg.Email.SMTP.Host = "smtp.mail.me.com"
+	cfg.Email.SMTP.Port = 587
 	cfg.Email.SMTP.UseTLS = true
-	cfg.Email.SMTP.Username = prompt(reader, "  Gmail address: ")
-	cfg.Email.SMTP.Password = prompt(reader, "  App password (16-character code): ")
+	cfg.Email.SMTP.Username = prompt(reader, "  iCloud email address (e.g. you@icloud.com): ")
+	cfg.Email.SMTP.Password = prompt(reader, "  App-specific password (xxxx-xxxx-xxxx-xxxx): ")
+	// iCloud rejects mail whose From isn't one of your iCloud addresses
+	cfg.Email.From = cfg.Email.SMTP.Username
 
 	fmt.Println()
 	fmt.Println("⚙️  Options")
@@ -623,14 +624,13 @@ func runMonitor(days int, once bool, watch bool) error {
 		fmt.Println()
 		fmt.Println("inbox:")
 		fmt.Println("  enabled: true")
-		fmt.Println("  provider: gmail")
-		fmt.Println("  email: your-email@gmail.com")
-		fmt.Println("  password: your-app-password  # Use an App Password, not your main password")
+		fmt.Println("  provider: icloud")
+		fmt.Println("  email: you@icloud.com")
+		fmt.Println("  password: xxxx-xxxx-xxxx-xxxx  # App-specific password, not your Apple ID password")
 		fmt.Println()
-		fmt.Println("For Gmail, you'll need to:")
-		fmt.Println("  1. Enable 2-Step Verification")
-		fmt.Println("  2. Generate an App Password at https://myaccount.google.com/apppasswords")
-		fmt.Println("  3. Enable IMAP in Gmail settings")
+		fmt.Println("For iCloud, you'll need to:")
+		fmt.Println("  1. Enable two-factor authentication for your Apple ID")
+		fmt.Println("  2. Generate an app-specific password at https://account.apple.com (Sign-In and Security)")
 		return err
 	}
 

@@ -1,0 +1,66 @@
+//! `eraser init` with scripted stdin writes an iCloud config that config::load accepts.
+
+use std::io::Write;
+use std::process::{Command, Stdio};
+
+#[test]
+fn init_writes_icloud_config() {
+    let home = tempfile::tempdir().unwrap();
+    let answers = "Jane\nDoe\njane@example.com\n1 Main St\nZurich\nZH\n8000\nSwitzerland\n+41 44 000 00 00\njane@icloud.com\nabcd-efgh-ijkl-mnop\nccpa\n";
+    let mut child = Command::new(env!("CARGO_BIN_EXE_eraser"))
+        .arg("init")
+        .env("HOME", home.path())
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child.stdin.take().unwrap().write_all(answers.as_bytes()).unwrap();
+    let out = child.wait_with_output().unwrap();
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+
+    let path = home.path().join(".eraser/config.yaml");
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains(&format!("✅ Configuration saved to: {}", path.display())));
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = std::fs::metadata(&path).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode, 0o600);
+    }
+
+    let cfg = eraser::config::load(&path).unwrap();
+    cfg.validate().unwrap();
+    assert_eq!(cfg.profile.first_name, "Jane");
+    assert_eq!(cfg.profile.last_name, "Doe");
+    assert_eq!(cfg.profile.city, "Zurich");
+    assert_eq!(cfg.profile.phone, "+41 44 000 00 00");
+    assert_eq!(cfg.email.provider, "smtp");
+    assert_eq!(cfg.email.smtp.host, "smtp.mail.me.com");
+    assert_eq!(cfg.email.smtp.port, 587);
+    assert!(cfg.email.smtp.use_tls);
+    assert_eq!(cfg.email.smtp.username, "jane@icloud.com");
+    assert_eq!(cfg.email.smtp.password, "abcd-efgh-ijkl-mnop");
+    assert_eq!(cfg.email.from, cfg.email.smtp.username);
+    assert_eq!(cfg.options.template, "ccpa");
+    assert_eq!(cfg.options.rate_limit_ms, 2000);
+}
+
+#[test]
+fn init_defaults_template_to_generic_on_eof() {
+    let home = tempfile::tempdir().unwrap();
+    let mut child = Command::new(env!("CARGO_BIN_EXE_eraser"))
+        .arg("init")
+        .env("HOME", home.path())
+        .stdin(Stdio::piped())
+        .stdout(Stdio::null())
+        .spawn()
+        .unwrap();
+    child.stdin.take().unwrap().write_all(b"Jane\nDoe\n").unwrap();
+    assert!(child.wait().unwrap().success());
+    let cfg = eraser::config::load(home.path().join(".eraser/config.yaml")).unwrap();
+    assert_eq!(cfg.options.template, "generic");
+    assert_eq!(cfg.email.smtp.host, "smtp.mail.me.com");
+    assert_eq!(cfg.email.from, "");
+}

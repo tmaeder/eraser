@@ -1,0 +1,22 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "eraser",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-01",
+  "observability": { "enabled": true },
+  "routes": [{ "pattern": "erase.kampa.app", "custom_domain": true }],
+  "containers": [
+    {
+      "class_name": "EraserContainer",
+      "image": "./Dockerfile",
+      "image_build_context": "..",
+      "instance_type": "basic",
+      "max_instances": 1
+    }
+  ],
+  "durable_objects": {
+    "bindings": [{ "name": "ERASER", "class_name": "EraserContainer" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["EraserContainer"] }],
+  "r2_buckets": [{ "binding": "STATE", "bucket_name": "eraser-state" }]
+}

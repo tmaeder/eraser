@@ -1,0 +1,6 @@
+target
+.git
+deploy/node_modules
+deploy/.wrangler
+eraser
+*.db

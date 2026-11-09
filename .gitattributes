@@ -1,0 +1,5 @@
+# GitHub language stats: count Rust source, not bundled assets or fixtures
+static/** linguist-vendored
+tests/golden/** linguist-generated
+tests/fixtures/** linguist-generated
+docs/** linguist-documentation

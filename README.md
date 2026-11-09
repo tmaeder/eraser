@@ -178,7 +178,7 @@ email:
     use_tls: true
 
 options:
-  template: generic  # or "gdpr" or "ccpa"
+  template: generic  # or "gdpr", "ccpa", "fadp" (Swiss)
   rate_limit_ms: 2000  # delay between emails
 
   # Optional: only target specific regions

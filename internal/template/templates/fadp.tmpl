@@ -1,0 +1,64 @@
+To the Data Protection Advisor / Controller, {{.BrokerName}}
+
+Request for deletion (Art. 32 para. 2 lit. c FADP) and objection to processing (Art. 30 para. 2 lit. b FADP)
+Löschbegehren und Widerspruch gemäss Art. 30 und 32 DSG
+
+I am writing to exercise my rights under the Swiss Federal Act on Data Protection of 25 September 2020 ("FADP", SR 235.1) and its Ordinance ("DPO", SR 235.11).
+
+PERSONAL DATA PROVIDED TO LOCATE MY RECORDS:
+- Full Name: {{.FullName}}
+- Email Address: {{.Email}}
+{{- if .Address}}
+- Address: {{.Address}}
+{{- end}}
+{{- if .City}}
+- City: {{.City}}
+{{- end}}
+{{- if .State}}
+- State/Province: {{.State}}
+{{- end}}
+{{- if .ZipCode}}
+- Postal Code: {{.ZipCode}}
+{{- end}}
+{{- if .Country}}
+- Country: {{.Country}}
+{{- end}}
+{{- if .Phone}}
+- Phone: {{.Phone}}
+{{- end}}
+{{- if .DateOfBirth}}
+- Date of Birth: {{.DateOfBirth}}
+{{- end}}
+
+These details are provided solely to identify my records. They must not be used for any other purpose or added to your records (Art. 6 para. 2 and 3 FADP).
+
+1. OBJECTION (Art. 30 para. 2 lit. b FADP)
+I expressly object to any processing of my personal data, in particular its collection, compilation, profiling, sale, rental or other disclosure to third parties, and its use for direct marketing. Processing personal data against the express wishes of the data subject constitutes a violation of personality (Art. 30 para. 2 lit. b FADP) unless justified under Art. 31 FADP. I do not consent, and I am not aware of any overriding private or public interest or legal basis that could justify continued processing.
+
+2. DELETION (Art. 32 para. 2 lit. c FADP)
+I request that you delete or destroy all personal data concerning me without delay. Personal data must also be destroyed or anonymised as soon as it is no longer required for the purpose of processing (Art. 6 para. 4 FADP).
+
+3. NOTIFICATION OF RECIPIENTS (cf. Art. 32 para. 4 FADP)
+Please communicate this deletion and my objection to all third parties to whom you have disclosed my personal data, and inform me who those recipients are.
+
+4. CONFIRMATION AND INFORMATION (Art. 25 FADP)
+Please confirm in writing that the deletion has been carried out and, under Art. 25 para. 2 FADP, tell me:
+- which personal data concerning me you processed;
+- the purpose of the processing and the retention period;
+- the available information about the source of the data, if not collected from me (Art. 25 para. 2 lit. e);
+- the recipients or categories of recipients to whom it was disclosed (Art. 25 para. 2 lit. g).
+
+If you must keep a minimal record (for example my email address on a suppression list) solely to ensure that my data is not processed again, please limit it to what is strictly necessary for that purpose and tell me so.
+
+DEADLINE AND FORMALITIES
+Information under Art. 25 FADP must be provided free of charge (Art. 25 para. 6 FADP) and within 30 days of receipt (Art. 18 para. 1 DPO). Any restriction or deferral must be justified to me (Art. 26 para. 4 FADP). Please note that intentionally providing false or incomplete information in response to an access request is punishable under Art. 60 para. 1 lit. a FADP.
+
+You may request proof of identity only to the extent necessary (Art. 16 DPO); any such information may be used only to verify my identity. Please do not require me to create an account or to use a particular form.
+
+If you do not comply, I reserve the right to bring legal action under Art. 32 FADP and to report the matter to the Federal Data Protection and Information Commissioner (FDPIC / EDÖB).
+
+Please send your reply to {{.Email}}.
+
+Yours faithfully,
+{{.FullName}}
+{{.Date}}

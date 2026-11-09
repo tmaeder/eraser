@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"embed"
 	"fmt"
+	"strings"
 	"text/template"
 	"time"
 
@@ -44,8 +45,25 @@ type EmailData struct {
 
 // Email represents a rendered email ready to send
 type Email struct {
-	Subject string
-	Body    string
+	Subject  string
+	Body     string
+	Template string // template actually used (resolved when "auto")
+}
+
+// ForBroker resolves "auto" to the law that binds the broker: Swiss FADP for
+// Swiss brokers, GDPR for EU/UK brokers, the multi-law generic letter otherwise.
+func ForBroker(templateName string, b broker.Broker) string {
+	if templateName != "auto" {
+		return templateName
+	}
+	switch strings.ToLower(b.Region) {
+	case "ch":
+		return "fadp"
+	case "eu":
+		return "gdpr"
+	default:
+		return "generic"
+	}
 }
 
 // Engine handles email template rendering
@@ -59,7 +77,7 @@ func NewEngine() (*Engine, error) {
 		templates: make(map[string]*template.Template),
 	}
 
-	templateNames := []string{"gdpr", "ccpa", "generic"}
+	templateNames := []string{"gdpr", "ccpa", "fadp", "generic"}
 	for _, name := range templateNames {
 		content, err := embeddedTemplates.ReadFile("templates/" + name + ".tmpl")
 		if err != nil {
@@ -79,6 +97,7 @@ func NewEngine() (*Engine, error) {
 
 // Render generates an email from a template
 func (e *Engine) Render(templateName string, profile config.Profile, b broker.Broker) (*Email, error) {
+	templateName = ForBroker(templateName, b)
 	tmpl, ok := e.templates[templateName]
 	if !ok {
 		return nil, fmt.Errorf("unknown template: %s", templateName)
@@ -115,19 +134,22 @@ func (e *Engine) Render(templateName string, profile config.Profile, b broker.Br
 	subject := e.getSubject(templateName, b.Name)
 
 	return &Email{
-		Subject: subject,
-		Body:    buf.String(),
+		Subject:  subject,
+		Body:     buf.String(),
+		Template: templateName,
 	}, nil
 }
 
 func (e *Engine) getSubject(templateName, brokerName string) string {
 	switch templateName {
 	case "gdpr":
-		return fmt.Sprintf("GDPR Data Erasure Request - Article 17 Right to Erasure")
+		return "Erasure request and objection under Articles 17 and 21 GDPR"
 	case "ccpa":
-		return fmt.Sprintf("CCPA Data Deletion Request - Right to Delete Personal Information")
+		return "CCPA Request to Delete and to Opt Out of Sale/Sharing"
+	case "fadp":
+		return "Deletion request and objection under Articles 30 and 32 FADP (DSG)"
 	default:
-		return fmt.Sprintf("Personal Data Removal Request")
+		return "Personal Data Deletion and Opt-Out Request"
 	}
 }
 

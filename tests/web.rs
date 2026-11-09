@@ -446,12 +446,28 @@ async fn bulk_send_job_with_mock_sender() {
         to,
         ["privacy@eurolist.example", "privacy@swissdata.example"]
     );
-    let mut subjects: Vec<_> = sent.iter().map(|m| (m.to.as_str(), m.subject.as_str())).collect();
+    let mut subjects: Vec<_> = sent
+        .iter()
+        .map(|m| (m.to.as_str(), m.subject.as_str()))
+        .collect();
     subjects.sort();
-    assert!(subjects[0].1.contains("GDPR") && subjects[1].1.contains("FADP"), "auto law selection: {subjects:?}");
-    let mut used: Vec<_> = h.history.get_recent_requests(10).unwrap().into_iter().map(|r| r.template).collect();
+    assert!(
+        subjects[0].1.contains("GDPR") && subjects[1].1.contains("FADP"),
+        "auto law selection: {subjects:?}"
+    );
+    let mut used: Vec<_> = h
+        .history
+        .get_recent_requests(10)
+        .unwrap()
+        .into_iter()
+        .map(|r| r.template)
+        .collect();
     used.sort();
-    assert_eq!(used, ["fadp", "gdpr"], "history stores the resolved template");
+    assert_eq!(
+        used,
+        ["fadp", "gdpr"],
+        "history stores the resolved template"
+    );
     assert!(
         !h.dir.path().join(".eraser/pending_job.json").exists(),
         "state cleared"

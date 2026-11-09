@@ -1217,7 +1217,9 @@ pub async fn api_send_one(State(st): St, Path(broker_id): Path<String>) -> Respo
         body: rendered.body,
     };
     let result = send_with_timeout(sender.as_ref(), &msg).await;
-    let _ = st.history.add(&mut record_for(&br, &rendered.template, &result));
+    let _ = st
+        .history
+        .add(&mut record_for(&br, &rendered.template, &result));
 
     if result.success {
         fragment(
@@ -1392,7 +1394,10 @@ async fn process_send_job(
         let broker = &b.broker;
         job.update(sent, failed, &broker.name);
 
-        let rendered = match st.engine.render(&cfg.options.template, &cfg.profile, broker) {
+        let rendered = match st
+            .engine
+            .render(&cfg.options.template, &cfg.profile, broker)
+        {
             Ok(r) => r,
             Err(_) => {
                 failed += 1;

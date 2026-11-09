@@ -1,6 +1,7 @@
 //! CLI entry: parsing, cobra-compatible help/error output, dispatch.
 
 mod args;
+mod browser_cmds;
 mod commands;
 mod help;
 mod inbox_cmds;

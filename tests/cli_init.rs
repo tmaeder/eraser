@@ -64,3 +64,22 @@ fn init_defaults_template_to_generic_on_eof() {
     assert_eq!(cfg.email.smtp.host, "smtp.mail.me.com");
     assert_eq!(cfg.email.from, "");
 }
+
+#[test]
+fn init_rejects_unknown_template() {
+    let home = tempfile::tempdir().unwrap();
+    let mut child = Command::new(env!("CARGO_BIN_EXE_eraser"))
+        .arg("init")
+        .env("HOME", home.path())
+        .stdin(Stdio::piped())
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let answers = "J\nD\nj@x.com\n\n\n\n\n\n\nj@icloud.com\npw\nnosuch\n";
+    child.stdin.take().unwrap().write_all(answers.as_bytes()).unwrap();
+    let out = child.wait_with_output().unwrap();
+    assert_eq!(out.status.code(), Some(1));
+    assert!(String::from_utf8_lossy(&out.stderr).contains("unknown template \"nosuch\""));
+    assert!(!home.path().join(".eraser/config.yaml").exists());
+}

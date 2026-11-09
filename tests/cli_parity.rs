@@ -279,6 +279,43 @@ fn init_matches() {
     std::fs::remove_dir_all(home.path().join(".eraser")).unwrap();
     let rs_out = run(Path::new(RUST_BIN), home.path(), &["init"], answers);
     let rs_cfg = eraser::config::load(&path).unwrap();
+    // Intentional difference: the template prompt also lists the Swiss "fadp" template.
+    let mut go_out = go_out;
+    go_out.stdout = go_out
+        .stdout
+        .replace("(gdpr/ccpa/generic)", "(gdpr/ccpa/fadp/generic)");
     assert_eq!(go_out, rs_out);
     assert_eq!(go_cfg, rs_cfg);
+}
+
+fn seed_confirmations(home: &Path) {
+    let store = Store::new(home.join(".eraser/history.db")).unwrap();
+    for (id, url) in [
+        ("spokeo", "https://www.spokeo.com/optout/confirm?token=abcdefghijklmnopqrstuvwxyz0123456789"),
+        ("shady", "https://phish.example.net/confirm?t=1"),
+    ] {
+        store
+            .add_broker_response(&mut BrokerResponse {
+                broker_id: id.into(),
+                broker_name: id.into(),
+                response_type: "confirmation_required".into(),
+                confirm_url: url.into(),
+                received_at: Some(Local::now()),
+                ..Default::default()
+            })
+            .unwrap();
+    }
+}
+
+#[test]
+fn confirm_dry_run_matches() {
+    assert_same(&["confirm"], no_setup);
+    assert_same(&["confirm", "--pending"], no_setup);
+    assert_same(&["confirm", "--pending", "--dry-run"], seed_confirmations);
+    assert_same(&["confirm", "--broker", "spokeo", "--dry-run"], seed_confirmations);
+    assert_same(&["confirm", "--broker", "nobody", "--dry-run"], seed_confirmations);
+    assert_same(
+        &["confirm", "--url", "https://mail.spokeo.com/c?x=1", "--dry-run"],
+        no_setup,
+    );
 }

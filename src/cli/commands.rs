@@ -56,10 +56,12 @@ pub async fn dispatch(ctx: &Ctx, cmd: Cmd) -> Result<()> {
         Cmd::Monitor { days, once, watch } => super::inbox_cmds::run_monitor(ctx, days, once, watch).await,
         Cmd::Pipeline => run_pipeline_status(),
         Cmd::Fill { broker, url, headless, submit, screenshots, pending, wait } => {
-            run_fill(ctx, broker, url, headless, submit, screenshots, pending, wait).await
+            super::browser_cmds::run_fill(ctx, broker, url, headless, submit, screenshots, pending, wait)
+                .await
         }
         Cmd::Confirm { url, broker, pending, validate_domain, dry_run } => {
-            run_confirm(ctx, url, broker, pending, validate_domain, dry_run).await
+            super::browser_cmds::run_confirm(ctx, url, broker, pending, validate_domain, dry_run)
+                .await
         }
         Cmd::CleanupBounces { remove, days } => super::inbox_cmds::run_cleanup_bounces(ctx, remove, days).await,
         Cmd::Help { .. } => Ok(()),
@@ -128,9 +130,20 @@ fn run_init(ctx: &Ctx) -> Result<()> {
     println!("⚙️  Options");
     println!();
 
-    let mut template_choice = prompt(&mut input, "Default template (gdpr/ccpa/generic) [generic]: ");
+    let mut template_choice =
+        prompt(&mut input, "Default template (gdpr/ccpa/fadp/generic) [generic]: ");
     if template_choice.is_empty() {
         template_choice = "generic".into();
+    }
+    // Not in Go (which saves any string): reject names the engine can't render.
+    let available = template::Engine::new()
+        .context("failed to initialize templates")?
+        .available_templates();
+    if !available.contains(&template_choice) {
+        anyhow::bail!(
+            "unknown template {template_choice:?} (available: {})",
+            available.join(", ")
+        );
     }
     cfg.options.template = template_choice;
     cfg.options.rate_limit_ms = 2000;
@@ -425,31 +438,6 @@ async fn run_serve(
     _public_origin: Option<String>,
 ) -> Result<()> {
     Err(anyhow!("serve: web module not yet ported"))
-}
-
-#[allow(clippy::too_many_arguments)]
-async fn run_fill(
-    _ctx: &Ctx,
-    _broker: String,
-    _url: String,
-    _headless: bool,
-    _submit: bool,
-    _screenshots: String,
-    _pending: bool,
-    _wait: bool,
-) -> Result<()> {
-    Err(anyhow!("fill: browser module not yet ported"))
-}
-
-async fn run_confirm(
-    _ctx: &Ctx,
-    _url: String,
-    _broker: String,
-    _pending: bool,
-    _validate_domain: bool,
-    _dry_run: bool,
-) -> Result<()> {
-    Err(anyhow!("confirm: browser module not yet ported"))
 }
 
 #[cfg(test)]

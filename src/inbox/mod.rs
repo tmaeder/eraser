@@ -1,33 +1,14 @@
 //! Inbox monitoring: classify broker replies and extract actionable URLs.
 
 pub mod classifier;
+pub mod monitor;
 pub mod parser;
-// pub mod monitor;
 
 mod go_url;
 
-use chrono::{DateTime, Utc};
-use regex::Regex;
+pub use monitor::Email;
 
-/// An email fetched from the inbox.
-#[derive(Debug, Clone, Default, PartialEq)]
-pub struct Email {
-    /// IMAP UID for operations like move/delete
-    pub uid: u32,
-    pub message_id: String,
-    pub from: String,
-    /// Sender display name (e.g. "Mail Delivery System")
-    pub from_name: String,
-    pub from_domain: String,
-    pub subject: String,
-    pub body: String,
-    pub html_body: String,
-    pub received_at: DateTime<Utc>,
-    /// Matched broker ID (if found)
-    pub broker_id: String,
-    /// Matched broker name (if found)
-    pub broker_name: String,
-}
+use regex::Regex;
 
 /// Go's `strings.ToLower`: per-rune simple lowercase mapping. Differs from
 /// `str::to_lowercase` for 'İ' (Go: "i") and final sigma (Go: always 'σ').

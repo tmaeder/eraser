@@ -2924,13 +2924,6 @@ brokers:
       opt_out_url: https://g2risksolutions.com/consumer-center/
       region: us
       category: marketing
-    - id: lusha-systems
-      name: Lusha Systems, Inc.
-      email: judi.crimmins@lusha.com
-      website: https://www.lusha.com/
-      opt_out_url: https://www.lusha.com/privacy-center/request-removal/
-      region: us
-      category: marketing
     - id: m1-data-analytics
       name: M1 Data & Analytics, LLC
       email: gashe@m1-data.com
@@ -5566,8 +5559,8 @@ brokers:
       tags: [be, datenanfragen]
     - id: eu-bisnode-de
       name: "Bisnode Deutschland GmbH"
-      email: datenschutz.de@bisnode.com
-      website: https://www.bisnode.de/
+      email: datenschutz.de@dnb.com
+      website: https://www.dnb.com/de-de
       region: eu
       category: credit-agency
       tags: [de, datenanfragen]
@@ -5613,9 +5606,9 @@ brokers:
       category: marketing
       tags: [all, datenanfragen]
     - id: eu-callcredit-gb
-      name: "Callcredit Information Group"
-      email: dpo@callcreditgroup.com
-      website: https://www.callcredit.co.uk/
+      name: "TransUnion International UK Ltd (ex Callcredit)"
+      email: UKDataProtectionOfficer@transunion.com
+      website: https://www.transunion.co.uk
       region: eu
       category: credit-agency
       tags: [gb, datenanfragen]
@@ -6382,7 +6375,7 @@ brokers:
       email: privacy@kaspr.io
       website: https://www.kaspr.io/
       region: eu
-      category: address-broker
+      category: b2b-data
       tags: [all, datenanfragen]
     - id: eu-kesselhaus
       name: "kesselhaus GmbH"
@@ -6534,7 +6527,7 @@ brokers:
       tags: [at, datenanfragen]
     - id: eu-marketscan-gb
       name: "Marketscan Ltd."
-      email: info@marketscan.co.uk
+      email: dataprotection@marketscan.co.uk
       website: https://www.marketscan.co.uk/terms-privacy/
       region: eu
       category: address-broker
@@ -7804,3 +7797,901 @@ brokers:
       region: ch
       category: marketing
       tags: [ch]
+    - id: ch-six
+      name: "SIX Group Services AG (SIX Financial Information)"
+      email: dataprotection@six-group.com
+      website: https://www.six-group.com
+      region: ch
+      category: b2b-data
+      tags: [ch]
+    - id: kompass
+      name: "Kompass International SASU"
+      email: Compliance.privacy@kompass.com
+      website: https://www.kompass.com
+      region: global
+      category: b2b-data
+    - id: techsalerator
+      name: "Techsalerator"
+      email: info@techsalerator.com
+      website: https://www.techsalerator.com
+      region: global
+      category: b2b-data
+    - id: globaldatabase
+      name: "Global Database"
+      email: privacy@globaldatabase.com
+      website: https://www.globaldatabase.com
+      region: global
+      category: b2b-data
+    - id: de-experian
+      name: "Experian GmbH"
+      email: businessdach@experian.com
+      website: https://www.experian.de
+      region: eu
+      category: credit-agency
+      tags: [de]
+    - id: it-cerved
+      name: "Cerved Group S.p.A."
+      email: dpo@cerved.com
+      website: https://www.cerved.com
+      region: eu
+      category: credit-agency
+      tags: [it]
+    - id: it-cribis
+      name: "CRIBIS D&B S.r.l."
+      email: dirprivacy@cribis.com
+      website: https://www.cribis.com
+      region: eu
+      category: credit-agency
+      tags: [it]
+    - id: it-eurocredit
+      name: "Eurocredit Business Information S.r.l."
+      email: rpd@eurocredit.it
+      website: https://www.eurocredit.it
+      region: eu
+      category: credit-agency
+      tags: [it]
+    - id: it-atoka
+      name: "Atoka / SpazioDati S.r.l."
+      email: dpo@spaziodati.eu
+      website: https://atoka.io
+      region: eu
+      category: b2b-data
+      tags: [it]
+    - id: it-addressvitt
+      name: "ADDRESSVITT S.r.l."
+      email: dpo@addressvitt.com
+      website: https://www.addressvitt.it
+      region: eu
+      category: address-broker
+      tags: [it]
+    - id: nl-companydata
+      name: "CompanyData.com"
+      email: info@companydata.com
+      website: https://companydata.com
+      region: eu
+      category: b2b-data
+      tags: [nl]
+    - id: it-empresite
+      name: "Empresite Italia (CRIBIS D&B)"
+      email: dirprivacy@cribisdnb.com
+      website: https://www.empresite.it
+      region: eu
+      category: b2b-data
+      tags: [it]
+    - id: fr-altares
+      name: "Altares D&B France"
+      email: dpo@altares.com
+      website: https://www.altares.com
+      region: eu
+      category: credit-agency
+      tags: [fr]
+    - id: fr-ellisphere
+      name: "Ellisphere"
+      email: dpo@ellisphere.com
+      website: https://www.ellisphere.com
+      region: eu
+      category: credit-agency
+      tags: [fr]
+    - id: fr-experian
+      name: "Experian France"
+      email: dpo.fr@experian.com
+      website: https://www.experian.fr
+      region: eu
+      category: credit-agency
+      tags: [fr]
+    - id: fr-banque-de-france
+      name: "Banque de France (FIBEN)"
+      email: 1200-DPD-delegue-ut@banque-france.fr
+      website: https://www.banque-france.fr
+      region: eu
+      category: registry
+      notes: "Official register / central bank: usually legally required to keep this data, so deletion is often refused. Exclude via options.excluded_brokers if unwanted."
+      tags: [fr, registry]
+    - id: fr-manageo
+      name: "Manageo (Altares D&B)"
+      email: data-gouvernance@altares.com
+      website: https://www.manageo.fr
+      region: eu
+      category: b2b-data
+      tags: [fr]
+    - id: fr-corporama
+      name: "Corporama"
+      email: rgpd@corporama.com
+      website: https://www.corporama.fr
+      region: eu
+      category: b2b-data
+      tags: [fr]
+    - id: fr-insee
+      name: "INSEE (SIRENE)"
+      email: contact-rgpd@insee.fr
+      website: https://www.insee.fr
+      region: eu
+      category: registry
+      notes: "Official register / central bank: usually legally required to keep this data, so deletion is often refused. Exclude via options.excluded_brokers if unwanted."
+      tags: [fr, registry]
+    - id: fr-societe-com
+      name: "Societe.com"
+      email: dpo@societe.com
+      website: https://www.societe.com
+      region: eu
+      category: people-search
+      tags: [fr]
+    - id: fr-pappers
+      name: "Pappers"
+      email: contact@pappers.fr
+      website: https://www.pappers.fr
+      region: eu
+      category: people-search
+      tags: [fr]
+    - id: uk-creditsafe
+      name: "Creditsafe Business Solutions Ltd"
+      email: help@creditsafeuk.com
+      website: https://www.creditsafe.com/gb/en.html
+      region: eu
+      category: credit-agency
+      tags: [uk]
+    - id: uk-dnb
+      name: "Dun & Bradstreet Ltd (UK)"
+      email: EUDPO@dnb.com
+      website: https://www.dnb.co.uk
+      region: eu
+      category: b2b-data
+      tags: [uk]
+    - id: uk-redflagalert
+      name: "Red Flag Alert Technology Group Ltd"
+      email: DPO@RedFlagAlert.com
+      website: https://www.redflagalert.com
+      region: eu
+      category: b2b-data
+      tags: [uk]
+    - id: uk-cognism
+      name: "Cognism Limited (UK)"
+      email: privacy@cognism.com
+      website: https://www.cognism.com
+      region: eu
+      category: b2b-data
+      tags: [uk]
+    - id: uk-datagardener
+      name: "DataGardener Solutions Ltd"
+      email: support@datagardener.com
+      website: https://www.datagardener.com
+      region: eu
+      category: b2b-data
+      tags: [uk]
+    - id: uk-corpdata
+      name: "Corpdata Ltd"
+      email: sales@corpdata.co.uk
+      website: https://www.corpdata.co.uk
+      region: eu
+      category: b2b-data
+      tags: [uk]
+    - id: uk-caci
+      name: "CACI Limited (Acorn)"
+      email: compliance@caci.co.uk
+      website: https://www.caci.co.uk
+      region: eu
+      category: marketing
+      tags: [uk]
+    - id: fi-enento
+      name: "Enento Group (UC, Asiakastieto, Proff)"
+      email: dpo@enento.com
+      website: https://enento.com
+      region: eu
+      category: credit-agency
+      tags: [fi]
+    - id: se-dnb
+      name: "Dun & Bradstreet Sverige AB"
+      email: dpo.se@dnb.com
+      website: https://www.dnb.com/sv-se
+      region: eu
+      category: credit-agency
+      tags: [se]
+    - id: no-dnb
+      name: "Dun & Bradstreet Norway AS"
+      email: dpo.no@dnb.com
+      website: https://www.dnb.com/no
+      region: eu
+      category: credit-agency
+      tags: [no]
+    - id: dk-dnb
+      name: "Dun & Bradstreet Denmark A/S"
+      email: customercare.dk@dnb.com
+      website: https://www.dnb.com/da-dk
+      region: eu
+      category: credit-agency
+      tags: [dk]
+    - id: fi-dnb
+      name: "Dun & Bradstreet Finland Oy"
+      email: dpo.fi@dnb.com
+      website: https://www.dnb.com/fi-fi
+      region: eu
+      category: credit-agency
+      tags: [fi]
+    - id: dk-experian
+      name: "Experian A/S (RKI)"
+      email: dpodenmark@experian.com
+      website: https://www.experian.dk
+      region: eu
+      category: credit-agency
+      tags: [dk]
+    - id: no-experian
+      name: "Experian AS (Norway)"
+      email: dponorway@experian.com
+      website: https://www.experian.no
+      region: eu
+      category: credit-agency
+      tags: [no]
+    - id: se-creditsafe
+      name: "Creditsafe i Sverige AB"
+      email: dataskyddsombud@creditsafe.se
+      website: https://www.creditsafe.com/se/sv.html
+      region: eu
+      category: credit-agency
+      tags: [se]
+    - id: no-creditsafe
+      name: "Creditsafe Norge AS"
+      email: personvernombud@creditsafe.no
+      website: https://www.creditsafe.com/no/no.html
+      region: eu
+      category: credit-agency
+      tags: [no]
+    - id: se-bislab
+      name: "Bis Lab Credit"
+      email: personvern@bislab.no
+      website: https://bislab.io
+      region: eu
+      category: credit-agency
+      tags: [se]
+    - id: fi-vainu
+      name: "Vainu"
+      email: privacy@vainu.io
+      website: https://www.vainu.com
+      region: eu
+      category: b2b-data
+      tags: [fi]
+    - id: no-proff
+      name: "Proff AS"
+      email: support@proff.no
+      website: https://www.proff.no
+      region: eu
+      category: b2b-data
+      tags: [no]
+    - id: se-allabolag
+      name: "Allabolag (ex Proff.se)"
+      email: hej@allabolag.se
+      website: https://www.allabolag.se
+      region: eu
+      category: b2b-data
+      tags: [se]
+    - id: se-roaring
+      name: "Roaring Group AB"
+      email: customer@roaring.io
+      website: https://www.roaring.io
+      region: eu
+      category: b2b-data
+      tags: [se]
+    - id: se-bolagsverket
+      name: "Bolagsverket"
+      email: dataskyddsombud@bolagsverket.se
+      website: https://bolagsverket.se
+      region: eu
+      category: registry
+      notes: "Official register / central bank: usually legally required to keep this data, so deletion is often refused. Exclude via options.excluded_brokers if unwanted."
+      tags: [se, registry]
+    - id: no-brreg
+      name: "Brønnøysundregistrene"
+      email: personvernombud@brreg.no
+      website: https://www.brreg.no
+      region: eu
+      category: registry
+      notes: "Official register / central bank: usually legally required to keep this data, so deletion is often refused. Exclude via options.excluded_brokers if unwanted."
+      tags: [no, registry]
+    - id: dk-erhvervsstyrelsen
+      name: "Erhvervsstyrelsen / Virk (CVR)"
+      email: dpo@em.dk
+      website: https://virk.dk
+      region: eu
+      category: registry
+      notes: "Official register / central bank: usually legally required to keep this data, so deletion is often refused. Exclude via options.excluded_brokers if unwanted."
+      tags: [dk, registry]
+    - id: pl-bik
+      name: "Biuro Informacji Kredytowej S.A. (BIK)"
+      email: iod@bik.pl
+      website: https://www.bik.pl
+      region: eu
+      category: credit-agency
+      tags: [pl]
+    - id: pl-krd
+      name: "Krajowy Rejestr Długów BIG S.A."
+      email: iod@krd.pl
+      website: https://krd.pl
+      region: eu
+      category: credit-agency
+      tags: [pl]
+    - id: pl-big-infomonitor
+      name: "BIG InfoMonitor S.A."
+      email: iod@big.pl
+      website: https://www.big.pl
+      region: eu
+      category: credit-agency
+      tags: [pl]
+    - id: pl-erif
+      name: "ERIF Biuro Informacji Gospodarczej S.A."
+      email: dpo@erif.pl
+      website: https://erif.pl
+      region: eu
+      category: credit-agency
+      tags: [pl]
+    - id: pl-crif
+      name: "CRIF Sp. z o.o."
+      email: dpo@crif.com
+      website: https://www.crif.pl
+      region: eu
+      category: credit-agency
+      tags: [pl]
+    - id: pl-creditreform
+      name: "Creditreform Polska Sp. z o.o."
+      email: rodo@creditreform-polska.com.pl
+      website: https://www.creditreform.pl
+      region: eu
+      category: credit-agency
+      tags: [pl]
+    - id: pl-infocredit
+      name: "InfoCredit"
+      email: iod@infocredit.pl
+      website: https://infocredit.pl
+      region: eu
+      category: b2b-data
+      tags: [pl]
+    - id: pl-dnb
+      name: "Dun & Bradstreet Poland Sp. z o.o."
+      email: dnbeu-rodo.pl@dnb.com
+      website: https://www.dnb.com/pl-pl
+      region: eu
+      category: b2b-data
+      tags: [pl]
+    - id: pl-krs
+      name: "Ministerstwo Sprawiedliwości (KRS)"
+      email: iod@ms.gov.pl
+      website: https://www.gov.pl/web/sprawiedliwosc
+      region: eu
+      category: registry
+      notes: "Official register / central bank: usually legally required to keep this data, so deletion is often refused. Exclude via options.excluded_brokers if unwanted."
+      tags: [pl, registry]
+    - id: cz-crif
+      name: "CRIF – Czech Credit Bureau, a.s. (Kolikmam.cz)"
+      email: poverenec@crif.com
+      website: https://www.crif.cz
+      region: eu
+      category: credit-agency
+      tags: [cz]
+    - id: cz-dnb
+      name: "Dun & Bradstreet Czech Republic, a.s."
+      email: dpo.cz@dnb.com
+      website: https://www.dnb.com/cs-cz
+      region: eu
+      category: b2b-data
+      tags: [cz]
+    - id: cz-creditinfo
+      name: "Creditinfo CEE a.s."
+      email: dpociscz@creditinfo.com
+      website: https://creditinfo.cz
+      region: eu
+      category: b2b-data
+      tags: [cz]
+    - id: cz-justice
+      name: "Ministerstvo spravedlnosti ČR (justice.cz)"
+      email: poverenec@msp.justice.cz
+      website: https://msp.gov.cz
+      region: eu
+      category: registry
+      notes: "Official register / central bank: usually legally required to keep this data, so deletion is often refused. Exclude via options.excluded_brokers if unwanted."
+      tags: [cz, registry]
+    - id: sk-crif
+      name: "CRIF – Slovak Credit Bureau, s.r.o."
+      email: dpo.sk@crif.com
+      website: https://www.crif.sk
+      region: eu
+      category: credit-agency
+      tags: [sk]
+    - id: sk-dnb
+      name: "Dun & Bradstreet Slovakia, s.r.o."
+      email: dpo.sk@dnb.com
+      website: https://www.dnb.com/sk-sk
+      region: eu
+      category: b2b-data
+      tags: [sk]
+    - id: hu-bisz
+      name: "BISZ Zrt. (KHR)"
+      email: adatvedelmitisztviselo@bisz.hu
+      website: https://www.bisz.hu
+      region: eu
+      category: credit-agency
+      tags: [hu]
+    - id: hu-opten
+      name: "OPTEN Informatikai Kft."
+      email: ugyfelszolgalat@opten.hu
+      website: https://www.opten.hu
+      region: eu
+      category: b2b-data
+      tags: [hu]
+    - id: hu-dnb
+      name: "Dun & Bradstreet Hungary Kft."
+      email: dpo.hungary@dnb.com
+      website: https://www.dnb.com/hu-hu
+      region: eu
+      category: b2b-data
+      tags: [hu]
+    - id: hu-creditreform
+      name: "Creditreform Hungary (Credit Control Menedzsment Kft.)"
+      email: dpo@drbelcsak.hu
+      website: https://www.creditreform.hu
+      region: eu
+      category: credit-agency
+      tags: [hu]
+    - id: ro-termene
+      name: "TERMENE JUST S.R.L."
+      email: dataprotection@termene.ro
+      website: https://termene.ro
+      region: eu
+      category: b2b-data
+      tags: [ro]
+    - id: ro-crif
+      name: "ICAP CRIF S.R.L. (CRIF Romania)"
+      email: privacyromania@icapcrif.com
+      website: https://www.icapcrif.com/ro
+      region: eu
+      category: credit-agency
+      tags: [ro]
+    - id: ro-creditreform
+      name: "Creditreform Romania SRL"
+      email: info@creditreform.ro
+      website: https://www.creditreform.ro
+      region: eu
+      category: credit-agency
+      tags: [ro]
+    - id: es-informa
+      name: "Informa D&B S.A.U."
+      email: dpo@informa.es
+      website: https://www.informa.es
+      region: eu
+      category: b2b-data
+      tags: [es]
+    - id: es-iberinform
+      name: "Iberinform Internacional S.A.U."
+      email: atencionclientes@iberinform.es
+      website: https://www.iberinform.es
+      region: eu
+      category: b2b-data
+      tags: [es]
+    - id: es-axesor
+      name: "Axesor (Experian group)"
+      email: bcatcliente@experian.com
+      website: https://www.axesor.es
+      region: eu
+      category: credit-agency
+      tags: [es]
+    - id: es-asnef
+      name: "Equifax Ibérica S.L. (ASNEF)"
+      email: sac@equifax.es
+      website: https://www.equifax.es
+      region: eu
+      category: credit-agency
+      tags: [es]
+    - id: es-datacentric
+      name: "Accumin Intelligence S.L.U. (ex Deyde DataCentric)"
+      email: privacidad.datacentric@accumin.com
+      website: https://www.accumin.com
+      region: eu
+      category: marketing
+      tags: [es]
+    - id: es-registradores
+      name: "Colegio de Registradores (CORPME)"
+      email: dpo@corpme.es
+      website: https://www.registradores.org
+      region: eu
+      category: registry
+      notes: "Official register / central bank: usually legally required to keep this data, so deletion is often refused. Exclude via options.excluded_brokers if unwanted."
+      tags: [es, registry]
+    - id: pt-informa
+      name: "Informa D&B Portugal"
+      email: protecaodedados@informadb.pt
+      website: https://www.informadb.pt
+      region: eu
+      category: b2b-data
+      tags: [pt]
+    - id: pt-infotrust
+      name: "Infotrust – Informação e Gestão Lda."
+      email: geral@infotrust.pt
+      website: https://www.infotrust.pt
+      region: eu
+      category: b2b-data
+      tags: [pt]
+    - id: pt-coface
+      name: "Coface Portugal"
+      email: coface_dpo@coface.com
+      website: https://www.coface.pt
+      region: eu
+      category: credit-agency
+      tags: [pt]
+    - id: pt-racius
+      name: "Racius (Nexperience Lda.)"
+      email: info+dpo@racius.com
+      website: https://www.racius.com
+      region: eu
+      category: b2b-data
+      tags: [pt]
+    - id: pt-iberinform
+      name: "Iberinform Portugal (ex Ignios)"
+      email: geral@iberinform.pt
+      website: https://www.iberinform.pt
+      region: eu
+      category: b2b-data
+      tags: [pt]
+    - id: pt-irn
+      name: "IRN Instituto dos Registos e do Notariado"
+      email: epd@irn.mj.pt
+      website: https://registo.justica.gov.pt
+      region: eu
+      category: registry
+      notes: "Official register / central bank: usually legally required to keep this data, so deletion is often refused. Exclude via options.excluded_brokers if unwanted."
+      tags: [pt, registry]
+    - id: si-dnb
+      name: "Dun & Bradstreet d.o.o. Slovenia (ex Bisnode)"
+      email: dpo.si@dnb.com
+      website: https://www.dnb.com/sl-si/
+      region: eu
+      category: b2b-data
+      tags: [si]
+    - id: hr-dnb
+      name: "Dun & Bradstreet d.o.o. Croatia (ex Bisnode, Poslovna Hrvatska)"
+      email: dpo.hr@dnb.com
+      website: https://www.dnb.com/hr-hr/
+      region: eu
+      category: b2b-data
+      tags: [hr]
+    - id: rs-dnb
+      name: "Dun & Bradstreet d.o.o. Beograd (ex Bisnode)"
+      email: dpo.rs@dnb.com
+      website: https://www.dnb.com/sr-rs/
+      region: eu
+      category: b2b-data
+      tags: [rs]
+    - id: hr-creditreform
+      name: "Creditreform d.o.o. (Zagreb)"
+      email: info@creditreform.hr
+      website: https://www.creditreform.hr
+      region: eu
+      category: credit-agency
+      tags: [hr]
+    - id: rs-creditreform
+      name: "Creditreform d.o.o. (Novi Beograd)"
+      email: inkasso@creditreform.rs
+      website: https://www.creditreform.rs
+      region: eu
+      category: credit-agency
+      tags: [rs]
+    - id: si-creditreform
+      name: "Creditreform d.o.o. (Ljubljana)"
+      email: info@creditreform.si
+      website: https://e-creditreform.si
+      region: eu
+      category: credit-agency
+      tags: [si]
+    - id: rs-kreditni-biro
+      name: "Kreditni biro – Udruženje banaka Srbije"
+      email: zastita.podataka@ubs-asb.com
+      website: https://www.ubs-asb.com
+      region: eu
+      category: registry
+      notes: "Official register / central bank: usually legally required to keep this data, so deletion is often refused. Exclude via options.excluded_brokers if unwanted."
+      tags: [rs, registry]
+    - id: si-sisbon
+      name: "SISBON (Banka Slovenije)"
+      email: vop@bsi.si
+      website: https://www.bsi.si
+      region: eu
+      category: registry
+      notes: "Official register / central bank: usually legally required to keep this data, so deletion is often refused. Exclude via options.excluded_brokers if unwanted."
+      tags: [si, registry]
+    - id: ba-lrc
+      name: "LRC BIS Kreditni biro (LRC Inženjering d.o.o.)"
+      email: lrc@lrcbh.com
+      website: https://www.lrcbh.com
+      region: eu
+      category: registry
+      notes: "Official register / central bank: usually legally required to keep this data, so deletion is often refused. Exclude via options.excluded_brokers if unwanted."
+      tags: [ba, registry]
+    - id: si-companywall
+      name: "CompanyWall d.o.o. (Ljubljana)"
+      email: gdpr@companywall.si
+      website: https://www.companywall.si
+      region: eu
+      category: b2b-data
+      tags: [si]
+    - id: hr-companywall
+      name: "CompanyWall d.o.o. (Zagreb)"
+      email: gdpr@companywall.hr
+      website: https://www.companywall.hr
+      region: eu
+      category: b2b-data
+      tags: [hr]
+    - id: rs-companywall
+      name: "CompanyWall d.o.o. (Beograd)"
+      email: info@companywall.rs
+      website: https://www.companywall.rs
+      region: eu
+      category: b2b-data
+      tags: [rs]
+    - id: ba-companywall
+      name: "CompanyWall d.o.o. (Bijeljina)"
+      email: info@companywall.ba
+      website: https://www.companywall.ba
+      region: eu
+      category: b2b-data
+      tags: [ba]
+    - id: me-companywall
+      name: "CompanyWall d.o.o. (Podgorica)"
+      email: info@companywall.me
+      website: https://www.companywall.me
+      region: eu
+      category: b2b-data
+      tags: [me]
+    - id: ch-pdc
+      name: "pdc Marketing + Information Technology AG"
+      email: info@pdc-online.com
+      website: https://www.pdc-online.com
+      region: ch
+      category: marketing
+      tags: [ch]
+    - id: ch-beorda
+      name: "BEORDA Direktwerbung AG"
+      email: mail@beorda.ch
+      website: https://www.beorda.ch
+      region: ch
+      category: address-broker
+      tags: [ch]
+    - id: ch-qmart
+      name: "Qmart AG"
+      email: welcome@qmart.ch
+      website: https://qmart.ch
+      region: ch
+      category: marketing
+      tags: [ch]
+    - id: ch-cohaga
+      name: "cohaga AG"
+      email: info@cohaga.ch
+      website: https://cohaga.ch
+      region: ch
+      category: address-broker
+      tags: [ch]
+    - id: ch-inkassodata
+      name: "Inkassodata AG"
+      email: datenschutz@inkassodata.ch
+      website: https://www.inkassodata.ch
+      region: ch
+      category: credit-agency
+      tags: [ch]
+    - id: ch-treowa
+      name: "Treowa AG"
+      email: info@treowa.ch
+      website: https://treowa.ch
+      region: ch
+      category: credit-agency
+      tags: [ch]
+    - id: ch-msdirect
+      name: "MS Direct AG"
+      email: marketing@ms-direct.ch
+      website: https://www.ms-direct.com
+      region: ch
+      category: marketing
+      tags: [ch]
+    - id: ch-swissb2b
+      name: "SwissB2B (Swiss Portal Solutions GmbH)"
+      email: datenschutz@swissb2b.ch
+      website: https://www.swissb2b.ch
+      region: ch
+      category: b2b-data
+      tags: [ch]
+    - id: ch-chdata
+      name: "CHdata"
+      email: info@chdata.ch
+      website: https://chdata.ch
+      region: ch
+      category: b2b-data
+      tags: [ch]
+    - id: ch-swiss-companies
+      name: "Swiss-companies.ch"
+      email: contact@swiss-companies.ch
+      website: https://www.swiss-companies.ch
+      region: ch
+      category: b2b-data
+      tags: [ch]
+    - id: ch-ainova
+      name: "AINOVA (AMM StreamTech AG)"
+      email: info@ainova.ch
+      website: https://www.ainova.ch
+      region: ch
+      category: b2b-data
+      tags: [ch]
+    - id: ch-prospex
+      name: "Prospex"
+      email: hello@prospex.ch
+      website: https://prospex.ch
+      region: ch
+      category: b2b-data
+      tags: [ch]
+    - id: ch-quickmail
+      name: "Quickmail Planzer AG"
+      email: datenschutz@quickmail-ag.ch
+      website: https://quickmail-ag.ch
+      region: ch
+      category: marketing
+      tags: [ch]
+    - id: uk-twentyci
+      name: "TwentyCi Ltd"
+      email: dataprotection@twentyci.co.uk
+      website: https://www.twentyci.co.uk
+      region: eu
+      category: address-broker
+      tags: [uk]
+    - id: uk-lowell
+      name: "Lowell Financial Ltd"
+      email: dpo@lowellgroup.co.uk
+      website: https://www.lowell.co.uk
+      region: eu
+      category: credit-agency
+      tags: [uk]
+    - id: de-lowell
+      name: "Lowell Financial Services GmbH (ex GFKL)"
+      email: datenschutz@lowellgroup.de
+      website: https://www.lowellgroup.de
+      region: eu
+      category: credit-agency
+      tags: [de]
+    - id: se-lowell
+      name: "Lowell Sverige AB"
+      email: dpo.sverige@lowell.com
+      website: https://www.lowell.se
+      region: eu
+      category: credit-agency
+      tags: [se]
+    - id: no-lowell
+      name: "Lowell Norge AS"
+      email: DPO.Norge@lowell.com
+      website: https://www.lowell.no
+      region: eu
+      category: credit-agency
+      tags: [no]
+    - id: dk-lowell
+      name: "Lowell Danmark A/S"
+      email: dpo.denmark@lowell.com
+      website: https://www.lowell.dk
+      region: eu
+      category: credit-agency
+      tags: [dk]
+    - id: fi-lowell
+      name: "Lowell Suomi Oy"
+      email: tietosuojavastaava@lowell.com
+      website: https://www.lowell.fi
+      region: eu
+      category: credit-agency
+      tags: [fi]
+    - id: se-intrum
+      name: "Intrum AB (publ) group"
+      email: GDPO@intrum.com
+      website: https://www.intrum.com
+      region: eu
+      category: credit-agency
+      tags: [se]
+    - id: fr-sirdata
+      name: "Sirdata SAS"
+      email: dpo@sirdata.fr
+      website: https://www.sirdata.com
+      region: eu
+      category: marketing
+      tags: [fr]
+    - id: fr-dropcontact
+      name: "Dropcontact SAS"
+      email: data@dropcontact.io
+      website: https://www.dropcontact.com
+      region: eu
+      category: b2b-data
+      tags: [fr]
+    - id: fr-surfe
+      name: "Surfe"
+      email: support@surfe.com
+      website: https://www.surfe.com
+      region: eu
+      category: b2b-data
+      tags: [fr]
+    - id: fr-prospeo
+      name: "Prospeo (Defastra Tech Inc.)"
+      email: privacy@prospeo.io
+      website: https://prospeo.io
+      region: global
+      category: b2b-data
+      tags: [fr]
+    - id: fr-findymail
+      name: "Findymail (Peanuts SaaS Studio)"
+      email: support@findymail.com
+      website: https://findymail.com
+      region: eu
+      category: b2b-data
+      tags: [fr]
+    - id: fr-fullenrich
+      name: "FullEnrich Corp"
+      email: support@fullenrich.com
+      website: https://fullenrich.com
+      region: global
+      category: b2b-data
+      tags: [fr]
+    - id: fr-ogury
+      name: "Ogury Ltd"
+      email: dpo@ogury.co
+      website: https://ogury.com
+      region: eu
+      category: marketing
+      tags: [fr]
+    - id: fr-mediarithmics
+      name: "Mediarithmics SAS"
+      email: privacy@mediarithmics.com
+      website: https://www.mediarithmics.io
+      region: eu
+      category: marketing
+      tags: [fr]
+    - id: be-companyweb
+      name: "BV Companyweb"
+      email: dpo@companyweb.be
+      website: https://www.companyweb.be
+      region: eu
+      category: b2b-data
+      tags: [be]
+    - id: be-bizzy
+      name: "Bizzy AI BV"
+      email: privacy@bizzy.ai
+      website: https://bizzy.ai
+      region: eu
+      category: b2b-data
+      tags: [be]
+    - id: eu-kantar
+      name: "The Kantar Group Ltd"
+      email: info@kantar.com
+      website: https://www.kantar.com
+      region: global
+      category: marketing
+      tags: [eu]
+    - id: eu-kantar-media
+      name: "Kantar Media UK Ltd"
+      email: GDPR@kantar.com
+      website: https://www.kantar.com
+      region: eu
+      category: marketing
+      tags: [eu]
+    - id: eu-nielseniq
+      name: "Nielsen Consumer LLC (NIQ, incl. GfK)"
+      email: connect.privacy@nielseniq.com
+      website: https://nielseniq.com
+      region: global
+      category: marketing
+      tags: [eu]

@@ -40,21 +40,91 @@ function timingSafeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
-function authorized(request: Request, password: string): boolean {
+const COOKIE = "eraser_auth";
+const SESSION_DAYS = 30;
+
+function basicAuthOk(request: Request, password: string): boolean {
   const header = request.headers.get("Authorization") ?? "";
   if (!header.startsWith("Basic ")) return false;
   const decoded = atob(header.slice(6));
-  const pass = decoded.slice(decoded.indexOf(":") + 1);
-  return !!password && timingSafeEqual(pass, password);
+  return timingSafeEqual(decoded.slice(decoded.indexOf(":") + 1), password);
+}
+
+// Session cookie = "<expiry>.<HMAC-SHA256(expiry)>", keyed with the password,
+// so rotating ERASER_PASSWORD logs out every session.
+async function sign(expiry: string, password: string): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    "raw", new TextEncoder().encode(password), { name: "HMAC", hash: "SHA-256" }, false, ["sign"],
+  );
+  const mac = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(expiry));
+  return btoa(String.fromCharCode(...new Uint8Array(mac))).replace(/=+$/, "");
+}
+
+async function cookieOk(request: Request, password: string): Promise<boolean> {
+  const match = (request.headers.get("Cookie") ?? "").match(/(?:^|;\s*)eraser_auth=([^;]+)/);
+  if (!match) return false;
+  const [expiry, mac] = match[1].split(".");
+  if (!expiry || !mac || Number(expiry) < Date.now()) return false;
+  return timingSafeEqual(mac, await sign(expiry, password));
+}
+
+function safeNext(next: string | null): string {
+  return next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
+}
+
+function loginPage(next: string, failed: boolean, status = 401): Response {
+  const esc = (s: string) => s.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
+  return new Response(
+    `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Eraser – Sign in</title><meta name="robots" content="noindex">
+<style>
+:root{color-scheme:light dark}body{margin:0;min-height:100vh;display:grid;place-items:center;font:16px/1.5 system-ui,sans-serif;background:#f6f7f9;color:#111}
+@media (prefers-color-scheme:dark){body{background:#111317;color:#eee}form{background:#1b1e24!important;border-color:#2b2f37!important}input{background:#111317!important;color:#eee!important;border-color:#2b2f37!important}}
+form{width:min(340px,calc(100vw - 32px));padding:28px;background:#fff;border:1px solid #e3e5e8;border-radius:14px}
+h1{margin:0 0 4px;font-size:22px}p{margin:0 0 18px;opacity:.7;font-size:14px}
+label{display:block;font-size:14px;margin-bottom:6px}input{width:100%;box-sizing:border-box;padding:10px 12px;font-size:16px;border:1px solid #d0d4da;border-radius:8px}
+button{margin-top:14px;width:100%;padding:10px;font-size:16px;border:0;border-radius:8px;background:#2563eb;color:#fff;cursor:pointer}
+.err{color:#dc2626;font-size:14px;margin:10px 0 0}
+</style></head><body>
+<form method="post" action="/__login"><h1>Eraser</h1><p>Enter your password to continue.</p>
+<label for="pw">Password</label><input id="pw" name="password" type="password" autocomplete="current-password" autofocus required>
+<input type="hidden" name="next" value="${esc(next)}">
+<button type="submit">Sign in</button>${failed ? '<p class="err">Wrong password.</p>' : ""}</form></body></html>`,
+    { status, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } },
+  );
 }
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    if (!authorized(request, env.ERASER_PASSWORD)) {
-      return new Response("Authentication required", {
-        status: 401,
-        headers: { "WWW-Authenticate": 'Basic realm="Eraser", charset="UTF-8"' },
+    const password = env.ERASER_PASSWORD;
+    const url = new URL(request.url);
+    if (!password) return new Response("Not configured", { status: 503 });
+
+    if (url.pathname === "/__login" && request.method === "POST") {
+      const form = await request.formData();
+      const next = safeNext(String(form.get("next") ?? "/"));
+      if (!timingSafeEqual(String(form.get("password") ?? ""), password)) {
+        return loginPage(next, true);
+      }
+      const expiry = String(Date.now() + SESSION_DAYS * 86400_000);
+      return new Response(null, {
+        status: 303,
+        headers: {
+          Location: next,
+          "Set-Cookie": `${COOKIE}=${expiry}.${await sign(expiry, password)}; Path=/; Max-Age=${SESSION_DAYS * 86400}; HttpOnly; Secure; SameSite=Lax`,
+        },
       });
+    }
+    if (url.pathname === "/__logout") {
+      return new Response(null, {
+        status: 303,
+        headers: { Location: "/", "Set-Cookie": `${COOKIE}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax` },
+      });
+    }
+
+    // Basic auth still works for scripts (curl -u eraser:...)
+    if (!basicAuthOk(request, password) && !(await cookieOk(request, password))) {
+      return loginPage(safeNext(url.pathname + url.search), false);
     }
     // Single-user app: one container instance holds all state.
     return getContainer(env.ERASER, "main").fetch(request);

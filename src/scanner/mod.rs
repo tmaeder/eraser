@@ -132,10 +132,15 @@ pub fn pick_folders(existing: &[String], cfg: &InboxConfig, explicit: &[String])
             "Archive".into(),
             cfg.archive_folder.clone(),
         ];
-        w.extend(existing.iter().filter(|f| {
-            let leaf = f.rsplit(['/', '.']).next().unwrap_or(f).to_lowercase();
-            EXTRA_FOLDERS.contains(&leaf.as_str())
-        }).cloned());
+        w.extend(
+            existing
+                .iter()
+                .filter(|f| {
+                    let leaf = f.rsplit(['/', '.']).next().unwrap_or(f).to_lowercase();
+                    EXTRA_FOLDERS.contains(&leaf.as_str())
+                })
+                .cloned(),
+        );
         w
     };
     let mut out: Vec<String> = Vec::new();
@@ -258,4 +263,4 @@ pub fn inbox_brokers(brokers: &[Broker], store: &Store) -> Vec<Broker> {
 }
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;

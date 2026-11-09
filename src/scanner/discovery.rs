@@ -332,14 +332,12 @@ impl Discoverer {
     /// GET host+path; returns (final url, body) for 2xx text responses (capped at 1 MiB).
     async fn fetch(&self, host: &str, path: &str) -> Option<(url::Url, String)> {
         let url = format!("{}{path}", (self.origin)(host));
-        // Host is the logical host (identical to the URL's host unless `origin` remaps it).
-        let mut resp = self
-            .client
-            .get(&url)
-            .header(reqwest::header::HOST, host)
-            .send()
-            .await
-            .ok()?;
+        let mut req = self.client.get(&url);
+        if !url.starts_with(&format!("https://{host}/")) {
+            // `origin` remapped the host (tests): keep the logical host for virtual hosting.
+            req = req.header(reqwest::header::HOST, host);
+        }
+        let mut resp = req.send().await.ok()?;
         if !resp.status().is_success() {
             return None;
         }

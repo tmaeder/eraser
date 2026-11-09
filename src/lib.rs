@@ -7,4 +7,4 @@ pub mod history;
 pub mod template;
 pub mod inbox;
 pub mod browser;
-// pub mod web;
+pub mod web;

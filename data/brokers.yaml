@@ -9404,3 +9404,18 @@ brokers:
       region: us
       category: phone-directory
       tags: [user-list]
+    - id: advisorcheck-com
+      name: "AdvisorCheck (AIMR Analytics Inc.)"
+      email: support@advisorcheck.com
+      website: https://advisorcheck.com
+      region: us
+      category: b2b-contacts
+      tags: [user-list]
+    - id: onthehouse-com-au
+      name: "Cotality (RP Data Pty Ltd) - onthehouse.com.au"
+      email: AU-Privacy@Cotality.com
+      website: https://www.onthehouse.com.au
+      region: au
+      category: property-records
+      notes: "Also covers: cotality.com, propertyvalue.com.au"
+      tags: [user-list]

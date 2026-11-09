@@ -7,9 +7,10 @@ use anyhow::{Context, Result, bail};
 use chrono::{DateTime, Datelike, Local, TimeZone};
 use serde::Serialize;
 
-const TEMPLATES: [(&str, &str); 3] = [
+const TEMPLATES: [(&str, &str); 4] = [
     ("gdpr", include_str!("../templates/email/gdpr.txt")),
     ("ccpa", include_str!("../templates/email/ccpa.txt")),
+    ("fadp", include_str!("../templates/email/fadp.txt")),
     ("generic", include_str!("../templates/email/generic.txt")),
 ];
 
@@ -45,6 +46,8 @@ pub struct EmailData {
 pub struct Email {
     pub subject: String,
     pub body: String,
+    /// Template actually used (resolved when "auto").
+    pub template: String,
 }
 
 pub struct Engine {
@@ -81,6 +84,7 @@ impl Engine {
     where
         Tz::Offset: std::fmt::Display,
     {
+        let template_name = for_broker(template_name, broker);
         let Ok(tmpl) = self.env.get_template(template_name) else {
             bail!("unknown template: {template_name}");
         };
@@ -113,6 +117,7 @@ impl Engine {
         Ok(Email {
             subject: subject(template_name).to_string(),
             body,
+            template: template_name.to_string(),
         })
     }
 
@@ -121,11 +126,25 @@ impl Engine {
     }
 }
 
+/// Resolves "auto" to the law that binds the broker: Swiss FADP for Swiss brokers,
+/// GDPR for EU/UK brokers, the multi-law generic letter otherwise.
+pub fn for_broker<'a>(template_name: &'a str, broker: &Broker) -> &'a str {
+    if template_name != "auto" {
+        return template_name;
+    }
+    match broker.region.to_lowercase().as_str() {
+        "ch" => "fadp",
+        "eu" => "gdpr",
+        _ => "generic",
+    }
+}
+
 fn subject(template_name: &str) -> &'static str {
     match template_name {
-        "gdpr" => "GDPR Data Erasure Request - Article 17 Right to Erasure",
-        "ccpa" => "CCPA Data Deletion Request - Right to Delete Personal Information",
-        _ => "Personal Data Removal Request",
+        "gdpr" => "Erasure request and objection under Articles 17 and 21 GDPR",
+        "ccpa" => "CCPA Request to Delete and to Opt Out of Sale/Sharing",
+        "fadp" => "Deletion request and objection under Articles 30 and 32 FADP (DSG)",
+        _ => "Personal Data Deletion and Opt-Out Request",
     }
 }
 
@@ -177,7 +196,7 @@ mod tests {
         let engine = Engine::new().unwrap();
         let now = Utc.with_ymd_and_hms(2026, 1, 5, 12, 0, 0).unwrap();
         let golden = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/golden/template");
-        for name in ["gdpr", "ccpa", "generic"] {
+        for name in ["gdpr", "ccpa", "fadp", "generic"] {
             for (pname, profile) in [("full", full_profile()), ("minimal", minimal_profile())] {
                 let got = engine.render_at(name, &profile, &broker(), now).unwrap();
                 let want = std::fs::read_to_string(golden.join(format!("{name}_{pname}.txt")))
@@ -198,6 +217,45 @@ mod tests {
             .render("nope", &full_profile(), &broker())
             .unwrap_err();
         assert_eq!(err.to_string(), "unknown template: nope");
-        assert_eq!(engine.available_templates(), ["gdpr", "ccpa", "generic"]);
+        assert_eq!(
+            engine.available_templates(),
+            ["gdpr", "ccpa", "fadp", "generic"]
+        );
+    }
+
+    #[test]
+    fn auto_picks_law_by_broker_region() {
+        let engine = Engine::new().unwrap();
+        for (region, want) in [
+            ("ch", "fadp"),
+            ("CH", "fadp"),
+            ("eu", "gdpr"),
+            ("us", "generic"),
+            ("global", "generic"),
+        ] {
+            let b = Broker {
+                region: region.into(),
+                ..broker()
+            };
+            assert_eq!(
+                engine
+                    .render("auto", &minimal_profile(), &b)
+                    .unwrap()
+                    .template,
+                want
+            );
+        }
+        let ch = Broker {
+            region: "ch".into(),
+            ..broker()
+        };
+        assert_eq!(for_broker("ccpa", &ch), "ccpa");
+    }
+
+    #[test]
+    fn subjects_are_ascii() {
+        for (name, _) in TEMPLATES {
+            assert!(subject(name).is_ascii(), "{name}");
+        }
     }
 }

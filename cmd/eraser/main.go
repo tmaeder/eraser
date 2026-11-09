@@ -216,9 +216,9 @@ func runInit() error {
 	fmt.Println("⚙️  Options")
 	fmt.Println()
 
-	templateChoice := prompt(reader, "Default template (gdpr/ccpa/generic) [generic]: ")
+	templateChoice := prompt(reader, "Default template (auto/gdpr/ccpa/fadp/generic) [auto]: ")
 	if templateChoice == "" {
-		templateChoice = "generic"
+		templateChoice = "auto"
 	}
 	cfg.Options.Template = templateChoice
 	cfg.Options.RateLimitMs = 2000
@@ -333,7 +333,7 @@ func runSend() error {
 				BrokerID:   b.ID,
 				BrokerName: b.Name,
 				Email:      b.Email,
-				Template:   cfg.Options.Template,
+				Template:   emailMsg.Template,
 				SentAt:     time.Now(),
 			}
 

@@ -22,7 +22,7 @@ func main() {
 		"full": {FirstName: "Jane", LastName: "Döe", Email: "jane@example.com", Address: "1 <Main> & St", City: "Zürich", State: "ZH", ZipCode: "8001", Country: "Switzerland", Phone: "+41 44 000 00 00", DateOfBirth: "1990-01-15"},
 		"minimal": {FirstName: "Min", LastName: "Imal", Email: "min@example.com"},
 	}
-	for _, name := range []string{"gdpr", "ccpa", "generic"} {
+	for _, name := range []string{"gdpr", "ccpa", "fadp", "generic"} {
 		for pn, p := range profiles {
 			date := time.Now().Format("January 2, 2006")
 			m, err := e.Render(name, p, b)

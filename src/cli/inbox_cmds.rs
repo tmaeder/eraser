@@ -115,7 +115,11 @@ pub async fn run_monitor(ctx: &Ctx, days: i64, once: bool, watch_mode: bool) -> 
     }
     let db = ctx.load_brokers()?;
     let store = open_store("initialize")?;
-    let mut monitor = Monitor::new(cfg.inbox.clone(), &db.brokers);
+    // Companies that got a deletion request count as brokers so their replies are classified.
+    let mut monitor = Monitor::new(
+        cfg.inbox.clone(),
+        &eraser::scanner::inbox_brokers(&db.brokers, &store),
+    );
     let stop = shutdown_signal();
 
     monitor

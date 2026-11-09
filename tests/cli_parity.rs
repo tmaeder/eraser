@@ -202,17 +202,25 @@ fn help_matches() {
     }
 }
 
-/// Intentional difference: cobra's auto-generated `completion` command is not ported.
+/// Intentional differences: cobra's auto-generated `completion` command is not ported, and the
+/// Rust-only company scanner commands are added.
 #[test]
 fn root_help_matches_except_completion() {
+    const RUST_ONLY: [&str; 4] = ["companies ", "request ", "scan ", "unsubscribe "];
     for args in [&["--help"][..], &[]] {
-        let Some((mut go, rs)) = both(args, "", no_setup) else {
+        let Some((mut go, mut rs)) = both(args, "", no_setup) else {
             return;
         };
         go.stdout = go
             .stdout
             .lines()
             .filter(|l| !l.trim_start().starts_with("completion "))
+            .map(|l| format!("{l}\n"))
+            .collect();
+        rs.stdout = rs
+            .stdout
+            .lines()
+            .filter(|l| !RUST_ONLY.iter().any(|c| l.trim_start().starts_with(c)))
             .map(|l| format!("{l}\n"))
             .collect();
         assert_eq!(go, rs);

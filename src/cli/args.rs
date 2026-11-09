@@ -90,6 +90,19 @@ Examples:
   eraser cleanup-bounces --remove        # Remove bounced brokers
   eraser cleanup-bounces --days 30       # Look back 30 days";
 
+const SCAN_LONG: &str =
+    "Scan INBOX, the archive folder and newsletter folders for companies that email you.
+
+Only message headers are fetched (never bodies), and nothing is marked as read.
+Senders are grouped by domain; your own and personal mail domains are excluded.
+After the scan, privacy contacts are looked up in the broker database and on each
+company's own website (only addresses published there are used).
+
+Examples:
+  eraser scan
+  eraser scan --days 90 --folders INBOX,Archive
+  eraser companies --lists";
+
 #[derive(Parser)]
 #[command(
     name = "eraser",
@@ -269,6 +282,61 @@ pub enum Cmd {
             help = "Number of days to scan for bounced emails"
         )]
         days: i64,
+    },
+    #[command(about = "Scan the inbox for companies that email you", long_about = SCAN_LONG)]
+    Scan {
+        #[arg(
+            long,
+            default_value_t = 365,
+            value_name = "int",
+            help = "Number of days to look back"
+        )]
+        days: i64,
+        #[arg(
+            long,
+            value_delimiter = ',',
+            value_name = "strings",
+            help = "Folders to scan (default: INBOX, Archive, archive folder, Newsletter/Promotions if present)"
+        )]
+        folders: Vec<String>,
+        #[arg(long, action = ArgAction::Set, num_args = 0..=1, require_equals = true, default_missing_value = "true", default_value = "true", value_parser = BoolishValueParser::new(), help = "Look up privacy contacts for new companies after the scan")]
+        discover: bool,
+    },
+    #[command(
+        about = "List companies found by 'eraser scan'",
+        long_about = "List the companies found by 'eraser scan' with their privacy contact and unsubscribe options."
+    )]
+    Companies {
+        #[arg(long, action = ArgAction::Set, num_args = 0..=1, require_equals = true, default_missing_value = "true", default_value = "false", value_parser = BoolishValueParser::new(), help = "Only mailing lists")]
+        lists: bool,
+        #[arg(long, action = ArgAction::Set, num_args = 0..=1, require_equals = true, default_missing_value = "true", default_value = "false", value_parser = BoolishValueParser::new(), help = "Only companies without a published privacy address")]
+        manual: bool,
+        #[arg(long, action = ArgAction::Set, num_args = 0..=1, require_equals = true, default_missing_value = "true", default_value = "false", value_parser = BoolishValueParser::new(), help = "Include excluded and ignored companies")]
+        all: bool,
+    },
+    #[command(
+        about = "Unsubscribe from companies' mailing lists",
+        long_about = "Unsubscribe via RFC 8058 one-click or the List-Unsubscribe mailto: address. Plain web links are only shown, never opened.\n\nExample: eraser unsubscribe shop.example news.example --dry-run"
+    )]
+    Unsubscribe {
+        #[arg(num_args = 0.., value_name = "domain")]
+        domains: Vec<String>,
+        #[arg(long, action = ArgAction::Set, num_args = 0..=1, require_equals = true, default_missing_value = "true", default_value = "false", value_parser = BoolishValueParser::new(), help = "Show what would be done without contacting anyone")]
+        dry_run: bool,
+        #[arg(long, action = ArgAction::Set, num_args = 0..=1, require_equals = true, default_missing_value = "true", default_value = "false", value_parser = BoolishValueParser::new(), help = "Skip the confirmation prompt")]
+        yes: bool,
+    },
+    #[command(
+        about = "Send deletion requests to scanned companies",
+        long_about = "Send a data deletion request to the discovered privacy contact of each company.\nAsks for confirmation unless --yes is given.\n\nExample: eraser request shop.example --dry-run"
+    )]
+    Request {
+        #[arg(num_args = 0.., value_name = "domain")]
+        domains: Vec<String>,
+        #[arg(long, action = ArgAction::Set, num_args = 0..=1, require_equals = true, default_missing_value = "true", default_value = "false", value_parser = BoolishValueParser::new(), help = "Show what would be sent without sending")]
+        dry_run: bool,
+        #[arg(long, action = ArgAction::Set, num_args = 0..=1, require_equals = true, default_missing_value = "true", default_value = "false", value_parser = BoolishValueParser::new(), help = "Skip the confirmation prompt")]
+        yes: bool,
     },
     #[command(
         about = "Help about any command",

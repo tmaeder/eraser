@@ -5,6 +5,7 @@ mod browser_cmds;
 mod commands;
 mod help;
 mod inbox_cmds;
+mod scanner_cmds;
 
 use args::{Cli, Cmd};
 use clap::error::{ContextKind, ContextValue, ErrorKind};
@@ -15,7 +16,7 @@ use std::ffi::OsString;
 pub async fn run(argv: Vec<OsString>) -> i32 {
     // Cobra subcommands silently accept positional args; mirror that.
     let root = Cli::command().mut_subcommands(|c| {
-        if c.get_name() == "help" {
+        if matches!(c.get_name(), "help" | "unsubscribe" | "request") {
             c
         } else {
             c.arg(Arg::new("ignored_args").num_args(0..).hide(true))

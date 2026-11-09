@@ -97,6 +97,24 @@ pub async fn dispatch(ctx: &Ctx, cmd: Cmd) -> Result<()> {
         Cmd::CleanupBounces { remove, days } => {
             super::inbox_cmds::run_cleanup_bounces(ctx, remove, days).await
         }
+        Cmd::Scan {
+            days,
+            folders,
+            discover,
+        } => super::scanner_cmds::run_scan(ctx, days, folders, discover).await,
+        Cmd::Companies { lists, manual, all } => {
+            super::scanner_cmds::run_companies(lists, manual, all)
+        }
+        Cmd::Unsubscribe {
+            domains,
+            dry_run,
+            yes,
+        } => super::scanner_cmds::run_unsubscribe(ctx, domains, dry_run, yes).await,
+        Cmd::Request {
+            domains,
+            dry_run,
+            yes,
+        } => super::scanner_cmds::run_request(ctx, domains, dry_run, yes).await,
         Cmd::Help { .. } => Ok(()),
     }
 }

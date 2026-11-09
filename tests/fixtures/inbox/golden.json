@@ -1,0 +1,1557 @@
+{
+  "emails": [
+    {
+      "name": "spokeo confirm link plain",
+      "type": "confirmation_required",
+      "confidence": 0.85,
+      "reason": "Email contains confirmation link that needs to be clicked",
+      "needs_review": false,
+      "form_url": "https://www.spokeo.com/optout/confirm?token=a8F3kLm2Qz9xYw\u0026email=jane%40example.com",
+      "confirm_url": "https://www.spokeo.com/optout/confirm?token=a8F3kLm2Qz9xYw\u0026email=jane%40example.com",
+      "bounced_recipient": "",
+      "urls": {
+        "form": [
+          "https://www.spokeo.com/optout/confirm?token=a8F3kLm2Qz9xYw\u0026email=jane%40example.com"
+        ],
+        "confirmation": [
+          "https://www.spokeo.com/optout/confirm?token=a8F3kLm2Qz9xYw\u0026email=jane%40example.com"
+        ],
+        "unsubscribe": [],
+        "all": [
+          "https://www.spokeo.com/optout/confirm?token=a8F3kLm2Qz9xYw\u0026email=jane%40example.com"
+        ]
+      },
+      "extract_bounced": "",
+      "tokens": [
+        "a8F3kLm2Qz9xYw"
+      ],
+      "stripped_html": "",
+      "go_types": [
+        "confirmation_required"
+      ]
+    },
+    {
+      "name": "whitepages html verify button",
+      "type": "confirmation_required",
+      "confidence": 0.85,
+      "reason": "Email contains confirmation link that needs to be clicked",
+      "needs_review": false,
+      "form_url": "https://www.whitepages.com/suppression-requests/verify/9f8e7d6c5b4a39281706",
+      "confirm_url": "https://www.whitepages.com/suppression-requests/verify/9f8e7d6c5b4a39281706",
+      "bounced_recipient": "",
+      "urls": {
+        "form": [
+          "https://www.whitepages.com/suppression-requests/verify/9f8e7d6c5b4a39281706"
+        ],
+        "confirmation": [
+          "https://www.whitepages.com/suppression-requests/verify/9f8e7d6c5b4a39281706"
+        ],
+        "unsubscribe": [],
+        "all": [
+          "https://www.whitepages.com/suppression-requests/verify/9f8e7d6c5b4a39281706",
+          "https://www.whitepages.com/privacy-policy"
+        ]
+      },
+      "extract_bounced": "",
+      "tokens": [
+        "9f8e7d6c5b4a39281706"
+      ],
+      "stripped_html": "Hi Jane, To complete your suppression request, click below to verify your identity. Verify request Questions? See our Privacy Policy .",
+      "go_types": [
+        "confirmation_required"
+      ]
+    },
+    {
+      "name": "mylife activation link with trailing punctuation",
+      "type": "confirmation_required",
+      "confidence": 0.85,
+      "reason": "Email contains confirmation link that needs to be clicked",
+      "needs_review": false,
+      "form_url": "",
+      "confirm_url": "https://www.mylife.com/privacy/activate?code=ZXCV-1234",
+      "bounced_recipient": "",
+      "urls": {
+        "form": [],
+        "confirmation": [
+          "https://www.mylife.com/privacy/activate?code=ZXCV-1234"
+        ],
+        "unsubscribe": [],
+        "all": [
+          "https://www.mylife.com/privacy/activate?code=ZXCV-1234"
+        ]
+      },
+      "extract_bounced": "",
+      "tokens": [
+        "ZXCV-1234"
+      ],
+      "stripped_html": "",
+      "go_types": [
+        "confirmation_required"
+      ]
+    },
+    {
+      "name": "radaris form required",
+      "type": "form_required",
+      "confidence": 0.85,
+      "reason": "Email contains link to opt-out form that needs to be filled",
+      "needs_review": false,
+      "form_url": "https://radaris.com/removal-request?src=email",
+      "confirm_url": "",
+      "bounced_recipient": "",
+      "urls": {
+        "form": [
+          "https://radaris.com/removal-request?src=email"
+        ],
+        "confirmation": [],
+        "unsubscribe": [],
+        "all": [
+          "https://radaris.com/control/privacy",
+          "https://radaris.com/removal-request?src=email"
+        ]
+      },
+      "extract_bounced": "",
+      "tokens": [],
+      "stripped_html": "",
+      "go_types": [
+        "form_required"
+      ]
+    },
+    {
+      "name": "intelius opt-out portal html",
+      "type": "form_required",
+      "confidence": 0.85,
+      "reason": "Email contains link to opt-out form that needs to be filled",
+      "needs_review": false,
+      "form_url": "https://www.intelius.com/opt-out/submit.Facebook",
+      "confirm_url": "",
+      "bounced_recipient": "",
+      "urls": {
+        "form": [
+          "https://www.intelius.com/opt-out/submit.Facebook"
+        ],
+        "confirmation": [],
+        "unsubscribe": [],
+        "all": [
+          "https://suppression.peopleconnect.us/login",
+          "https://www.facebook.com/intelius",
+          "https://www.intelius.com/about",
+          "https://www.intelius.com/opt-out/submit.Facebook"
+        ]
+      },
+      "extract_bounced": "",
+      "tokens": [],
+      "stripped_html": "Thank you for reaching out. Please visit our opt-out page to submit your request: PeopleConnect Suppression Center Or go directly to https://www.intelius.com/opt-out/submit. Facebook | About",
+      "go_types": [
+        "form_required"
+      ]
+    },
+    {
+      "name": "acxiom dsar form",
+      "type": "form_required",
+      "confidence": 0.85,
+      "reason": "Email contains link to opt-out form that needs to be filled",
+      "needs_review": false,
+      "form_url": "https://isapps.acxiom.com/optout/optout.aspx",
+      "confirm_url": "",
+      "bounced_recipient": "",
+      "urls": {
+        "form": [
+          "https://isapps.acxiom.com/optout/optout.aspx"
+        ],
+        "confirmation": [],
+        "unsubscribe": [],
+        "all": [
+          "https://isapps.acxiom.com/optout/optout.aspx",
+          "https://www.acxiom.com/about-us/privacy/dsar/"
+        ]
+      },
+      "extract_bounced": "",
+      "tokens": [],
+      "stripped_html": "",
+      "go_types": [
+        "form_required"
+      ]
+    },
+    {
+      "name": "oracle do-not-sell",
+      "type": "form_required",
+      "confidence": 0.85,
+      "reason": "Email contains link to opt-out form that needs to be filled",
+      "needs_review": false,
+      "form_url": "https://datacloudoptout.oracle.com/do-not-sell#optout",
+      "confirm_url": "",
+      "bounced_recipient": "",
+      "urls": {
+        "form": [
+          "https://datacloudoptout.oracle.com/do-not-sell#optout"
+        ],
+        "confirmation": [],
+        "unsubscribe": [],
+        "all": [
+          "https://www.oracle.com/legal/privacy/privacy-choices.html",
+          "https://datacloudoptout.oracle.com/do-not-sell#optout"
+        ]
+      },
+      "extract_bounced": "",
+      "tokens": [],
+      "stripped_html": "",
+      "go_types": [
+        "form_required"
+      ]
+    },
+    {
+      "name": "success removed",
+      "type": "success",
+      "confidence": 0.85,
+      "reason": "Email indicates removal request was completed successfully",
+      "needs_review": false,
+      "form_url": "",
+      "confirm_url": "",
+      "bounced_recipient": "",
+      "urls": {
+        "form": [],
+        "confirmation": [],
+        "unsubscribe": [],
+        "all": []
+      },
+      "extract_bounced": "",
+      "tokens": [],
+      "stripped_html": "",
+      "go_types": [
+        "success"
+      ]
+    },
+    {
+      "name": "success request completed",
+      "type": "success",
+      "confidence": 0.85,
+      "reason": "Email indicates removal request was completed successfully",
+      "needs_review": false,
+      "form_url": "",
+      "confirm_url": "",
+      "bounced_recipient": "",
+      "urls": {
+        "form": [],
+        "confirmation": [],
+        "unsubscribe": [],
+        "all": []
+      },
+      "extract_bounced": "",
+      "tokens": [],
+      "stripped_html": "",
+      "go_types": [
+        "success"
+      ]
+    },
+    {
+      "name": "ticket solved zendesk",
+      "type": "success",
+      "confidence": 0.75,
+      "reason": "Email indicates removal request was completed successfully",
+      "needs_review": false,
+      "form_url": "",
+      "confirm_url": "",
+      "bounced_recipient": "",
+      "urls": {
+        "form": [],
+        "confirmation": [],
+        "unsubscribe": [],
+        "all": []
+      },
+      "extract_bounced": "",
+      "tokens": [],
+      "stripped_html": "",
+      "go_types": [
+        "success"
+      ]
+    },
+    {
+      "name": "rejection no records",
+      "type": "rejected",
+      "confidence": 0.85,
+      "reason": "Broker rejected or could not process the removal request",
+      "needs_review": false,
+      "form_url": "",
+      "confirm_url": "",
+      "bounced_recipient": "",
+      "urls": {
+        "form": [],
+        "confirmation": [],
+        "unsubscribe": [],
+        "all": []
+      },
+      "extract_bounced": "",
+      "tokens": [],
+      "stripped_html": "",
+      "go_types": [
+        "rejected"
+      ]
+    },
+    {
+      "name": "rejection exempt FCRA",
+      "type": "rejected",
+      "confidence": 0.85,
+      "reason": "Broker rejected or could not process the removal request",
+      "needs_review": false,
+      "form_url": "",
+      "confirm_url": "",
+      "bounced_recipient": "",
+      "urls": {
+        "form": [],
+        "confirmation": [],
+        "unsubscribe": [],
+        "all": []
+      },
+      "extract_bounced": "",
+      "tokens": [],
+      "stripped_html": "",
+      "go_types": [
+        "rejected"
+      ]
+    },
+    {
+      "name": "rejection cannot process",
+      "type": "rejected",
+      "confidence": 0.85,
+      "reason": "Broker rejected or could not process the removal request",
+      "needs_review": false,
+      "form_url": "",
+      "confirm_url": "",
+      "bounced_recipient": "",
+      "urls": {
+        "form": [],
+        "confirmation": [],
+        "unsubscribe": [],
+        "all": []
+      },
+      "extract_bounced": "",
+      "tokens": [],
+      "stripped_html": "",
+      "go_types": [
+        "rejected"
+      ]
+    },
+    {
+      "name": "pending received ticket",
+      "type": "pending",
+      "confidence": 0.85,
+      "reason": "Request is being processed, follow-up may be needed",
+      "needs_review": false,
+      "form_url": "",
+      "confirm_url": "",
+      "bounced_recipient": "",
+      "urls": {
+        "form": [],
+        "confirmation": [],
+        "unsubscribe": [],
+        "all": []
+      },
+      "extract_bounced": "",
+      "tokens": [],
+      "stripped_html": "",
+      "go_types": [
+        "pending"
+      ]
+    },
+    {
+      "name": "pending auto reply",
+      "type": "pending",
+      "confidence": 0.85,
+      "reason": "Request is being processed, follow-up may be needed",
+      "needs_review": false,
+      "form_url": "",
+      "confirm_url": "",
+      "bounced_recipient": "",
+      "urls": {
+        "form": [],
+        "confirmation": [],
+        "unsubscribe": [],
+        "all": []
+      },
+      "extract_bounced": "support@broker.com",
+      "tokens": [],
+      "stripped_html": "",
+      "go_types": [
+        "pending"
+      ]
+    },
+    {
+      "name": "pending auto-response german",
+      "type": "pending",
+      "confidence": 0.85,
+      "reason": "Request is being processed, follow-up may be needed",
+      "needs_review": false,
+      "form_url": "",
+      "confirm_url": "",
+      "bounced_recipient": "",
+      "urls": {
+        "form": [],
+        "confirmation": [],
+        "unsubscribe": [],
+        "all": []
+      },
+      "extract_bounced": "",
+      "tokens": [],
+      "stripped_html": "",
+      "go_types": [
+        "pending"
+      ]
+    },
+    {
+      "name": "german deletion confirmed",
+      "type": "unknown",
+      "confidence": 0,
+      "reason": "Could not automatically classify this response",
+      "needs_review": true,
+      "form_url": "",
+      "confirm_url": "",
+      "bounced_recipient": "",
+      "urls": {
+        "form": [],
+        "confirmation": [],
+        "unsubscribe": [],
+        "all": []
+      },
+      "extract_bounced": "",
+      "tokens": [],
+      "stripped_html": "",
+      "go_types": [
+        "unknown"
+      ]
+    },
+    {
+      "name": "german please confirm",
+      "type": "confirmation_required",
+      "confidence": 0.85,
+      "reason": "Email contains confirmation link that needs to be clicked",
+      "needs_review": false,
+      "form_url": "",
+      "confirm_url": "https://www.dasoertliche.de/datenschutz/bestaetigen?token=Q1w2E3r4T5y6",
+      "bounced_recipient": "",
+      "urls": {
+        "form": [],
+        "confirmation": [
+          "https://www.dasoertliche.de/datenschutz/bestaetigen?token=Q1w2E3r4T5y6"
+        ],
+        "unsubscribe": [],
+        "all": [
+          "https://www.dasoertliche.de/datenschutz/bestaetigen?token=Q1w2E3r4T5y6"
+        ]
+      },
+      "extract_bounced": "",
+      "tokens": [
+        "Q1w2E3r4T5y6"
+      ],
+      "stripped_html": "",
+      "go_types": [
+        "confirmation_required"
+      ]
+    },
+    {
+      "name": "german form link umlaut path",
+      "type": "form_required",
+      "confidence": 0.85,
+      "reason": "Email contains link to opt-out form that needs to be filled",
+      "needs_review": false,
+      "form_url": "https://www.example.de/DSGVO-Anfrage/opt-out",
+      "confirm_url": "",
+      "bounced_recipient": "",
+      "urls": {
+        "form": [
+          "https://www.example.de/DSGVO-Anfrage/opt-out"
+        ],
+        "confirmation": [],
+        "unsubscribe": [],
+        "all": [
+          "https://www.%C3%B6rtliche-daten.de/l%C3%B6schung/formular?ref=mail",
+          "https://www.example.de/DSGVO-Anfrage/opt-out"
+        ]
+      },
+      "extract_bounced": "",
+      "tokens": [],
+      "stripped_html": "",
+      "go_types": [
+        "form_required"
+      ]
+    },
+    {
+      "name": "french deletion",
+      "type": "unknown",
+      "confidence": 0,
+      "reason": "Could not automatically classify this response",
+      "needs_review": true,
+      "form_url": "",
+      "confirm_url": "",
+      "bounced_recipient": "",
+      "urls": {
+        "form": [],
+        "confirmation": [],
+        "unsubscribe": [],
+        "all": []
+      },
+      "extract_bounced": "",
+      "tokens": [],
+      "stripped_html": "",
+      "go_types": [
+        "unknown"
+      ]
+    },
+    {
+      "name": "french confirmation link",
+      "type": "confirmation_required",
+      "confidence": 0.85,
+      "reason": "Email contains confirmation link that needs to be clicked",
+      "needs_review": false,
+      "form_url": "",
+      "confirm_url": "https://www.societe.fr/rgpd/confirm/f1e2d3c4b5a69788",
+      "bounced_recipient": "",
+      "urls": {
+        "form": [],
+        "confirmation": [
+          "https://www.societe.fr/rgpd/confirm/f1e2d3c4b5a69788"
+        ],
+        "unsubscribe": [],
+        "all": [
+          "https://www.societe.fr/rgpd/confirm/f1e2d3c4b5a69788"
+        ]
+      },
+      "extract_bounced": "",
+      "tokens": [
+        "f1e2d3c4b5a69788"
+      ],
+      "stripped_html": "",
+      "go_types": [
+        "confirmation_required"
+      ]
+    },
+    {
+      "name": "french html form",
+      "type": "form_required",
+      "confidence": 0.85,
+      "reason": "Email contains link to opt-out form that needs to be filled",
+      "needs_review": false,
+      "form_url": "https://www.infogreffe.fr/gdpr-request/new?lang=fr\u0026src=mail",
+      "confirm_url": "",
+      "bounced_recipient": "",
+      "urls": {
+        "form": [
+          "https://www.infogreffe.fr/gdpr-request/new?lang=fr\u0026src=mail"
+        ],
+        "confirmation": [],
+        "unsubscribe": [],
+        "all": [
+          "https://www.infogreffe.fr/gdpr-request/new?lang=fr\u0026src=mail"
+        ]
+      },
+      "extract_bounced": "",
+      "tokens": [],
+      "stripped_html": "Bonjour, Merci d\u0026apos;utiliser notre formulaire : formulaire RGPD . \u0026copy; Infogreffe \u0026 Cie",
+      "go_types": [
+        "form_required"
+      ]
+    },
+    {
+      "name": "mailer-daemon gmail style",
+      "type": "bounced",
+      "confidence": 0.95,
+      "reason": "Email delivery failed - address may be invalid",
+      "needs_review": false,
+      "form_url": "",
+      "confirm_url": "",
+      "bounced_recipient": "privacy@defunct-broker.com",
+      "urls": {
+        "form": [],
+        "confirmation": [],
+        "unsubscribe": [],
+        "all": []
+      },
+      "extract_bounced": "privacy@defunct-broker.com",
+      "tokens": [],
+      "stripped_html": "",
+      "go_types": [
+        "bounced"
+      ]
+    },
+    {
+      "name": "icloud bounce",
+      "type": "bounced",
+      "confidence": 0.95,
+      "reason": "Email delivery failed - address may be invalid",
+      "needs_review": false,
+      "form_url": "",
+      "confirm_url": "",
+      "bounced_recipient": "optout@gone-broker.net",
+      "urls": {
+        "form": [],
+        "confirmation": [],
+        "unsubscribe": [],
+        "all": []
+      },
+      "extract_bounced": "optout@gone-broker.net",
+      "tokens": [],
+      "stripped_html": "",
+      "go_types": [
+        "bounced"
+      ]
+    },
+    {
+      "name": "postfix bounce final recipient",
+      "type": "bounced",
+      "confidence": 0.95,
+      "reason": "Email delivery failed - address may be invalid",
+      "needs_review": false,
+      "form_url": "",
+      "confirm_url": "",
+      "bounced_recipient": "privacy@oldbroker.io",
+      "urls": {
+        "form": [],
+        "confirmation": [],
+        "unsubscribe": [],
+        "all": []
+      },
+      "extract_bounced": "privacy@oldbroker.io",
+      "tokens": [],
+      "stripped_html": "",
+      "go_types": [
+        "bounced"
+      ]
+    },
+    {
+      "name": "outlook ndr html",
+      "type": "bounced",
+      "confidence": 0.95,
+      "reason": "Email delivery failed - address may be invalid",
+      "needs_review": false,
+      "form_url": "",
+      "confirm_url": "",
+      "bounced_recipient": "dpo@closedco.com",
+      "urls": {
+        "form": [],
+        "confirmation": [],
+        "unsubscribe": [],
+        "all": []
+      },
+      "extract_bounced": "dpo@closedco.com",
+      "tokens": [],
+      "stripped_html": "Your message to dpo@closedco.com couldn't be delivered. dpo wasn't found at closedco.com. Remote Server returned '550 5.1.10 RESOLVER.ADR.RecipientNotFound; Recipient not found by SMTP address lookup' Delivery has failed to these recipients or groups:",
+      "go_types": [
+        "bounced"
+      ]
+    },
+    {
+      "name": "bounce without daemon sender strong patterns",
+      "type": "bounced",
+      "confidence": 0.95,
+      "reason": "Email delivery failed - address may be invalid",
+      "needs_review": false,
+      "form_url": "",
+      "confirm_url": "",
+      "bounced_recipient": "data@nowhere-broker.com",
+      "urls": {
+        "form": [],
+        "confirmation": [],
+        "unsubscribe": [],
+        "all": []
+      },
+      "extract_bounced": "data@nowhere-broker.com",
+      "tokens": [],
+      "stripped_html": "",
+      "go_types": [
+        "bounced"
+      ]
+    },
+    {
+      "name": "bounce fallback address only",
+      "type": "bounced",
+      "confidence": 0.95,
+      "reason": "Email delivery failed - address may be invalid",
+      "needs_review": false,
+      "form_url": "",
+      "confirm_url": "",
+      "bounced_recipient": "info@broker-xyz.org",
+      "urls": {
+        "form": [],
+        "confirmation": [],
+        "unsubscribe": [],
+        "all": []
+      },
+      "extract_bounced": "info@broker-xyz.org",
+      "tokens": [],
+      "stripped_html": "",
+      "go_types": [
+        "bounced"
+      ]
+    },
+    {
+      "name": "noreply sender not bounce",
+      "type": "unknown",
+      "confidence": 0,
+      "reason": "Could not automatically classify this response",
+      "needs_review": true,
+      "form_url": "",
+      "confirm_url": "",
+      "bounced_recipient": "",
+      "urls": {
+        "form": [],
+        "confirmation": [],
+        "unsubscribe": [
+          "https://www.example.com/unsubscribe?u=123"
+        ],
+        "all": [
+          "https://www.example.com/terms",
+          "https://www.example.com/unsubscribe?u=123"
+        ]
+      },
+      "extract_bounced": "",
+      "tokens": [],
+      "stripped_html": "",
+      "go_types": [
+        "unknown"
+      ]
+    },
+    {
+      "name": "test email",
+      "type": "success",
+      "confidence": 1,
+      "reason": "Test email from Eraser - email configuration verified",
+      "needs_review": false,
+      "form_url": "",
+      "confirm_url": "",
+      "bounced_recipient": "",
+      "urls": {
+        "form": [],
+        "confirmation": [],
+        "unsubscribe": [],
+        "all": []
+      },
+      "extract_bounced": "",
+      "tokens": [],
+      "stripped_html": "",
+      "go_types": [
+        "success"
+      ]
+    },
+    {
+      "name": "empty email",
+      "type": "unknown",
+      "confidence": 0,
+      "reason": "Could not automatically classify this response",
+      "needs_review": true,
+      "form_url": "",
+      "confirm_url": "",
+      "bounced_recipient": "",
+      "urls": {
+        "form": [],
+        "confirmation": [],
+        "unsubscribe": [],
+        "all": []
+      },
+      "extract_bounced": "",
+      "tokens": [],
+      "stripped_html": "",
+      "go_types": [
+        "unknown"
+      ]
+    },
+    {
+      "name": "only urls no keywords",
+      "type": "form_required",
+      "confidence": 0.85,
+      "reason": "Email contains link to opt-out form that needs to be filled",
+      "needs_review": false,
+      "form_url": "https://broker.com/opt-out",
+      "confirm_url": "https://broker.com/verify/abcdefghijk123",
+      "bounced_recipient": "",
+      "urls": {
+        "form": [
+          "https://broker.com/opt-out"
+        ],
+        "confirmation": [
+          "https://broker.com/verify/abcdefghijk123"
+        ],
+        "unsubscribe": [],
+        "all": [
+          "https://broker.com/verify/abcdefghijk123",
+          "https://broker.com/opt-out"
+        ]
+      },
+      "extract_bounced": "",
+      "tokens": [
+        "abcdefghijk123"
+      ],
+      "stripped_html": "",
+      "go_types": [
+        "confirmation_required",
+        "form_required"
+      ]
+    },
+    {
+      "name": "only form url no keywords",
+      "type": "form_required",
+      "confidence": 0.85,
+      "reason": "Email contains link to opt-out form that needs to be filled",
+      "needs_review": false,
+      "form_url": "https://www.broker.com/ccpa/removal",
+      "confirm_url": "",
+      "bounced_recipient": "",
+      "urls": {
+        "form": [
+          "https://www.broker.com/ccpa/removal"
+        ],
+        "confirmation": [],
+        "unsubscribe": [],
+        "all": [
+          "https://www.broker.com/ccpa/removal"
+        ]
+      },
+      "extract_bounced": "",
+      "tokens": [],
+      "stripped_html": "",
+      "go_types": [
+        "form_required"
+      ]
+    },
+    {
+      "name": "tie success vs rejected",
+      "type": "success",
+      "confidence": 0.5,
+      "reason": "Email indicates removal request was completed successfully",
+      "needs_review": false,
+      "form_url": "",
+      "confirm_url": "",
+      "bounced_recipient": "",
+      "urls": {
+        "form": [],
+        "confirmation": [],
+        "unsubscribe": [],
+        "all": []
+      },
+      "extract_bounced": "",
+      "tokens": [],
+      "stripped_html": "",
+      "go_types": [
+        "rejected",
+        "success"
+      ]
+    },
+    {
+      "name": "tie form vs confirmation",
+      "type": "form_required",
+      "confidence": 0.5,
+      "reason": "Email contains link to opt-out form that needs to be filled",
+      "needs_review": false,
+      "form_url": "",
+      "confirm_url": "",
+      "bounced_recipient": "",
+      "urls": {
+        "form": [],
+        "confirmation": [],
+        "unsubscribe": [],
+        "all": []
+      },
+      "extract_bounced": "",
+      "tokens": [],
+      "stripped_html": "",
+      "go_types": [
+        "confirmation_required",
+        "form_required"
+      ]
+    },
+    {
+      "name": "mixed signals pending and form",
+      "type": "pending",
+      "confidence": 0.75,
+      "reason": "Request is being processed, follow-up may be needed",
+      "needs_review": false,
+      "form_url": "https://privacy.acme-data.com/dsar/new",
+      "confirm_url": "",
+      "bounced_recipient": "",
+      "urls": {
+        "form": [
+          "https://privacy.acme-data.com/dsar/new"
+        ],
+        "confirmation": [],
+        "unsubscribe": [],
+        "all": [
+          "https://privacy.acme-data.com/dsar/new"
+        ]
+      },
+      "extract_bounced": "",
+      "tokens": [],
+      "stripped_html": "",
+      "go_types": [
+        "pending"
+      ]
+    },
+    {
+      "name": "multi form urls broker domain bonus",
+      "type": "form_required",
+      "confidence": 0.85,
+      "reason": "Email contains link to opt-out form that needs to be filled",
+      "needs_review": false,
+      "form_url": "https://www.thatsthem.com/opt-out-form/removal",
+      "confirm_url": "",
+      "bounced_recipient": "",
+      "urls": {
+        "form": [
+          "https://onetrust.com/privacy-request/abc",
+          "https://www.thatsthem.com/optout",
+          "https://www.thatsthem.com/opt-out-form/removal"
+        ],
+        "confirmation": [],
+        "unsubscribe": [],
+        "all": [
+          "https://onetrust.com/privacy-request/abc",
+          "https://www.thatsthem.com/optout",
+          "https://www.thatsthem.com/opt-out-form/removal"
+        ]
+      },
+      "extract_bounced": "",
+      "tokens": [],
+      "stripped_html": "",
+      "go_types": [
+        "form_required"
+      ]
+    },
+    {
+      "name": "confirm url domain preference",
+      "type": "confirmation_required",
+      "confidence": 0.85,
+      "reason": "Email contains confirmation link that needs to be clicked",
+      "needs_review": false,
+      "form_url": "https://www.fastpeoplesearch.com/removal/verify?token=abc123\u0026id=9",
+      "confirm_url": "https://www.fastpeoplesearch.com/removal/verify?token=abc123\u0026id=9",
+      "bounced_recipient": "",
+      "urls": {
+        "form": [
+          "https://www.fastpeoplesearch.com/removal/verify?token=abc123\u0026id=9"
+        ],
+        "confirmation": [
+          "https://links.mailer.com/confirm?token=zzz",
+          "https://www.fastpeoplesearch.com/removal/verify?token=abc123\u0026id=9"
+        ],
+        "unsubscribe": [],
+        "all": [
+          "https://links.mailer.com/confirm?token=zzz",
+          "https://www.fastpeoplesearch.com/removal/verify?token=abc123\u0026id=9"
+        ]
+      },
+      "extract_bounced": "",
+      "tokens": [
+        "zzz",
+        "abc123"
+      ],
+      "stripped_html": "",
+      "go_types": [
+        "confirmation_required"
+      ]
+    },
+    {
+      "name": "html with script and entities",
+      "type": "form_required",
+      "confidence": 0.85,
+      "reason": "Email contains link to opt-out form that needs to be filled",
+      "needs_review": false,
+      "form_url": "https://www.nuwber.com/removal/link?id=7\u0026token=abc",
+      "confirm_url": "https://www.nuwber.com/removal/link?id=7\u0026token=abc",
+      "bounced_recipient": "",
+      "urls": {
+        "form": [
+          "https://www.nuwber.com/removal/link?id=7\u0026token=abc"
+        ],
+        "confirmation": [
+          "https://www.nuwber.com/removal/link?id=7\u0026token=abc",
+          "https://evil.example/confirm?x=1"
+        ],
+        "unsubscribe": [],
+        "all": [
+          "https://www.nuwber.com/removal/link?id=7\u0026token=abc",
+          "https://evil.example/confirm?x=1"
+        ]
+      },
+      "extract_bounced": "",
+      "tokens": [
+        "abc",
+        ""
+      ],
+      "stripped_html": "Opt-out Please complete the form \u0026 submit. Remove relative mail js",
+      "go_types": [
+        "form_required"
+      ]
+    },
+    {
+      "name": "both text and html bodies",
+      "type": "confirmation_required",
+      "confidence": 0.85,
+      "reason": "Email contains confirmation link that needs to be clicked",
+      "needs_review": false,
+      "form_url": "https://www.clustrmaps.com/do-not-sell",
+      "confirm_url": "https://www.clustrmaps.com/verify-identity?ref=1",
+      "bounced_recipient": "",
+      "urls": {
+        "form": [
+          "https://www.clustrmaps.com/do-not-sell"
+        ],
+        "confirmation": [
+          "https://www.clustrmaps.com/verify-identity?ref=1"
+        ],
+        "unsubscribe": [],
+        "all": [
+          "https://www.clustrmaps.com/verify-identity?ref=1",
+          "https://www.clustrmaps.com/do-not-sell"
+        ]
+      },
+      "extract_bounced": "",
+      "tokens": [
+        ""
+      ],
+      "stripped_html": "Please verify your identity at here or do not sell",
+      "go_types": [
+        "confirmation_required"
+      ]
+    },
+    {
+      "name": "no longer with company",
+      "type": "pending",
+      "confidence": 0.85,
+      "reason": "Request is being processed, follow-up may be needed",
+      "needs_review": false,
+      "form_url": "",
+      "confirm_url": "",
+      "bounced_recipient": "",
+      "urls": {
+        "form": [],
+        "confirmation": [],
+        "unsubscribe": [],
+        "all": []
+      },
+      "extract_bounced": "privacy@newco.com",
+      "tokens": [],
+      "stripped_html": "",
+      "go_types": [
+        "pending"
+      ]
+    },
+    {
+      "name": "subject only success",
+      "type": "success",
+      "confidence": 0.85,
+      "reason": "Email indicates removal request was completed successfully",
+      "needs_review": false,
+      "form_url": "",
+      "confirm_url": "",
+      "bounced_recipient": "",
+      "urls": {
+        "form": [],
+        "confirmation": [],
+        "unsubscribe": [],
+        "all": []
+      },
+      "extract_bounced": "",
+      "tokens": [],
+      "stripped_html": "",
+      "go_types": [
+        "success"
+      ]
+    },
+    {
+      "name": "turkish dotted capital I in subject",
+      "type": "pending",
+      "confidence": 0.85,
+      "reason": "Request is being processed, follow-up may be needed",
+      "needs_review": false,
+      "form_url": "",
+      "confirm_url": "",
+      "bounced_recipient": "",
+      "urls": {
+        "form": [],
+        "confirmation": [],
+        "unsubscribe": [],
+        "all": []
+      },
+      "extract_bounced": "",
+      "tokens": [],
+      "stripped_html": "",
+      "go_types": [
+        "pending"
+      ]
+    },
+    {
+      "name": "unicode whitespace nbsp",
+      "type": "unknown",
+      "confidence": 0,
+      "reason": "Could not automatically classify this response",
+      "needs_review": true,
+      "form_url": "",
+      "confirm_url": "",
+      "bounced_recipient": "",
+      "urls": {
+        "form": [],
+        "confirmation": [],
+        "unsubscribe": [],
+        "all": []
+      },
+      "extract_bounced": "",
+      "tokens": [],
+      "stripped_html": "",
+      "go_types": [
+        "unknown"
+      ]
+    },
+    {
+      "name": "vertical tab whitespace",
+      "type": "success",
+      "confidence": 0.85,
+      "reason": "Email indicates removal request was completed successfully",
+      "needs_review": false,
+      "form_url": "",
+      "confirm_url": "",
+      "bounced_recipient": "",
+      "urls": {
+        "form": [],
+        "confirmation": [],
+        "unsubscribe": [],
+        "all": []
+      },
+      "extract_bounced": "",
+      "tokens": [],
+      "stripped_html": "",
+      "go_types": [
+        "success"
+      ]
+    },
+    {
+      "name": "uppercase url host and path",
+      "type": "form_required",
+      "confidence": 0.85,
+      "reason": "Email contains link to opt-out form that needs to be filled",
+      "needs_review": false,
+      "form_url": "http://Broker.com:8080/Removal-Form?A=B#Top",
+      "confirm_url": "",
+      "bounced_recipient": "",
+      "urls": {
+        "form": [
+          "http://Broker.com:8080/Removal-Form?A=B#Top"
+        ],
+        "confirmation": [],
+        "unsubscribe": [],
+        "all": [
+          "http://Broker.com:8080/Removal-Form?A=B#Top"
+        ]
+      },
+      "extract_bounced": "",
+      "tokens": [],
+      "stripped_html": "",
+      "go_types": [
+        "form_required"
+      ]
+    },
+    {
+      "name": "ipv6 and userinfo urls",
+      "type": "form_required",
+      "confidence": 0.85,
+      "reason": "Email contains link to opt-out form that needs to be filled",
+      "needs_review": false,
+      "form_url": "http://user:pass@broker.com/optout",
+      "confirm_url": "https://[::1%25eth0]/confirm",
+      "bounced_recipient": "",
+      "urls": {
+        "form": [
+          "http://[2001:db8::1]:8080/opt-out",
+          "http://user:pass@broker.com/optout"
+        ],
+        "confirmation": [
+          "https://[::1%25eth0]/confirm"
+        ],
+        "unsubscribe": [],
+        "all": [
+          "http://[2001:db8::1]:8080/opt-out",
+          "http://user:pass@broker.com/optout",
+          "https://[::1%25eth0]/confirm"
+        ]
+      },
+      "extract_bounced": "pass@broker.com",
+      "tokens": [
+        ""
+      ],
+      "stripped_html": "",
+      "go_types": [
+        "confirmation_required",
+        "form_required"
+      ]
+    },
+    {
+      "name": "weird html markup",
+      "type": "form_required",
+      "confidence": 0.85,
+      "reason": "Email contains link to opt-out form that needs to be filled",
+      "needs_review": false,
+      "form_url": "https://www.peekyou.com/optout?x=%zz",
+      "confirm_url": "",
+      "bounced_recipient": "",
+      "urls": {
+        "form": [
+          "https://www.peekyou.com/optout?x=%zz",
+          "https://www.peekyou.com/optout?x=%41",
+          "https://www.peekyou.com/opt_out/index.php?q=1\u0026r=2"
+        ],
+        "confirmation": [],
+        "unsubscribe": [],
+        "all": [
+          "https://www.peekyou.com/optout?x=%zz",
+          "https://www.peekyou.com/optout?x=%41",
+          "https://www.peekyou.com/opt_out/index.php?q=1\u0026r=2"
+        ]
+      },
+      "extract_bounced": "",
+      "tokens": [],
+      "stripped_html": "Click here bad escape good Raw: https://www.peekyou.com/opt_out/index.php?q=1\u0026r=2",
+      "go_types": [
+        "form_required"
+      ]
+    }
+  ],
+  "urls": [
+    {
+      "input": "https://example.com",
+      "clean": "https://example.com",
+      "token": ""
+    },
+    {
+      "input": "https://Example.COM/Path",
+      "clean": "https://Example.COM/Path",
+      "token": ""
+    },
+    {
+      "input": "http://example.com/a b",
+      "clean": "http://example.com/a%20b",
+      "token": ""
+    },
+    {
+      "input": "https://example.com/opt-out).",
+      "clean": "https://example.com/opt-out",
+      "token": ""
+    },
+    {
+      "input": "https://example.com/%7Euser/",
+      "clean": "https://example.com/%7Euser/",
+      "token": ""
+    },
+    {
+      "input": "https://example.com/a%2Fb",
+      "clean": "https://example.com/a%2Fb",
+      "token": ""
+    },
+    {
+      "input": "https://example.com/café",
+      "clean": "https://example.com/caf%C3%A9",
+      "token": ""
+    },
+    {
+      "input": "https://exämple.com/x",
+      "clean": "https://ex%C3%A4mple.com/x",
+      "token": ""
+    },
+    {
+      "input": "https://example.com/?",
+      "clean": "https://example.com/",
+      "token": ""
+    },
+    {
+      "input": "https://example.com/x?y",
+      "clean": "https://example.com/x?y",
+      "token": ""
+    },
+    {
+      "input": "https://example.com/#frag ment",
+      "clean": "https://example.com/#frag%20ment",
+      "token": ""
+    },
+    {
+      "input": "https://example.com/#a%20b",
+      "clean": "https://example.com/#a%20b",
+      "token": ""
+    },
+    {
+      "input": "https://example.com/p?q=%zz",
+      "clean": "https://example.com/p?q=%zz",
+      "token": ""
+    },
+    {
+      "input": "https://example.com:443/",
+      "clean": "https://example.com:443/",
+      "token": ""
+    },
+    {
+      "input": "https://example.com:x/",
+      "clean": "",
+      "token": ""
+    },
+    {
+      "input": "https://u%40:p@example.com/",
+      "clean": "https://u%40:p@example.com/",
+      "token": ""
+    },
+    {
+      "input": "https://[fe80::1%25en0]:8443/v",
+      "clean": "https://[fe80::1%25en0]:8443/v",
+      "token": ""
+    },
+    {
+      "input": "https://[1.2.3.4]/",
+      "clean": "",
+      "token": ""
+    },
+    {
+      "input": "https:///triple",
+      "clean": "",
+      "token": ""
+    },
+    {
+      "input": "https:",
+      "clean": "",
+      "token": ""
+    },
+    {
+      "input": "ftp://example.com/x",
+      "clean": "",
+      "token": ""
+    },
+    {
+      "input": "HTTPS://EXAMPLE.COM",
+      "clean": "https://EXAMPLE.COM",
+      "token": ""
+    },
+    {
+      "input": "https://example.com/confirm/abcdefghijk",
+      "clean": "https://example.com/confirm/abcdefghijk",
+      "token": "abcdefghijk"
+    },
+    {
+      "input": "https://example.com/verify/short",
+      "clean": "https://example.com/verify/short",
+      "token": ""
+    },
+    {
+      "input": "https://example.com/c?token=a+b%21\u0026code=x",
+      "clean": "https://example.com/c?token=a+b%21\u0026code=x",
+      "token": "a b!"
+    },
+    {
+      "input": "https://example.com/c?id=\u0026key=k1",
+      "clean": "https://example.com/c?id=\u0026key=k1",
+      "token": "k1"
+    },
+    {
+      "input": "https://example.com/c?token;x=1\u0026code=c2",
+      "clean": "https://example.com/c?token;x=1\u0026code=c2",
+      "token": "c2"
+    },
+    {
+      "input": "https://example.com/c?verify=%E2%9C%93",
+      "clean": "https://example.com/c?verify=%E2%9C%93",
+      "token": "✓"
+    },
+    {
+      "input": "https://example.com/c?confirmation=%FF",
+      "clean": "https://example.com/c?confirmation=%FF",
+      "token": "�"
+    },
+    {
+      "input": "mailto:a@b.com",
+      "clean": "",
+      "token": ""
+    },
+    {
+      "input": "/relative",
+      "clean": "",
+      "token": ""
+    },
+    {
+      "input": "https://example.com/path;params?x=1",
+      "clean": "https://example.com/path;params?x=1",
+      "token": ""
+    },
+    {
+      "input": "https://example.com/a?b#c#d",
+      "clean": "https://example.com/a?b#c%23d",
+      "token": ""
+    },
+    {
+      "input": "https://example.com/ä?ö=ü#ß",
+      "clean": "https://example.com/%C3%A4?ö=ü#%C3%9F",
+      "token": ""
+    },
+    {
+      "input": "http://a:b:c/x",
+      "clean": "",
+      "token": ""
+    },
+    {
+      "input": "https://example.com/*",
+      "clean": "https://example.com/*",
+      "token": ""
+    },
+    {
+      "input": "https://example.com/[x]",
+      "clean": "https://example.com/[x]",
+      "token": ""
+    }
+  ],
+  "subjects": [
+    {
+      "subject": "Automatic reply: Personal Data Removal Request",
+      "type": "pending",
+      "confidence": 0.7,
+      "needs_review": false,
+      "go_types": [
+        "pending"
+      ]
+    },
+    {
+      "subject": "Your Request Has Been Received",
+      "type": "pending",
+      "confidence": 0.7,
+      "needs_review": false,
+      "go_types": [
+        "pending"
+      ]
+    },
+    {
+      "subject": "Request Received - [#REQ-195698]",
+      "type": "pending",
+      "confidence": 0.7,
+      "needs_review": false,
+      "go_types": [
+        "pending"
+      ]
+    },
+    {
+      "subject": "Re: Personal Data Removal Request - No Record Found",
+      "type": "rejected",
+      "confidence": 0.7,
+      "needs_review": false,
+      "go_types": [
+        "rejected"
+      ]
+    },
+    {
+      "subject": "Your opt-out has been completed",
+      "type": "success",
+      "confidence": 0.7,
+      "needs_review": false,
+      "go_types": [
+        "success"
+      ]
+    },
+    {
+      "subject": "Opt-Out Instructions",
+      "type": "form_required",
+      "confidence": 0.7,
+      "needs_review": false,
+      "go_types": [
+        "form_required"
+      ]
+    },
+    {
+      "subject": "How to remove your information",
+      "type": "form_required",
+      "confidence": 0.7,
+      "needs_review": false,
+      "go_types": [
+        "form_required"
+      ]
+    },
+    {
+      "subject": "Ticket (259135) solved",
+      "type": "success",
+      "confidence": 0.7,
+      "needs_review": false,
+      "go_types": [
+        "pending",
+        "success"
+      ]
+    },
+    {
+      "subject": "Re: Personal Data Removal Request",
+      "type": "unknown",
+      "confidence": 0,
+      "needs_review": true,
+      "go_types": [
+        "unknown"
+      ]
+    },
+    {
+      "subject": "",
+      "type": "unknown",
+      "confidence": 0,
+      "needs_review": true,
+      "go_types": [
+        "unknown"
+      ]
+    },
+    {
+      "subject": "Your data has been removed - request completed",
+      "type": "success",
+      "confidence": 0.7,
+      "needs_review": false,
+      "go_types": [
+        "success"
+      ]
+    },
+    {
+      "subject": "Not found: request received",
+      "type": "pending",
+      "confidence": 0.7,
+      "needs_review": false,
+      "go_types": [
+        "pending"
+      ]
+    },
+    {
+      "subject": "Request denied",
+      "type": "rejected",
+      "confidence": 0.7,
+      "needs_review": false,
+      "go_types": [
+        "rejected"
+      ]
+    },
+    {
+      "subject": "Out of office",
+      "type": "pending",
+      "confidence": 0.7,
+      "needs_review": false,
+      "go_types": [
+        "pending"
+      ]
+    },
+    {
+      "subject": "Thanks for contacting Acme",
+      "type": "pending",
+      "confidence": 0.7,
+      "needs_review": false,
+      "go_types": [
+        "pending"
+      ]
+    },
+    {
+      "subject": "Removal instructions and request #12345",
+      "type": "pending",
+      "confidence": 0.7,
+      "needs_review": false,
+      "go_types": [
+        "pending"
+      ]
+    },
+    {
+      "subject": "We have deleted your data",
+      "type": "success",
+      "confidence": 0.7,
+      "needs_review": false,
+      "go_types": [
+        "success"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,494 @@
+{
+ "emails": [
+  {
+   "name": "spokeo confirm link plain",
+   "subject": "Please confirm your opt-out request",
+   "body": "Hello,\n\nWe received a request to remove your listing. Please click the link below to confirm your email address:\n\nhttps://www.spokeo.com/optout/confirm?token=a8F3kLm2Qz9xYw&email=jane%40example.com\n\nIf you did not request this, ignore this email.\n\nSpokeo Privacy Team",
+   "html_body": "",
+   "from": "noreply-privacy@spokeo.com",
+   "from_name": "",
+   "from_domain": "spokeo.com"
+  },
+  {
+   "name": "whitepages html verify button",
+   "subject": "Verify your suppression request",
+   "body": "",
+   "html_body": "<html><head><style>.btn{color:red}</style></head><body><p>Hi Jane,</p><p>To complete your suppression request, click below to verify your identity.</p><a class=\"btn\" href=\"https://www.whitepages.com/suppression-requests/verify/9f8e7d6c5b4a39281706\">Verify request</a><p>Questions? See our <a href=\"https://www.whitepages.com/privacy-policy\">Privacy Policy</a>.</p><img src=\"https://t.whitepages.com/open.gif?id=1\" width=\"1\" height=\"1\"></body></html>",
+   "from": "support@whitepages.com",
+   "from_name": "",
+   "from_domain": "whitepages.com"
+  },
+  {
+   "name": "mylife activation link with trailing punctuation",
+   "subject": "Action required: activate your removal",
+   "body": "Thanks for contacting MyLife. Click here to validate your request (https://www.mylife.com/privacy/activate?code=ZXCV-1234).\nThe link expires in 48 hours.",
+   "html_body": "",
+   "from": "privacy@mylife.com",
+   "from_name": "",
+   "from_domain": "mylife.com"
+  },
+  {
+   "name": "radaris form required",
+   "subject": "Re: Personal Data Removal Request",
+   "body": "Dear user,\n\nWe do not accept privacy requests via email. Please use our removal form at https://radaris.com/control/privacy and https://radaris.com/removal-request?src=email.\n\nRegards, Radaris",
+   "html_body": "",
+   "from": "support@radaris.com",
+   "from_name": "",
+   "from_domain": "radaris.com"
+  },
+  {
+   "name": "intelius opt-out portal html",
+   "subject": "Re: Personal Data Removal Request",
+   "body": "",
+   "html_body": "<div><p>Thank you for reaching out.</p><p>Please visit our opt-out page to submit your request: <a href=\"https://suppression.peopleconnect.us/login\">PeopleConnect Suppression Center</a></p><p>Or go directly to https://www.intelius.com/opt-out/submit.</p><p><a href=\"https://www.facebook.com/intelius\">Facebook</a> | <a href=\"https://www.intelius.com/about\">About</a></p></div>",
+   "from": "privacy@intelius.com",
+   "from_name": "",
+   "from_domain": "intelius.com"
+  },
+  {
+   "name": "acxiom dsar form",
+   "subject": "Your request to Acxiom",
+   "body": "Hello,\n\nTo exercise your rights, please complete the Data Subject Access Request Form at https://isapps.acxiom.com/optout/optout.aspx or https://www.acxiom.com/about-us/privacy/dsar/\n\nThank you.",
+   "html_body": "",
+   "from": "consumeradvo@acxiom.com",
+   "from_name": "",
+   "from_domain": "acxiom.com"
+  },
+  {
+   "name": "oracle do-not-sell",
+   "subject": "Re: Personal Data Removal Request",
+   "body": "Oracle does not process requests via email. Visit https://www.oracle.com/legal/privacy/privacy-choices.html or the Do Not Sell page https://datacloudoptout.oracle.com/do-not-sell#optout",
+   "html_body": "",
+   "from": "privacy_ww@oracle.com",
+   "from_name": "",
+   "from_domain": "oracle.com"
+  },
+  {
+   "name": "success removed",
+   "subject": "Your opt-out has been completed",
+   "body": "Hi,\n\nWe have removed your information from our database. Your data has been deleted and will no longer appear in search results.\n\nBest,\nPeopleFinders",
+   "html_body": "",
+   "from": "privacy@peoplefinders.com",
+   "from_name": "",
+   "from_domain": "peoplefinders.com"
+  },
+  {
+   "name": "success request completed",
+   "subject": "Request Completed - Case 88213",
+   "body": "Your request has been processed. We no longer hold your data.",
+   "html_body": "",
+   "from": "dsar@lexisnexis.com",
+   "from_name": "",
+   "from_domain": "lexisnexis.com"
+  },
+  {
+   "name": "ticket solved zendesk",
+   "subject": "[Ticket #4412] Personal Data Removal Request has been solved",
+   "body": "Your ticket has been solved. Your information has been removed from our systems.\n\n--\nThis email is a service from BeenVerified Support.",
+   "html_body": "",
+   "from": "support@beenverified.com",
+   "from_name": "",
+   "from_domain": "beenverified.com"
+  },
+  {
+   "name": "rejection no records",
+   "subject": "Re: Personal Data Removal Request",
+   "body": "After a thorough search we found no matching records found for the information you provided. We do not have any data about you.",
+   "html_body": "",
+   "from": "privacy@truthfinder.com",
+   "from_name": "",
+   "from_domain": "truthfinder.com"
+  },
+  {
+   "name": "rejection exempt FCRA",
+   "subject": "Your CCPA request",
+   "body": "Checkr is a consumer reporting agency. Consumer reporting agencies are exempt from CCPA for data covered by the Fair Credit Reporting Act which is exempt.",
+   "html_body": "",
+   "from": "privacy@checkr.com",
+   "from_name": "",
+   "from_domain": "checkr.com"
+  },
+  {
+   "name": "rejection cannot process",
+   "subject": "Unable to process your request",
+   "body": "Unfortunately we cannot process your request without additional verification.",
+   "html_body": "",
+   "from": "privacy@instantcheckmate.com",
+   "from_name": "",
+   "from_domain": "instantcheckmate.com"
+  },
+  {
+   "name": "pending received ticket",
+   "subject": "Request received [#REQ-208811]",
+   "body": "Thank you for your privacy request. Your request has been received and assigned a ticket number. Please allow 45 days for us to respond.",
+   "html_body": "",
+   "from": "privacy@6sense.com",
+   "from_name": "",
+   "from_domain": "6sense.com"
+  },
+  {
+   "name": "pending auto reply",
+   "subject": "Automatic reply: Personal Data Removal Request",
+   "body": "I am out of the office until Monday with limited access to email. For urgent matters contact support@broker.com.",
+   "html_body": "",
+   "from": "privacy@broker.com",
+   "from_name": "",
+   "from_domain": "broker.com"
+  },
+  {
+   "name": "pending auto-response german",
+   "subject": "Automatische Antwort: Antrag auf Löschung personenbezogener Daten",
+   "body": "Vielen Dank für Ihre Nachricht. Wir werden uns so schnell wie möglich bei Ihnen melden.\nauto-response",
+   "html_body": "",
+   "from": "datenschutz@schufa.de",
+   "from_name": "",
+   "from_domain": "schufa.de"
+  },
+  {
+   "name": "german deletion confirmed",
+   "subject": "Ihre Daten wurden gelöscht",
+   "body": "Sehr geehrte Damen und Herren,\n\nIhre Daten wurden gelöscht. Wir bestätigen hiermit die Löschung gemäß Art. 17 DSGVO.\n\nMit freundlichen Grüßen\nDatenschutzteam",
+   "html_body": "",
+   "from": "datenschutz@telefonbuch.de",
+   "from_name": "",
+   "from_domain": "telefonbuch.de"
+  },
+  {
+   "name": "german please confirm",
+   "subject": "Bitte bestätigen Sie Ihre Anfrage",
+   "body": "Bitte bestätigen Sie Ihre E-Mail-Adresse, indem Sie auf den folgenden Link klicken:\nhttps://www.dasoertliche.de/datenschutz/bestaetigen?token=Q1w2E3r4T5y6\n\nVielen Dank.",
+   "html_body": "",
+   "from": "datenschutz@dasoertliche.de",
+   "from_name": "",
+   "from_domain": "dasoertliche.de"
+  },
+  {
+   "name": "german form link umlaut path",
+   "subject": "AW: Auskunftsersuchen",
+   "body": "Bitte nutzen Sie unser Formular: https://www.örtliche-daten.de/löschung/formular?ref=mail und https://www.example.de/DSGVO-Anfrage/opt-out",
+   "html_body": "",
+   "from": "info@örtliche-daten.de",
+   "from_name": "",
+   "from_domain": "örtliche-daten.de"
+  },
+  {
+   "name": "french deletion",
+   "subject": "Votre demande de suppression",
+   "body": "Bonjour,\n\nNous avons bien reçu votre demande. Vos données ont été supprimées de notre base. Cordialement.",
+   "html_body": "",
+   "from": "dpo@pagesjaunes.fr",
+   "from_name": "",
+   "from_domain": "pagesjaunes.fr"
+  },
+  {
+   "name": "french confirmation link",
+   "subject": "Confirmez votre demande",
+   "body": "Bonjour, veuillez confirmer votre adresse e-mail en cliquant ici : https://www.societe.fr/rgpd/confirm/f1e2d3c4b5a69788 .\nMerci.",
+   "html_body": "",
+   "from": "rgpd@societe.fr",
+   "from_name": "",
+   "from_domain": "societe.fr"
+  },
+  {
+   "name": "french html form",
+   "subject": "RE: Demande RGPD",
+   "body": "",
+   "html_body": "<p>Bonjour,</p><p>Merci d&apos;utiliser notre formulaire&nbsp;: <a href='https://www.infogreffe.fr/gdpr-request/new?lang=fr&amp;src=mail'>formulaire RGPD</a>.</p><p>&copy; Infogreffe &amp; Cie</p>",
+   "from": "dpo@infogreffe.fr",
+   "from_name": "",
+   "from_domain": "infogreffe.fr"
+  },
+  {
+   "name": "mailer-daemon gmail style",
+   "subject": "Delivery Status Notification (Failure)",
+   "body": "** Address not found **\n\nYour message wasn't delivered to privacy@defunct-broker.com because the address couldn't be found, or is unable to receive mail.\n\nThe response from the remote server was:\n550 5.1.1 The email account that you tried to reach does not exist. rejected",
+   "html_body": "",
+   "from": "mailer-daemon@googlemail.com",
+   "from_name": "Mail Delivery Subsystem",
+   "from_domain": "googlemail.com"
+  },
+  {
+   "name": "icloud bounce",
+   "subject": "Undeliverable: Personal Data Removal Request",
+   "body": "This message was created automatically by mail delivery software.\n\nA message that you sent could not be delivered to one or more of its recipients. This is a permanent error. The following address(es) failed:\n\n  optout@gone-broker.net\n    host mx.gone-broker.net [203.0.113.5]\n    SMTP error from remote mail server after RCPT TO:<optout@gone-broker.net>:\n    550 5.1.1 <optout@gone-broker.net>: Recipient address rejected: User unknown",
+   "html_body": "",
+   "from": "MAILER-DAEMON@icloud.com",
+   "from_name": "Mail Delivery System",
+   "from_domain": "icloud.com"
+  },
+  {
+   "name": "postfix bounce final recipient",
+   "subject": "Returned mail: see transcript for details",
+   "body": "Reporting-MTA: dns; mail.example.org\nFinal-Recipient: rfc822;privacy@oldbroker.io\nAction: failed\nStatus: 5.1.1\nDiagnostic-Code: smtp; 550 5.1.1 user unknown",
+   "html_body": "",
+   "from": "postmaster@example.org",
+   "from_name": "Mail Delivery System",
+   "from_domain": "example.org"
+  },
+  {
+   "name": "outlook ndr html",
+   "subject": "Undeliverable: Personal Data Removal Request",
+   "body": "",
+   "html_body": "<html><body><div><b>Your message to <a href='mailto:dpo@closedco.com'>dpo@closedco.com</a> couldn't be delivered.</b></div><p>dpo wasn't found at closedco.com.</p><p>Remote Server returned '550 5.1.10 RESOLVER.ADR.RecipientNotFound; Recipient not found by SMTP address lookup'</p><p>Delivery has failed to these recipients or groups:</p></body></html>",
+   "from": "postmaster@outlook.com",
+   "from_name": "Microsoft Outlook",
+   "from_domain": "outlook.com"
+  },
+  {
+   "name": "bounce without daemon sender strong patterns",
+   "subject": "Mail delivery failed: returning message to sender",
+   "body": "Message could not be delivered. Delivery to the following recipient failed permanently: data@nowhere-broker.com\nmailbox not found",
+   "html_body": "",
+   "from": "support@relay.net",
+   "from_name": "",
+   "from_domain": "relay.net"
+  },
+  {
+   "name": "bounce fallback address only",
+   "subject": "failure notice",
+   "body": "Hi. This is the qmail-send program. I'm afraid I wasn't able to deliver your message.\nuser unknown\n<info@broker-xyz.org>\nSorry, I couldn't.",
+   "html_body": "",
+   "from": "MAILER-DAEMON@mx.broker-xyz.org",
+   "from_name": "",
+   "from_domain": "mx.broker-xyz.org"
+  },
+  {
+   "name": "noreply sender not bounce",
+   "subject": "Your account update",
+   "body": "Thanks for being a customer. Read our terms at https://www.example.com/terms and unsubscribe at https://www.example.com/unsubscribe?u=123",
+   "html_body": "",
+   "from": "noreply@example.com",
+   "from_name": "",
+   "from_domain": "example.com"
+  },
+  {
+   "name": "test email",
+   "subject": "Eraser Test Email",
+   "body": "This is a test email from Eraser.",
+   "html_body": "",
+   "from": "me@icloud.com",
+   "from_name": "",
+   "from_domain": "icloud.com"
+  },
+  {
+   "name": "empty email",
+   "subject": "",
+   "body": "",
+   "html_body": "",
+   "from": "privacy@broker.com",
+   "from_name": "",
+   "from_domain": "broker.com"
+  },
+  {
+   "name": "only urls no keywords",
+   "subject": "Re: hello",
+   "body": "https://broker.com/verify/abcdefghijk123\nhttps://broker.com/opt-out\nhttps://cdn.broker.com/pixel.png\nhttps://broker.com/track/click?id=1",
+   "html_body": "",
+   "from": "privacy@broker.com",
+   "from_name": "",
+   "from_domain": "broker.com"
+  },
+  {
+   "name": "only form url no keywords",
+   "subject": "Re: hello",
+   "body": "See https://www.broker.com/ccpa/removal for more.",
+   "html_body": "",
+   "from": "privacy@broker.com",
+   "from_name": "",
+   "from_domain": "broker.com"
+  },
+  {
+   "name": "tie success vs rejected",
+   "subject": "Re: Personal Data Removal Request",
+   "body": "We have removed your listing. Unfortunately we cannot process your request for the second address.",
+   "html_body": "",
+   "from": "privacy@broker.com",
+   "from_name": "",
+   "from_domain": "broker.com"
+  },
+  {
+   "name": "tie form vs confirmation",
+   "subject": "Re: Personal Data Removal Request",
+   "body": "Please complete the form. Click to confirm when done.",
+   "html_body": "",
+   "from": "privacy@broker.com",
+   "from_name": "",
+   "from_domain": "broker.com"
+  },
+  {
+   "name": "mixed signals pending and form",
+   "subject": "Thank you for contacting us - Ticket #: 553412",
+   "body": "Your request is being processed. Please submit your request through our online privacy portal at https://privacy.acme-data.com/dsar/new. We'll get back to you within 30 days.",
+   "html_body": "",
+   "from": "privacy@acme-data.com",
+   "from_name": "",
+   "from_domain": "acme-data.com"
+  },
+  {
+   "name": "multi form urls broker domain bonus",
+   "subject": "Re: Personal Data Removal Request",
+   "body": "Use either https://onetrust.com/privacy-request/abc or https://www.thatsthem.com/optout or https://www.thatsthem.com/opt-out-form/removal",
+   "html_body": "",
+   "from": "privacy@thatsthem.com",
+   "from_name": "",
+   "from_domain": "thatsthem.com"
+  },
+  {
+   "name": "confirm url domain preference",
+   "subject": "Confirm your email",
+   "body": "Click here to confirm: https://links.mailer.com/confirm?token=zzz then https://www.fastpeoplesearch.com/removal/verify?token=abc123&id=9",
+   "html_body": "",
+   "from": "info@fastpeoplesearch.com",
+   "from_name": "",
+   "from_domain": "fastpeoplesearch.com"
+  },
+  {
+   "name": "html with script and entities",
+   "subject": "Re: Personal Data Removal Request",
+   "body": "",
+   "html_body": "<html><head><script>var u='https://evil.example/confirm?x=1';</script><title>Opt-out</title></head><body>Please&nbsp;complete&nbsp;the&nbsp;form &amp; submit. <a href=\"https://www.nuwber.com/removal/link?id=7&amp;token=abc\">Remove</a>\n\n\t <a href=\"/relative/opt-out\">relative</a> <a href=\"mailto:privacy@nuwber.com\">mail</a> <a href=\"javascript:void(0)\">js</a></body></html>",
+   "from": "support@nuwber.com",
+   "from_name": "",
+   "from_domain": "nuwber.com"
+  },
+  {
+   "name": "both text and html bodies",
+   "subject": "Re: Personal Data Removal Request",
+   "body": "Please verify your identity at https://www.clustrmaps.com/verify-identity?ref=1",
+   "html_body": "<p>Please verify your identity at <a href='https://www.clustrmaps.com/verify-identity?ref=1'>here</a> or <a href='https://www.clustrmaps.com/do-not-sell'>do not sell</a></p>",
+   "from": "privacy@clustrmaps.com",
+   "from_name": "",
+   "from_domain": "clustrmaps.com"
+  },
+  {
+   "name": "no longer with company",
+   "subject": "I have left the company",
+   "body": "I am no longer with the company. Please contact privacy@newco.com instead.",
+   "html_body": "",
+   "from": "privacy@broker.com",
+   "from_name": "",
+   "from_domain": "broker.com"
+  },
+  {
+   "name": "subject only success",
+   "subject": "Your data has been deleted",
+   "body": "",
+   "html_body": "",
+   "from": "privacy@broker.com",
+   "from_name": "",
+   "from_domain": "broker.com"
+  },
+  {
+   "name": "turkish dotted capital I in subject",
+   "subject": "İSTEK ALINDI: Request Received",
+   "body": "",
+   "html_body": "",
+   "from": "privacy@broker.com",
+   "from_name": "",
+   "from_domain": "broker.com"
+  },
+  {
+   "name": "unicode whitespace nbsp",
+   "subject": "Re: Personal Data Removal Request",
+   "body": "We have removed your data. Please confirm your email.",
+   "html_body": "",
+   "from": "privacy@broker.com",
+   "from_name": "",
+   "from_domain": "broker.com"
+  },
+  {
+   "name": "vertical tab whitespace",
+   "subject": "Re: Personal Data Removal Request",
+   "body": "we\u000bhave\u000bremoved everything. request has been completed",
+   "html_body": "",
+   "from": "privacy@broker.com",
+   "from_name": "",
+   "from_domain": "broker.com"
+  },
+  {
+   "name": "uppercase url host and path",
+   "subject": "Re: Personal Data Removal Request",
+   "body": "Visit HTTPS://WWW.BROKER.COM/OPT-OUT/Start now, or http://Broker.com:8080/Removal-Form?A=B#Top",
+   "html_body": "",
+   "from": "privacy@broker.com",
+   "from_name": "",
+   "from_domain": "broker.com"
+  },
+  {
+   "name": "ipv6 and userinfo urls",
+   "subject": "Re: hello",
+   "body": "Links: http://[2001:db8::1]:8080/opt-out http://user:pass@broker.com/optout https://[::1%25eth0]/confirm https://bad[host]/x http://a:b:c/opt-out",
+   "html_body": "",
+   "from": "privacy@broker.com",
+   "from_name": "",
+   "from_domain": "broker.com"
+  },
+  {
+   "name": "weird html markup",
+   "subject": "Re: Personal Data Removal Request",
+   "body": "",
+   "html_body": "<table><tr><td>Click <a href=' https://www.peekyou.com/about/contact/optout '>here</a></td></tr></table><a href=\"https://www.peekyou.com/optout?x=%zz\">bad escape</a><a href=\"https://www.peekyou.com/optout?x=%41\">good</a><p>Raw: https://www.peekyou.com/opt_out/index.php?q=1&amp;r=2</p>",
+   "from": "support@peekyou.com",
+   "from_name": "",
+   "from_domain": "peekyou.com"
+  }
+ ],
+ "urls": [
+  "https://example.com",
+  "https://Example.COM/Path",
+  "http://example.com/a b",
+  "https://example.com/opt-out).",
+  "https://example.com/%7Euser/",
+  "https://example.com/a%2Fb",
+  "https://example.com/café",
+  "https://exämple.com/x",
+  "https://example.com/?",
+  "https://example.com/x?y",
+  "https://example.com/#frag ment",
+  "https://example.com/#a%20b",
+  "https://example.com/p?q=%zz",
+  "https://example.com:443/",
+  "https://example.com:x/",
+  "https://u%40:p@example.com/",
+  "https://[fe80::1%25en0]:8443/v",
+  "https://[1.2.3.4]/",
+  "https:///triple",
+  "https:",
+  "ftp://example.com/x",
+  "HTTPS://EXAMPLE.COM",
+  "https://example.com/confirm/abcdefghijk",
+  "https://example.com/verify/short",
+  "https://example.com/c?token=a+b%21&code=x",
+  "https://example.com/c?id=&key=k1",
+  "https://example.com/c?token;x=1&code=c2",
+  "https://example.com/c?verify=%E2%9C%93",
+  "https://example.com/c?confirmation=%FF",
+  "mailto:a@b.com",
+  "/relative",
+  "https://example.com/path;params?x=1",
+  "https://example.com/a?b#c#d",
+  "https://example.com/ä?ö=ü#ß",
+  "http://a:b:c/x",
+  "https://example.com/*",
+  "https://example.com/[x]"
+ ],
+ "subjects": [
+  "Automatic reply: Personal Data Removal Request",
+  "Your Request Has Been Received",
+  "Request Received - [#REQ-195698]",
+  "Re: Personal Data Removal Request - No Record Found",
+  "Your opt-out has been completed",
+  "Opt-Out Instructions",
+  "How to remove your information",
+  "Ticket (259135) solved",
+  "Re: Personal Data Removal Request",
+  "",
+  "Your data has been removed - request completed",
+  "Not found: request received",
+  "Request denied",
+  "Out of office",
+  "Thanks for contacting Acme",
+  "Removal instructions and request #12345",
+  "We have deleted your data"
+ ]
+}

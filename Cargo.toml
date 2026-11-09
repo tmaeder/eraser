@@ -1,0 +1,68 @@
+[package]
+name = "eraser"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+description = "Automated personal data removal requests to data brokers"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "eraser"
+path = "src/main.rs"
+
+[dependencies]
+# --- core ---
+serde = { version = "1.0.229", features = ["derive"] }
+serde_yaml_ng = "0.10.0"
+serde_json = "1.0.154"
+anyhow = "1.0.104"
+thiserror = "2.0.21"
+chrono = { version = "0.4.45", features = ["serde"] }
+dirs = "7.0.0"
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+regex = "1.13.1"
+url = "2.5.8"
+libc = "0.2.191"
+
+# --- db (history) ---
+rusqlite = { version = "0.41.1", features = ["bundled"] }
+
+# --- email (SMTP) ---
+# rustls with aws-lc-rs everywhere so only one rustls CryptoProvider is compiled in.
+lettre = { version = "0.11.23", default-features = false, features = ["smtp-transport", "pool", "hostname", "builder", "tokio1-rustls", "aws-lc-rs", "webpki-roots"] }
+
+# --- async / web ---
+tokio = { version = "1.54.1", features = ["full"] }
+axum = "0.8.9"
+axum-extra = { version = "0.12.6", features = ["cookie"] }
+tower = "0.5.3"
+tower-http = { version = "0.7.1", features = ["fs", "trace"] }
+minijinja = { version = "3.1.0", features = ["serde", "json", "urlencode", "loop_controls"] }
+rand = "0.10.3"
+base64 = "0.23.1"
+futures = "0.3.34"
+
+# --- inbox (IMAP) ---
+async-imap = { version = "0.12.0", default-features = false, features = ["runtime-tokio"] }
+tokio-rustls = "0.26.6"
+rustls = "0.23.46"
+webpki-roots = "1.0.11"
+mail-parser = "1.0.1"
+
+# --- browser automation ---
+chromiumoxide = "0.9.1"
+
+# --- html parsing ---
+scraper = "0.29.0"
+
+# --- http client ---
+reqwest = { version = "0.13.5", default-features = false, features = ["rustls", "json", "form", "query", "http2", "charset"] }
+
+# --- cli ---
+clap = { version = "4.6.7", features = ["derive"] }
+
+[dev-dependencies]
+tempfile = "3.27.0"

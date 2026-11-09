@@ -1,0 +1,155 @@
+{
+  "forms": [
+    {
+      "BrokerID": "spokeo",
+      "BrokerName": "Spokeo",
+      "FormURL": "https://spokeo.com/form",
+      "EmailSubject": "Re: removal",
+      "DetectedAt": "2026-11-09T21:42:47.312924+01:00",
+      "Status": "captcha",
+      "TaskID": 1,
+      "PipelineStatus": "form_required"
+    }
+  ],
+  "last_spokeo": {
+    "ID": 3,
+    "BrokerID": "spokeo",
+    "BrokerName": "Spokeo",
+    "Email": "privacy@spokeo.com",
+    "Template": "generic",
+    "Status": "sent",
+    "MessageID": "",
+    "Error": "",
+    "SentAt": "2026-11-09T20:42:47.280446Z",
+    "CreatedAt": "2026-11-09T21:42:47.280446+01:00",
+    "PipelineStatus": ""
+  },
+  "monthly": [
+    1,
+    1
+  ],
+  "pipeline": {
+    "email_sent": 2,
+    "form_required": 1
+  },
+  "recent": [
+    {
+      "ID": 2,
+      "BrokerID": "acxiom",
+      "BrokerName": "Acxiom",
+      "Email": "privacy@acxiom.com",
+      "Template": "gdpr",
+      "Status": "failed",
+      "MessageID": "",
+      "Error": "SMTP authentication failed",
+      "SentAt": "2026-11-09T21:42:47.278454+01:00",
+      "CreatedAt": "2026-11-09T21:42:47.278454+01:00",
+      "PipelineStatus": ""
+    },
+    {
+      "ID": 3,
+      "BrokerID": "spokeo",
+      "BrokerName": "Spokeo",
+      "Email": "privacy@spokeo.com",
+      "Template": "generic",
+      "Status": "sent",
+      "MessageID": "",
+      "Error": "",
+      "SentAt": "2026-11-09T20:42:47.280446Z",
+      "CreatedAt": "2026-11-09T21:42:47.280446+01:00",
+      "PipelineStatus": ""
+    },
+    {
+      "ID": 1,
+      "BrokerID": "spokeo",
+      "BrokerName": "Spokeo",
+      "Email": "privacy@spokeo.com",
+      "Template": "generic",
+      "Status": "sent",
+      "MessageID": "smtp-privacy@spokeo.com-0",
+      "Error": "",
+      "SentAt": "2026-03-14T09:26:53.589793238+01:00",
+      "CreatedAt": "2026-11-09T21:42:47.275206+01:00",
+      "PipelineStatus": ""
+    },
+    {
+      "ID": 4,
+      "BrokerID": "nosend",
+      "BrokerName": "NoSend",
+      "Email": "x@nosend.com",
+      "Template": "ccpa",
+      "Status": "pending",
+      "MessageID": "",
+      "Error": "",
+      "SentAt": "0001-01-01T00:00:00Z",
+      "CreatedAt": "2026-11-09T21:42:47.283626+01:00",
+      "PipelineStatus": ""
+    }
+  ],
+  "responses": [
+    {
+      "ID": 1,
+      "BrokerID": "spokeo",
+      "BrokerName": "Spokeo",
+      "ResponseType": "form_required",
+      "EmailFrom": "privacy@spokeo.com",
+      "EmailSubject": "Re: removal",
+      "EmailBody": "Please fill https://spokeo.com/form",
+      "FormURL": "https://spokeo.com/form",
+      "ConfirmURL": "",
+      "Confidence": 0.85,
+      "NeedsReview": true,
+      "ReceivedAt": "2026-03-14T09:26:53.589793238+01:00",
+      "ProcessedAt": "2026-11-09T21:42:47.312923+01:00",
+      "CreatedAt": "2026-11-09T21:42:47.312924+01:00"
+    }
+  ],
+  "stats": [
+    4,
+    2,
+    1
+  ],
+  "statuses_error": "failed to scan broker status: sql: Scan error on column index 1, name \"last_sent\": unsupported Scan, storing driver.Value type string into type *time.Time",
+  "tasks": [
+    {
+      "ID": 2,
+      "BrokerID": "acxiom",
+      "BrokerName": "Acxiom",
+      "TaskType": "review",
+      "FormURL": "",
+      "ScreenshotPath": "",
+      "BrowserState": "{\"a\":1}",
+      "Notes": "",
+      "Status": "skipped",
+      "CreatedAt": "2026-11-09T21:42:47.31792+01:00",
+      "OpenedAt": {
+        "Time": "0001-01-01T00:00:00Z",
+        "Valid": false
+      },
+      "CompletedAt": {
+        "Time": "2026-11-09T21:42:47.319183+01:00",
+        "Valid": true
+      }
+    },
+    {
+      "ID": 1,
+      "BrokerID": "spokeo",
+      "BrokerName": "Spokeo",
+      "TaskType": "captcha",
+      "FormURL": "https://spokeo.com/form",
+      "ScreenshotPath": "",
+      "BrowserState": "",
+      "Notes": "captcha",
+      "Status": "pending",
+      "CreatedAt": "2026-11-09T21:42:47.314862+01:00",
+      "OpenedAt": {
+        "Time": "2026-11-09T21:42:47.316625+01:00",
+        "Valid": true
+      },
+      "CompletedAt": {
+        "Time": "0001-01-01T00:00:00Z",
+        "Valid": false
+      }
+    }
+  ]
+}

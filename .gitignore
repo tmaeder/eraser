@@ -55,3 +55,9 @@ browser-data/
 
 # Personal data that might leak
 pending_job.json
+
+# Rust
+/target/
+
+# Rust
+/target

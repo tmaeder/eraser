@@ -1,0 +1,375 @@
+//! Port of internal/email/sender.go + smtp.go.
+
+use crate::config::{EmailConfig, SmtpConfig};
+use anyhow::{Result, anyhow, bail};
+use futures::future::BoxFuture;
+use lettre::message::Mailbox;
+use lettre::message::header::ContentType;
+use lettre::transport::smtp::authentication::{Credentials, Mechanism};
+use lettre::transport::smtp::client::{Tls, TlsParameters};
+use lettre::{AsyncSmtpTransport, AsyncTransport, Tokio1Executor};
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Message {
+    pub to: String,
+    pub from: String,
+    pub subject: String,
+    pub body: String,
+}
+
+/// Go's `email.Result`.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct SendResult {
+    pub success: bool,
+    pub message_id: String,
+    pub error: Option<String>,
+}
+
+impl SendResult {
+    fn failed(err: impl std::fmt::Display) -> Self {
+        Self {
+            success: false,
+            message_id: String::new(),
+            error: Some(err.to_string()),
+        }
+    }
+}
+
+pub trait Sender: Send + Sync {
+    /// `sequence` replaces Go's `ctx.Value("sequence")`; it only feeds the message id.
+    fn send<'a>(&'a self, msg: &'a Message, sequence: Option<usize>) -> BoxFuture<'a, SendResult>;
+    fn name(&self) -> &'static str;
+}
+
+pub fn new_sender(cfg: &EmailConfig) -> Result<Box<dyn Sender>> {
+    if cfg.provider.is_empty() || cfg.provider == "smtp" {
+        return Ok(Box::new(SmtpSender::new(
+            cfg.smtp.clone(),
+            cfg.from.clone(),
+        )));
+    }
+    bail!(
+        "unknown email provider: {} (only smtp is supported)",
+        cfg.provider
+    )
+}
+
+/// Rejects header-injection characters and anything that is not an RFC 5322 address.
+pub fn validate_email(email: &str) -> Result<()> {
+    if email.contains(['\r', '\n', ',', ';']) {
+        bail!("email contains invalid characters");
+    }
+    email
+        .parse::<Mailbox>()
+        .map_err(|e| anyhow!("invalid email format: {e}"))?;
+    Ok(())
+}
+
+fn validate_message(msg: &Message) -> Result<()> {
+    validate_email(&msg.from).map_err(|e| anyhow!("invalid sender: {e}"))?;
+    validate_email(&msg.to).map_err(|e| anyhow!("invalid recipient: {e}"))?;
+    Ok(())
+}
+
+pub struct SmtpSender {
+    config: SmtpConfig,
+    #[allow(dead_code)] // kept for parity with Go; the From header comes from Message.from
+    from: String,
+}
+
+impl SmtpSender {
+    pub fn new(config: SmtpConfig, from: String) -> Self {
+        Self { config, from }
+    }
+
+    async fn send_inner(&self, msg: &Message, sequence: Option<usize>) -> SendResult {
+        if let Err(e) = validate_message(msg) {
+            return SendResult::failed(e);
+        }
+        // Reject headers with CRLF to prevent injection
+        if msg.subject.contains(['\r', '\n']) {
+            return SendResult::failed("subject contains invalid characters");
+        }
+        if !self.config.use_tls && !self.config.username.is_empty() {
+            return SendResult::failed("SMTP auth requires TLS");
+        }
+
+        if let Err(e) = self.deliver(msg).await {
+            return SendResult::failed(e);
+        }
+
+        // Go formats a missing ctx value with %d, which yields "%!d(<nil>)".
+        let seq = sequence.map_or_else(|| "%!d(<nil>)".to_string(), |s| s.to_string());
+        SendResult {
+            success: true,
+            message_id: format!("smtp-{}-{}", msg.to, seq),
+            error: None,
+        }
+    }
+
+    /// Returns an already-sanitized error message.
+    async fn deliver(&self, msg: &Message) -> std::result::Result<(), String> {
+        let generic = || "SMTP error: check your configuration".to_string();
+        let from: Mailbox = msg.from.parse().map_err(|_| generic())?;
+        let to: Mailbox = msg.to.parse().map_err(|_| generic())?;
+        let email = lettre::Message::builder()
+            .from(from)
+            .to(to)
+            .subject(msg.subject.clone())
+            .header(ContentType::TEXT_PLAIN)
+            .body(msg.body.clone())
+            .map_err(|_| generic())?;
+
+        let host = self.config.host.as_str();
+        let port = u16::try_from(self.config.port).map_err(|_| generic())?;
+
+        let transport = if self.config.use_tls {
+            let builder = if port == 587 {
+                // Port 587 (iCloud, Outlook) uses STARTTLS instead of implicit TLS
+                AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(host)
+            } else {
+                AsyncSmtpTransport::<Tokio1Executor>::relay(host)
+            }
+            .map_err(|e| sanitize_smtp_error(&e))?;
+            builder
+                .port(port)
+                .credentials(Credentials::new(
+                    self.config.username.clone(),
+                    self.config.password.clone(),
+                ))
+                .authentication(vec![Mechanism::Plain])
+                .build()
+        } else {
+            // Like Go's smtp.SendMail: no auth, STARTTLS if the server offers it.
+            let tls = TlsParameters::new(host.to_string()).map_err(|e| sanitize_smtp_error(&e))?;
+            AsyncSmtpTransport::<Tokio1Executor>::builder_dangerous(host)
+                .port(port)
+                .tls(Tls::Opportunistic(tls))
+                .build()
+        };
+
+        transport
+            .send(email)
+            .await
+            .map(|_| ())
+            .map_err(|e| sanitize_smtp_error(&e))
+    }
+}
+
+impl Sender for SmtpSender {
+    fn send<'a>(&'a self, msg: &'a Message, sequence: Option<usize>) -> BoxFuture<'a, SendResult> {
+        Box::pin(self.send_inner(msg, sequence))
+    }
+
+    fn name(&self) -> &'static str {
+        "smtp"
+    }
+}
+
+/// Maps transport errors to messages that never leak server responses or credentials.
+fn sanitize_smtp_error(err: &lettre::transport::smtp::Error) -> String {
+    // Go wraps every auth-stage failure in "authentication failed: ..."; lettre does not, so
+    // treat 53x replies (auth required / rejected) as auth failures too.
+    let auth_code = err
+        .status()
+        .is_some_and(|c| c.to_string().starts_with("53"));
+    sanitize_message(&err.to_string(), auth_code)
+}
+
+fn sanitize_message(text: &str, auth_code: bool) -> String {
+    let s = text.to_lowercase();
+    if auth_code || s.contains("auth") {
+        "SMTP authentication failed".into()
+    } else if s.contains("certificate") {
+        "TLS certificate error".into()
+    } else {
+        "SMTP error: check your configuration".into()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+
+    fn msg() -> Message {
+        Message {
+            to: "privacy@broker.com".into(),
+            from: "me@example.com".into(),
+            subject: "Personal Data Removal Request".into(),
+            body: "Hällo\nWorld".into(),
+        }
+    }
+
+    fn smtp(port: i64, use_tls: bool, username: &str) -> SmtpSender {
+        SmtpSender::new(
+            SmtpConfig {
+                host: "127.0.0.1".into(),
+                port,
+                username: username.into(),
+                password: "pw".into(),
+                use_tls,
+            },
+            "me@example.com".into(),
+        )
+    }
+
+    #[test]
+    fn validate_email_cases() {
+        assert!(validate_email("a@b.com").is_ok());
+        assert!(validate_email("Jane Doe <a@b.com>").is_ok());
+        for bad in [
+            "a@b.com\r\nBcc: x@y.z",
+            "a@b.com,c@d.com",
+            "a@b.com;",
+            "a\n@b.com",
+        ] {
+            assert_eq!(
+                validate_email(bad).unwrap_err().to_string(),
+                "email contains invalid characters"
+            );
+        }
+        assert!(
+            validate_email("not-an-email")
+                .unwrap_err()
+                .to_string()
+                .starts_with("invalid email format: ")
+        );
+        assert!(validate_email("").is_err());
+    }
+
+    #[test]
+    fn sanitize_cases() {
+        assert_eq!(
+            sanitize_message(
+                "permanent error (535): Authentication credentials invalid",
+                false
+            ),
+            "SMTP authentication failed"
+        );
+        assert_eq!(
+            sanitize_message(
+                "permanent error (535): Username and Password not accepted",
+                true
+            ),
+            "SMTP authentication failed"
+        );
+        assert_eq!(
+            sanitize_message("tls error: invalid peer certificate: UnknownIssuer", false),
+            "TLS certificate error"
+        );
+        assert_eq!(
+            sanitize_message("Connection error: refused", false),
+            "SMTP error: check your configuration"
+        );
+    }
+
+    #[test]
+    fn new_sender_providers() {
+        let mut cfg = EmailConfig::default();
+        assert_eq!(new_sender(&cfg).unwrap().name(), "smtp");
+        cfg.provider = "sendgrid".into();
+        assert_eq!(
+            new_sender(&cfg).err().unwrap().to_string(),
+            "unknown email provider: sendgrid (only smtp is supported)"
+        );
+    }
+
+    #[tokio::test]
+    async fn rejects_before_connecting() {
+        let s = smtp(1, true, "u");
+        let mut m = msg();
+        m.subject = "x\r\nBcc: evil@x.com".into();
+        assert_eq!(
+            s.send(&m, None).await.error.as_deref(),
+            Some("subject contains invalid characters")
+        );
+        m = msg();
+        m.to = "bad".into();
+        assert!(
+            s.send(&m, None)
+                .await
+                .error
+                .unwrap()
+                .starts_with("invalid recipient: ")
+        );
+        m = msg();
+        m.from = "a@b.c, d@e.f".into();
+        assert_eq!(
+            s.send(&m, None).await.error.as_deref(),
+            Some("invalid sender: email contains invalid characters")
+        );
+        assert_eq!(
+            smtp(1, false, "u")
+                .send(&msg(), None)
+                .await
+                .error
+                .as_deref(),
+            Some("SMTP auth requires TLS")
+        );
+    }
+
+    #[tokio::test]
+    async fn connection_errors_are_sanitized() {
+        let port = {
+            let l = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+            l.local_addr().unwrap().port()
+        }; // closed now
+        let r = smtp(port as i64, false, "").send(&msg(), Some(1)).await;
+        assert!(!r.success);
+        assert_eq!(
+            r.error.as_deref(),
+            Some("SMTP error: check your configuration")
+        );
+    }
+
+    /// Minimal fake SMTP server: verifies the plain (no TLS, no auth) path and the message format.
+    #[tokio::test]
+    async fn sends_plain_text_message() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let server = tokio::spawn(async move {
+            let (sock, _) = listener.accept().await.unwrap();
+            let (r, mut w) = sock.into_split();
+            let mut lines = BufReader::new(r).lines();
+            w.write_all(b"220 fake ESMTP\r\n").await.unwrap();
+            let mut data = String::new();
+            let mut in_data = false;
+            while let Some(line) = lines.next_line().await.unwrap() {
+                if in_data {
+                    if line == "." {
+                        in_data = false;
+                        w.write_all(b"250 queued\r\n").await.unwrap();
+                    } else {
+                        data.push_str(&line);
+                        data.push('\n');
+                    }
+                    continue;
+                }
+                let reply: &[u8] = match line.get(..4).unwrap_or("").to_uppercase().as_str() {
+                    "EHLO" => b"250 fake\r\n",
+                    "DATA" => {
+                        in_data = true;
+                        b"354 go\r\n"
+                    }
+                    "QUIT" => {
+                        w.write_all(b"221 bye\r\n").await.unwrap();
+                        break;
+                    }
+                    _ => b"250 ok\r\n",
+                };
+                w.write_all(reply).await.unwrap();
+            }
+            data
+        });
+
+        let r = smtp(port as i64, false, "").send(&msg(), Some(7)).await;
+        assert!(r.success, "{:?}", r.error);
+        assert_eq!(r.message_id, "smtp-privacy@broker.com-7");
+        let data = server.await.unwrap();
+        assert!(data.contains("From: me@example.com\n"), "{data}");
+        assert!(data.contains("To: privacy@broker.com\n"));
+        assert!(data.contains("Subject: Personal Data Removal Request\n"));
+        assert!(data.contains("Content-Type: text/plain; charset=utf-8\n"));
+    }
+}

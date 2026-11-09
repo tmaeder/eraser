@@ -1,0 +1,41 @@
+package main
+
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"github.com/eraser-privacy/eraser/internal/broker"
+	"github.com/eraser-privacy/eraser/internal/config"
+	"github.com/eraser-privacy/eraser/internal/template"
+)
+
+func main() {
+	out := os.Args[1]
+	os.MkdirAll(filepath.Join(out, "template"), 0755)
+	e, err := template.NewEngine()
+	if err != nil { panic(err) }
+	b := broker.Broker{ID: "acme", Name: `Acme "Data" Inc`, Email: "privacy@acme.com", Website: "https://acme.com", OptOutURL: "https://acme.com/optout", Region: "us"}
+	profiles := map[string]config.Profile{
+		"full": {FirstName: "Jane", LastName: "Döe", Email: "jane@example.com", Address: "1 <Main> & St", City: "Zürich", State: "ZH", ZipCode: "8001", Country: "Switzerland", Phone: "+41 44 000 00 00", DateOfBirth: "1990-01-15"},
+		"minimal": {FirstName: "Min", LastName: "Imal", Email: "min@example.com"},
+	}
+	for _, name := range []string{"gdpr", "ccpa", "generic"} {
+		for pn, p := range profiles {
+			date := time.Now().Format("January 2, 2006")
+			m, err := e.Render(name, p, b)
+			if err != nil { panic(err) }
+			body := strings.ReplaceAll(m.Body, date, "__DATE__")
+			os.WriteFile(filepath.Join(out, "template", name+"_"+pn+".txt"), []byte(body), 0644)
+			os.WriteFile(filepath.Join(out, "template", name+"_subject.txt"), []byte(m.Subject), 0644)
+		}
+	}
+	db, err := broker.LoadFromFile(os.Args[2])
+	if err != nil { panic(err) }
+	j, _ := json.Marshal(db.Brokers)
+	os.WriteFile(filepath.Join(S(out), "brokers_go.json"), j, 0644)
+}
+
+func S(s string) string { return s }

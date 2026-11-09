@@ -1,0 +1,74 @@
+// Creates a history DB with the Go Store and dumps what Go reads back as JSON.
+// Usage: go run ./cmd/goldendb <out.sqlite> <out.json>
+package main
+
+import (
+	"database/sql"
+	"encoding/json"
+	"os"
+	"time"
+
+	"github.com/eraser-privacy/eraser/internal/history"
+	_ "modernc.org/sqlite"
+)
+
+func must(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
+func main() {
+	dbPath, jsonPath := os.Args[1], os.Args[2]
+	os.Remove(dbPath)
+	s, err := history.NewStore(dbPath)
+	must(err)
+
+	sent := time.Date(2026, 3, 14, 9, 26, 53, 589793238, time.Local)
+	must(s.Add(&history.Record{BrokerID: "spokeo", BrokerName: "Spokeo", Email: "privacy@spokeo.com", Template: "generic", Status: history.StatusSent, MessageID: "smtp-privacy@spokeo.com-0", SentAt: sent}))
+	must(s.Add(&history.Record{BrokerID: "acxiom", BrokerName: "Acxiom", Email: "privacy@acxiom.com", Template: "gdpr", Status: history.StatusFailed, Error: "SMTP authentication failed", SentAt: time.Now()}))
+	must(s.Add(&history.Record{BrokerID: "spokeo", BrokerName: "Spokeo", Email: "privacy@spokeo.com", Template: "generic", Status: history.StatusSent, SentAt: time.Now().UTC()}))
+	must(s.Add(&history.Record{BrokerID: "nosend", BrokerName: "NoSend", Email: "x@nosend.com", Template: "ccpa", Status: history.StatusPending}))
+	must(s.UpdatePipelineStatus("spokeo", history.PipelineFormRequired))
+
+	// email_body is missing from the Go schema; add it so AddBrokerResponse works.
+	raw, err := sql.Open("sqlite", dbPath)
+	must(err)
+	_, err = raw.Exec(`ALTER TABLE broker_responses ADD COLUMN email_body TEXT`)
+	must(err)
+	raw.Close()
+
+	must(s.AddBrokerResponse(&history.BrokerResponse{BrokerID: "spokeo", BrokerName: "Spokeo", ResponseType: "form_required", EmailFrom: "privacy@spokeo.com", EmailSubject: "Re: removal", EmailBody: "Please fill https://spokeo.com/form", FormURL: "https://spokeo.com/form", Confidence: 0.85, NeedsReview: true, ReceivedAt: sent}))
+	t := &history.PendingTask{BrokerID: "spokeo", BrokerName: "Spokeo", TaskType: history.TaskCaptcha, FormURL: "https://spokeo.com/form", Notes: "captcha"}
+	must(s.AddPendingTask(t))
+	must(s.MarkTaskOpened(t.ID))
+	t2 := &history.PendingTask{BrokerID: "acxiom", BrokerName: "Acxiom", TaskType: history.TaskReview, BrowserState: `{"a":1}`}
+	must(s.AddPendingTask(t2))
+	must(s.CompletePendingTask(t2.ID, "skipped"))
+
+	out := map[string]any{}
+	out["recent"], err = s.GetRecentRequests(10)
+	must(err)
+	out["last_spokeo"], err = s.GetLastRequestForBroker("spokeo")
+	must(err)
+	if _, err := s.GetAllBrokerStatuses(); err != nil {
+		out["statuses_error"] = err.Error() // Go bug: MAX(sent_at) is untyped TEXT
+	}
+	out["responses"], err = s.GetAllBrokerResponses()
+	must(err)
+	out["tasks"], err = s.GetPendingTasks("", "")
+	must(err)
+	out["forms"], err = s.GetFormsWithStatus()
+	must(err)
+	out["pipeline"], err = s.GetPipelineStats()
+	must(err)
+	tot, se, fa, err := s.GetStats()
+	must(err)
+	out["stats"] = []int{tot, se, fa}
+	ms, mf, err := s.GetMonthlyStats()
+	must(err)
+	out["monthly"] = []int{ms, mf}
+	j, _ := json.MarshalIndent(out, "", "  ")
+	must(os.WriteFile(jsonPath, j, 0644))
+	s.Close()
+}

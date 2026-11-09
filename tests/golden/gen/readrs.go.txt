@@ -1,0 +1,26 @@
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+
+	"github.com/eraser-privacy/eraser/internal/history"
+)
+
+func main() {
+	s, err := history.NewStore(os.Args[1])
+	if err != nil { panic(err) }
+	r, err := s.GetRecentRequests(5)
+	if err != nil { panic(err) }
+	b, err := s.GetAllBrokerResponses()
+	if err != nil { panic(err) }
+	t, err := s.GetPendingTasks("", "")
+	if err != nil { panic(err) }
+	f, err := s.GetFormsWithStatus()
+	if err != nil { panic(err) }
+	ms, mf, err := s.GetMonthlyStats()
+	if err != nil { panic(err) }
+	j, _ := json.MarshalIndent(map[string]any{"r": r, "b": b, "t": t, "f": f, "monthly": []int{ms, mf}}, "", " ")
+	fmt.Println(string(j))
+}

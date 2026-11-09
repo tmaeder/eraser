@@ -1,0 +1,643 @@
+{
+  "captcha": [
+    {
+      "confidence": 0,
+      "description": "",
+      "found": false,
+      "type": ""
+    },
+    {
+      "confidence": 0,
+      "description": "",
+      "found": false,
+      "type": ""
+    },
+    {
+      "confidence": 0.85,
+      "description": "reCAPTCHA detected in HTML",
+      "found": true,
+      "type": "recaptcha_v2"
+    },
+    {
+      "confidence": 0.85,
+      "description": "reCAPTCHA detected in HTML",
+      "found": true,
+      "type": "recaptcha_v2"
+    },
+    {
+      "confidence": 0.85,
+      "description": "reCAPTCHA detected in HTML",
+      "found": true,
+      "type": "recaptcha_v2"
+    },
+    {
+      "confidence": 0.85,
+      "description": "hCaptcha detected in HTML",
+      "found": true,
+      "type": "hcaptcha"
+    },
+    {
+      "confidence": 0.85,
+      "description": "hCaptcha detected in HTML",
+      "found": true,
+      "type": "hcaptcha"
+    },
+    {
+      "confidence": 0.85,
+      "description": "Cloudflare Turnstile detected in HTML",
+      "found": true,
+      "type": "cloudflare_turnstile"
+    },
+    {
+      "confidence": 0.85,
+      "description": "Cloudflare Turnstile detected in HTML",
+      "found": true,
+      "type": "cloudflare_turnstile"
+    },
+    {
+      "confidence": 0.6,
+      "description": "Possible CAPTCHA detected: captcha",
+      "found": true,
+      "type": "unknown"
+    },
+    {
+      "confidence": 0.6,
+      "description": "Possible CAPTCHA detected: verification code",
+      "found": true,
+      "type": "unknown"
+    },
+    {
+      "confidence": 0.6,
+      "description": "Possible CAPTCHA detected: security code",
+      "found": true,
+      "type": "unknown"
+    },
+    {
+      "confidence": 0.6,
+      "description": "Possible CAPTCHA detected: prove you are human",
+      "found": true,
+      "type": "unknown"
+    },
+    {
+      "confidence": 0.85,
+      "description": "reCAPTCHA detected in HTML",
+      "found": true,
+      "type": "recaptcha_v2"
+    },
+    {
+      "confidence": 0.85,
+      "description": "hCaptcha detected in HTML",
+      "found": true,
+      "type": "hcaptcha"
+    },
+    {
+      "confidence": 0.85,
+      "description": "Cloudflare Turnstile detected in HTML",
+      "found": true,
+      "type": "cloudflare_turnstile"
+    },
+    {
+      "confidence": 0,
+      "description": "",
+      "found": false,
+      "type": ""
+    },
+    {
+      "confidence": 0,
+      "description": "",
+      "found": false,
+      "type": ""
+    },
+    {
+      "confidence": 0,
+      "description": "",
+      "found": false,
+      "type": ""
+    },
+    {
+      "confidence": 0.6,
+      "description": "Possible CAPTCHA detected: captcha",
+      "found": true,
+      "type": "unknown"
+    },
+    {
+      "confidence": 0.85,
+      "description": "hCaptcha detected in HTML",
+      "found": true,
+      "type": "hcaptcha"
+    },
+    {
+      "confidence": 0.85,
+      "description": "hCaptcha detected in HTML",
+      "found": true,
+      "type": "hcaptcha"
+    },
+    {
+      "confidence": 0,
+      "description": "",
+      "found": false,
+      "type": ""
+    },
+    {
+      "confidence": 0,
+      "description": "",
+      "found": false,
+      "type": ""
+    },
+    {
+      "confidence": 0.6,
+      "description": "Possible CAPTCHA detected: captcha",
+      "found": true,
+      "type": "unknown"
+    },
+    {
+      "confidence": 0.85,
+      "description": "reCAPTCHA detected in HTML",
+      "found": true,
+      "type": "recaptcha_v2"
+    },
+    {
+      "confidence": 0,
+      "description": "",
+      "found": false,
+      "type": ""
+    },
+    {
+      "confidence": 0.6,
+      "description": "Possible CAPTCHA detected: captcha",
+      "found": true,
+      "type": "unknown"
+    },
+    {
+      "confidence": 0,
+      "description": "",
+      "found": false,
+      "type": ""
+    },
+    {
+      "confidence": 0,
+      "description": "",
+      "found": false,
+      "type": ""
+    },
+    {
+      "confidence": 0,
+      "description": "",
+      "found": false,
+      "type": ""
+    },
+    {
+      "confidence": 0.85,
+      "description": "Cloudflare Turnstile detected in HTML",
+      "found": true,
+      "type": "cloudflare_turnstile"
+    }
+  ],
+  "success": [
+    {
+      "body": "",
+      "status": 200,
+      "status_text": "Confirmation successful",
+      "success": true
+    },
+    {
+      "body": "\u003cp\u003eYour request has been Successfully submitted\u003c/p\u003e",
+      "status": 200,
+      "status_text": "Confirmation successful",
+      "success": true
+    },
+    {
+      "body": "\u003cp\u003eLink expired\u003c/p\u003e",
+      "status": 200,
+      "status_text": "Link expired",
+      "success": false
+    },
+    {
+      "body": "Thank you! Link expired",
+      "status": 200,
+      "status_text": "Confirmation successful",
+      "success": true
+    },
+    {
+      "body": "",
+      "status": 201,
+      "status_text": "Unknown status",
+      "success": false
+    },
+    {
+      "body": "unsubscribed",
+      "status": 204,
+      "status_text": "Confirmation successful",
+      "success": true
+    },
+    {
+      "body": "confirmed",
+      "status": 302,
+      "status_text": "Confirmation successful",
+      "success": true
+    },
+    {
+      "body": "confirmed",
+      "status": 400,
+      "status_text": "Unknown status",
+      "success": false
+    },
+    {
+      "body": "thank you",
+      "status": 500,
+      "status_text": "Server error",
+      "success": false
+    },
+    {
+      "body": "thank you",
+      "status": 199,
+      "status_text": "Unknown status",
+      "success": false
+    },
+    {
+      "body": "random",
+      "status": 399,
+      "status_text": "Unknown status",
+      "success": false
+    },
+    {
+      "body": "verified",
+      "status": 399,
+      "status_text": "Confirmation successful",
+      "success": true
+    },
+    {
+      "body": "Something went wrong",
+      "status": 200,
+      "status_text": "Unknown status",
+      "success": false
+    },
+    {
+      "body": "Could not process",
+      "status": 200,
+      "status_text": "Unknown status",
+      "success": false
+    },
+    {
+      "body": "We are unable to help",
+      "status": 200,
+      "status_text": "Unknown status",
+      "success": false
+    },
+    {
+      "body": "Request FAILED",
+      "status": 200,
+      "status_text": "Unknown status",
+      "success": false
+    },
+    {
+      "body": "already confirmed",
+      "status": 200,
+      "status_text": "Confirmation successful",
+      "success": true
+    },
+    {
+      "body": "Your email has been VERIFIED",
+      "status": 200,
+      "status_text": "Confirmation successful",
+      "success": true
+    },
+    {
+      "body": "opt-out complete",
+      "status": 200,
+      "status_text": "Confirmation successful",
+      "success": true
+    },
+    {
+      "body": "Your data has been removed",
+      "status": 200,
+      "status_text": "Confirmation successful",
+      "success": true
+    },
+    {
+      "body": "not found",
+      "status": 404,
+      "status_text": "Link not found (404)",
+      "success": false
+    },
+    {
+      "body": "error occurred",
+      "status": 200,
+      "status_text": "Unknown status",
+      "success": false
+    },
+    {
+      "body": "please wait",
+      "status": 202,
+      "status_text": "Unknown status",
+      "success": false
+    },
+    {
+      "body": "already processed",
+      "status": 200,
+      "status_text": "Confirmation successful",
+      "success": true
+    }
+  ],
+  "validate_domain": [
+    [
+      {
+        "domains": [
+          "example.com"
+        ],
+        "error": false,
+        "url": "https://example.com/confirm?t=1",
+        "valid": true
+      },
+      {
+        "domains": [
+          "example.com"
+        ],
+        "error": false,
+        "url": "https://EXAMPLE.com/confirm",
+        "valid": true
+      },
+      {
+        "domains": [
+          "www.example.com"
+        ],
+        "error": false,
+        "url": "https://www.example.com/x",
+        "valid": true
+      },
+      {
+        "domains": [
+          "mail.example.com"
+        ],
+        "error": false,
+        "url": "https://mail.example.com/x",
+        "valid": true
+      },
+      {
+        "domains": [
+          "email.example.com"
+        ],
+        "error": false,
+        "url": "https://email.example.com/x",
+        "valid": true
+      },
+      {
+        "domains": [
+          "example.com"
+        ],
+        "error": false,
+        "url": "https://a.b.example.com/x",
+        "valid": true
+      },
+      {
+        "domains": [
+          "notexample.com"
+        ],
+        "error": false,
+        "url": "https://notexample.com/x",
+        "valid": false
+      },
+      {
+        "domains": [
+          "example.com.evil.com"
+        ],
+        "error": false,
+        "url": "https://example.com.evil.com/x",
+        "valid": false
+      },
+      {
+        "domains": [
+          "evil.com"
+        ],
+        "error": false,
+        "url": "https://evil.com/?r=https://example.com",
+        "valid": false
+      },
+      {
+        "domains": [
+          "example.com"
+        ],
+        "error": false,
+        "url": "https://example.com:8443/x",
+        "valid": true
+      },
+      {
+        "domains": [
+          "example.com"
+        ],
+        "error": false,
+        "url": "http://user:pw@example.com/x",
+        "valid": true
+      },
+      {
+        "domains": [
+          "example.com"
+        ],
+        "error": false,
+        "url": "https://evil.com@example.com/x",
+        "valid": true
+      },
+      {
+        "domains": [
+          "evil.com"
+        ],
+        "error": false,
+        "url": "https://example.com@evil.com/x",
+        "valid": false
+      },
+      {
+        "domains": [
+          "spokeo.com"
+        ],
+        "error": false,
+        "url": "https://spokeo.com/optout",
+        "valid": true
+      },
+      {
+        "domains": [
+          "www.spokeo.com"
+        ],
+        "error": false,
+        "url": "https://www.spokeo.com/optout",
+        "valid": true
+      },
+      {
+        "domains": [
+          "www.whitepages.com"
+        ],
+        "error": false,
+        "url": "https://www.whitepages.com/x",
+        "valid": true
+      },
+      {
+        "domains": [
+          "www.whitepages.com"
+        ],
+        "error": false,
+        "url": "https://www.www.whitepages.com/x",
+        "valid": true
+      },
+      {
+        "domains": [
+          "whitepages.com"
+        ],
+        "error": false,
+        "url": "https://whitepages.com/x",
+        "valid": false
+      },
+      {
+        "domains": [
+          "mail.radaris.com"
+        ],
+        "error": false,
+        "url": "https://mail.radaris.com/x",
+        "valid": true
+      },
+      {
+        "domains": [
+          "radaris.com"
+        ],
+        "error": false,
+        "url": "https://radaris.com/x",
+        "valid": false
+      },
+      {
+        "domains": [
+          "email.optout.io"
+        ],
+        "error": false,
+        "url": "https://email.optout.io/x",
+        "valid": true
+      },
+      {
+        "domains": [
+          "optout.io"
+        ],
+        "error": false,
+        "url": "https://optout.io/x",
+        "valid": false
+      },
+      {
+        "domains": [
+          "example.com",
+          "www.example.com"
+        ],
+        "error": false,
+        "url": "https://sub.www.example.com/x",
+        "valid": true
+      },
+      {
+        "domains": [
+          ""
+        ],
+        "error": false,
+        "url": "example.com/confirm",
+        "valid": false
+      },
+      {
+        "domains": [
+          "example.com"
+        ],
+        "error": false,
+        "url": "//example.com/confirm",
+        "valid": true
+      },
+      {
+        "domains": [
+          ""
+        ],
+        "error": false,
+        "url": "mailto:privacy@example.com",
+        "valid": false
+      },
+      {
+        "domains": [
+          ""
+        ],
+        "error": true,
+        "url": "https://exa mple.com/x",
+        "valid": false
+      },
+      {
+        "domains": [
+          ""
+        ],
+        "error": true,
+        "url": "https://example.com/%zz",
+        "valid": false
+      },
+      {
+        "domains": [
+          ""
+        ],
+        "error": true,
+        "url": "https://example.com:abc/x",
+        "valid": false
+      },
+      {
+        "domains": [
+          "["
+        ],
+        "error": false,
+        "url": "https://[::1]:8080/x",
+        "valid": false
+      },
+      {
+        "domains": [
+          ""
+        ],
+        "error": true,
+        "url": ":foo",
+        "valid": false
+      },
+      {
+        "domains": [
+          ""
+        ],
+        "error": true,
+        "url": "https://ex%41mple.com/x",
+        "valid": false
+      },
+      {
+        "domains": [
+          ""
+        ],
+        "error": true,
+        "url": "https://example.com/x#frag%",
+        "valid": false
+      },
+      {
+        "domains": [
+          "example.com."
+        ],
+        "error": false,
+        "url": "https://example.com./x",
+        "valid": false
+      },
+      {
+        "domains": [
+          ""
+        ],
+        "error": true,
+        "url": "https://example.com\t/x",
+        "valid": false
+      },
+      {
+        "domains": [
+          "www.spokeo.com"
+        ],
+        "error": false,
+        "url": "HTTPS://Www.Spokeo.Com/x",
+        "valid": true
+      },
+      {
+        "domains": [
+          ""
+        ],
+        "error": false,
+        "url": "",
+        "valid": false
+      }
+    ]
+  ]
+}

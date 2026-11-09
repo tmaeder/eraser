@@ -6,5 +6,5 @@ pub mod email;
 pub mod history;
 pub mod template;
 pub mod inbox;
-// pub mod browser;
+pub mod browser;
 // pub mod web;

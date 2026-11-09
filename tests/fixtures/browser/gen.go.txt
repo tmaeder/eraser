@@ -1,0 +1,78 @@
+// Generator for golden.json. Put in a dir with go.mod (module browsergolden), a copy of
+// internal/browser/confirm.go and captcha.go's CaptchaInfo/consts/DetectCaptchaFromHTML (package main), then:
+//   go run . tests/fixtures/browser/samples.json tests/fixtures/browser/golden.json
+// Differential golden generator for src/browser (Rust port). Copies of internal/browser
+// confirm.go and DetectCaptchaFromHTML live next to this file (package main).
+// Usage: go run . <samples.json> <golden.json>
+package main
+
+import (
+	"encoding/json"
+	"os"
+	"sort"
+)
+
+type samples struct {
+	HTML       []string   `json:"html"`
+	DomainSets [][]string `json:"domain_sets"`
+	URLs       []string   `json:"urls"`
+	Success    [][2]any   `json:"success"`
+}
+
+func main() {
+	data, err := os.ReadFile(os.Args[1])
+	if err != nil {
+		panic(err)
+	}
+	var s samples
+	if err := json.Unmarshal(data, &s); err != nil {
+		panic(err)
+	}
+
+	out := map[string]any{}
+	var captcha []map[string]any
+	for _, h := range s.HTML {
+		c := DetectCaptchaFromHTML(h)
+		captcha = append(captcha, map[string]any{"found": c.Found, "type": c.Type, "confidence": c.Confidence, "description": c.Description})
+	}
+	out["captcha"] = captcha
+
+	var domains [][]map[string]any
+	for _, set := range s.DomainSets {
+		h := NewConfirmationHandler(set)
+		var rows []map[string]any
+		for _, u := range s.URLs {
+			// Go map iteration is random: collect every domain a subdomain match can report.
+			seen := map[string]bool{}
+			var valid, isErr bool
+			for i := 0; i < 200; i++ {
+				ok, d, err := h.ValidateDomain(u)
+				valid, isErr = ok, err != nil
+				seen[d] = true
+			}
+			var ds []string
+			for d := range seen {
+				ds = append(ds, d)
+			}
+			sort.Strings(ds)
+			rows = append(rows, map[string]any{"url": u, "valid": valid, "error": isErr, "domains": ds})
+		}
+		domains = append(domains, rows)
+	}
+	out["validate_domain"] = domains
+
+	var success []map[string]any
+	h := NewConfirmationHandler(nil)
+	for _, p := range s.Success {
+		code, body := int(p[0].(float64)), p[1].(string)
+		ok := h.isSuccessResponse(code, body)
+		st := h.ExtractConfirmationStatus(&ConfirmationResult{Success: ok, StatusCode: code, ResponseBody: body})
+		success = append(success, map[string]any{"status": code, "body": body, "success": ok, "status_text": st})
+	}
+	out["success"] = success
+
+	enc, _ := json.MarshalIndent(out, "", "  ")
+	if err := os.WriteFile(os.Args[2], append(enc, '\n'), 0644); err != nil {
+		panic(err)
+	}
+}

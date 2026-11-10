@@ -65,6 +65,16 @@
                 <p class="text-primary">{% if not enabled %}paused{% elif next_round %}{{ next_round }}{% else %}not scheduled here (run <code>eraser autopilot</code>){% endif %}</p>
             </div>
         </div>
+        {% if round_errors %}
+        <div class="mt-4 p-3 rounded-lg text-sm" role="alert" style="background: rgba(244, 63, 94, 0.1); border: 1px solid rgba(244, 63, 94, 0.2);">
+            <p class="font-medium text-error">Round of {{ round_errors.at }}: {{ round_errors.total }} error{% if round_errors.total != 1 %}s{% endif %}</p>
+            <ul class="mt-1 space-y-1">
+                {% for e in round_errors.list %}
+                <li class="text-secondary break-words">{% if e.href %}<a href="{{ e.href }}" class="text-accent hover:underline">{{ e.text }}</a>{% else %}{{ e.text }}{% endif %}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
         <div class="flex flex-wrap gap-3 mt-5">
             <form method="post" action="/autopilot/enabled">
                 {{ csrf_field }}
@@ -218,7 +228,7 @@
                     {% for r in activity.table %}
                     <tr class="border-t border-[var(--border-subtle)]">
                         <td class="py-1 pr-3 text-secondary whitespace-nowrap">{{ r.when }}{% if r.dry %} (dry){% endif %}</td>
-                        {% for v in r["values"] %}<td class="py-1 pr-3 text-right text-primary">{{ v }}</td>{% endfor %}
+                        {% for v in r["values"] %}<td class="py-1 pr-3 text-right text-primary"{% if loop.last and r.errors %} title="{{ r.errors }}"{% endif %}>{{ v }}</td>{% endfor %}
                     </tr>
                     {% endfor %}
                     </tbody>

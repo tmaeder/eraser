@@ -166,6 +166,50 @@ fn round_view(r: &AutopilotRound, now: DateTime<Utc>) -> RoundView {
     RoundView { started, summary }
 }
 
+const ERRORS_SHOWN: usize = 3;
+pub(super) const INBOX_LOGIN_HINT: &str =
+    "Inbox login failed — re-enter your iCloud app-specific password under Settings → Inbox";
+
+#[derive(Serialize, Debug, PartialEq)]
+struct RoundError {
+    text: String,
+    /// Settings link for errors the user can fix there.
+    href: Option<&'static str>,
+}
+
+/// Errors of the latest finished round (at most [`ERRORS_SHOWN`]) and when it ran.
+fn latest_round_errors(rounds: &[AutopilotRound]) -> Option<(String, Vec<RoundError>, usize)> {
+    let r = rounds.iter().find(|r| r.finished_at.is_some())?;
+    let report: RoundReport = serde_json::from_str(&r.report).ok()?;
+    if report.errors.is_empty() {
+        return None;
+    }
+    let at = r
+        .started_at
+        .map(|t| t.with_timezone(&Local).format("%b %-d, %H:%M").to_string())
+        .unwrap_or_default();
+    let shown = report
+        .errors
+        .iter()
+        .take(ERRORS_SHOWN)
+        .map(|e| {
+            let lower = e.to_lowercase();
+            if lower.starts_with("inbox") && lower.contains("login") {
+                RoundError {
+                    text: INBOX_LOGIN_HINT.into(),
+                    href: Some("/settings"),
+                }
+            } else {
+                RoundError {
+                    text: e.clone(),
+                    href: None,
+                }
+            }
+        })
+        .collect();
+    Some((at, shown, report.errors.len()))
+}
+
 fn start_of_today(now: DateTime<Local>) -> DateTime<Local> {
     now.date_naive()
         .and_hms_opt(0, 0, 0)
@@ -210,6 +254,8 @@ pub async fn today(
     let now = Utc::now();
     let recent = st.history.recent_rounds(30).unwrap_or_default();
     let rounds: Vec<RoundView> = recent.iter().take(5).map(|r| round_view(r, now)).collect();
+    let round_errors = latest_round_errors(&recent)
+        .map(|(at, list, total)| json!({ "at": at, "list": list, "total": total }));
     let next_round = if st.autopilot_token.is_some() {
         autopilot::next_round(now)
             .with_timezone(&Local)
@@ -255,6 +301,7 @@ pub async fn today(
             "regions": status::regions(&st.brokers.brokers, &states),
             "activity": status::activity(&recent),
             "rounds": rounds,
+            "round_errors": round_errors,
         }),
     )
 }
@@ -406,4 +453,43 @@ pub async fn settings_autopilot(
         (Ok(()), false) => ("Autopilot settings saved.".into(), true),
     };
     settings_with(&st, &t, "autopilot", Some((&message.0, message.1)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn round(errors: &[&str], finished: bool) -> AutopilotRound {
+        let report = RoundReport {
+            errors: errors.iter().map(|e| e.to_string()).collect(),
+            ..Default::default()
+        };
+        AutopilotRound {
+            started_at: Some(Utc::now()),
+            finished_at: finished.then(Utc::now),
+            report: serde_json::to_string(&report).unwrap(),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn latest_round_errors_cap_and_inbox_hint() {
+        let r = round(
+            &[
+                "inbox: IMAP login failed: AUTHENTICATIONFAILED",
+                "acme: Rejected by mail server: 550 5.1.1 Mailbox does not exist",
+                "b: x",
+                "c: y",
+            ],
+            true,
+        );
+        let (_, list, total) = latest_round_errors(&[r]).unwrap();
+        assert_eq!((list.len(), total), (3, 4));
+        assert_eq!(list[0].text, INBOX_LOGIN_HINT);
+        assert_eq!(list[0].href, Some("/settings"));
+        assert!(list[1].text.contains("550 5.1.1") && list[1].href.is_none());
+        // a running round is skipped; a clean latest round shows nothing
+        let running = round(&["inbox: login"], false);
+        assert!(latest_round_errors(&[running, round(&[], true)]).is_none());
+    }
 }

@@ -233,13 +233,14 @@ pub(super) fn activity(rounds: &[AutopilotRound]) -> Value {
             .unwrap_or_default()
     };
     type Measure = fn(&RoundReport) -> usize;
-    let measures: [(&str, Measure); 4] = [
+    let measures: [(&str, Measure); 5] = [
         ("Emails sent", |x| {
             x.requests_sent + x.reminders_sent + x.company_requests
         }),
         ("Links confirmed", |x| x.links_confirmed),
         ("Unsubscribed", |x| x.unsubscribed),
         ("New to-dos", |x| x.todos_added),
+        ("Errors", |x| x.errors.len()),
     ];
     let rows: Vec<Value> = measures
         .iter()
@@ -250,9 +251,18 @@ pub(super) fn activity(rounds: &[AutopilotRound]) -> Value {
                 .iter()
                 .zip(&finished)
                 .enumerate()
-                .map(|(i, (&v, (r, _)))| {
+                .map(|(i, (&v, (r, x)))| {
                     let h = if max > 0 { (v * BAR_H / max).max(2) } else { 2 };
                     let h = if v == 0 { 2 } else { h };
+                    let mut title = format!(
+                        "{}: {v} {}{}",
+                        when(r),
+                        label.to_lowercase(),
+                        if r.dry_run { " (dry run)" } else { "" }
+                    );
+                    if *label == "Errors" && v > 0 {
+                        title = format!("{title}: {}", x.errors.join("; "));
+                    }
                     json!({
                         "x": i as i64 * (BAR_W + BAR_GAP),
                         "y": BAR_H - h,
@@ -260,7 +270,7 @@ pub(super) fn activity(rounds: &[AutopilotRound]) -> Value {
                         "v": v,
                         "zero": v == 0,
                         "dry": r.dry_run,
-                        "title": format!("{}: {v} {}{}", when(r), label.to_lowercase(), if r.dry_run { " (dry run)" } else { "" }),
+                        "title": title,
                     })
                 })
                 .collect();
@@ -285,6 +295,7 @@ pub(super) fn activity(rounds: &[AutopilotRound]) -> Value {
             "when": when(r),
             "dry": r.dry_run,
             "values": measures.iter().map(|(_, f)| f(x)).collect::<Vec<_>>(),
+            "errors": x.errors.join("; "),
         })).collect::<Vec<_>>(),
     })
 }

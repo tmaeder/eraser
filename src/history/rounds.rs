@@ -33,7 +33,7 @@ pub const TODO_TYPES: &[TaskType] = &[
     TaskType::UnsubscribeLink,
 ];
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize)]
 pub struct AutopilotRound {
     pub id: i64,
     pub started_at: Option<DateTime<Utc>>,

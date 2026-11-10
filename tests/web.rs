@@ -1319,6 +1319,10 @@ async fn status_views_funnel_chips_filters_and_detail() {
     let report = eraser::autopilot::RoundReport {
         requests_sent: 2,
         todos_added: 1,
+        errors: vec![
+            "inbox: IMAP login failed: AUTHENTICATIONFAILED".into(),
+            "acme: Rejected by mail server: 550 5.1.1 Mailbox does not exist".into(),
+        ],
         ..Default::default()
     };
     let id = h.history.begin_round(false).unwrap().unwrap();
@@ -1346,6 +1350,13 @@ async fn status_views_funnel_chips_filters_and_detail() {
     assert!(
         b.contains("<title>") && b.contains("2 emails sent"),
         "activity chart"
+    );
+    assert!(b.contains("2 errors"), "round errors in the status card");
+    assert!(b.contains("Inbox login failed") && b.contains(r#"href="/settings""#));
+    assert!(b.contains("550 5.1.1 Mailbox does not exist"));
+    assert!(
+        b.contains("2 errors: inbox: IMAP login failed"),
+        "error bar tooltip"
     );
 
     let r = h.get("/brokers?status=deleted").await;

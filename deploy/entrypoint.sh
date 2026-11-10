@@ -12,6 +12,11 @@ else
 fi
 
 sync_state() {
+  # Nothing modified since the last confirmed sync (incl. -wal writes, deletions via dir mtime): skip tar+hash.
+  if [ -f /tmp/snap.stamp ] && [ -z "$(find "$HOME_DIR" -newer /tmp/snap.stamp -print -quit)" ]; then
+    return 0
+  fi
+  touch /tmp/snap.next
   # sqlite3 .backup gives a consistent copy even while the DB is open
   rm -rf /tmp/snap && mkdir -p /tmp/snap/.eraser
   for f in "$HOME_DIR"/*; do
@@ -25,8 +30,10 @@ sync_state() {
   tar -czf /tmp/snap.tar.gz -C /tmp/snap .eraser
   NEW=$(sha256sum /tmp/snap.tar.gz | cut -d' ' -f1)
   if [ "$NEW" != "${LAST:-}" ]; then
-    curl -fsS -X PUT --data-binary @/tmp/snap.tar.gz "$STATE_URL" && LAST=$NEW
+    curl -fsS -X PUT --data-binary @/tmp/snap.tar.gz "$STATE_URL" || return 1
+    LAST=$NEW
   fi
+  mv /tmp/snap.next /tmp/snap.stamp
 }
 
 eraser serve --host 0.0.0.0 --port 8080 --public-origin "https://erase.kampa.app" &

@@ -4,3 +4,8 @@ deploy/node_modules
 deploy/.wrangler
 eraser
 *.db
+graphify-out
+docs
+tests
+deploy/src
+deploy/test

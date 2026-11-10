@@ -103,6 +103,14 @@ Examples:
   eraser scan --days 90 --folders INBOX,Archive
   eraser companies --lists";
 
+const AUTOPILOT_LONG: &str = "Run one autopilot round now: check the inbox for broker replies, open
+confirmation links on the broker's own domain, send one reminder after the deadline and the next
+broker requests (daily limit applies), scan the inbox for companies, one-click unsubscribe and
+send requests to inactive or newsletter-only companies.
+
+Steps follow the autopilot section of config.yaml. Unlike the hosted schedule, this command runs
+even when the autopilot is switched off. Anything that needs you appears under Today in the web UI.";
+
 #[derive(Parser)]
 #[command(
     name = "eraser",
@@ -337,6 +345,11 @@ pub enum Cmd {
         dry_run: bool,
         #[arg(long, action = ArgAction::Set, num_args = 0..=1, require_equals = true, default_missing_value = "true", default_value = "false", value_parser = BoolishValueParser::new(), help = "Skip the confirmation prompt")]
         yes: bool,
+    },
+    #[command(about = "Run one autopilot round", long_about = AUTOPILOT_LONG)]
+    Autopilot {
+        #[arg(long, action = ArgAction::Set, num_args = 0..=1, require_equals = true, default_missing_value = "true", default_value = "false", value_parser = BoolishValueParser::new(), help = "Show what would be done without contacting anyone")]
+        dry_run: bool,
     },
     #[command(
         about = "Help about any command",

@@ -115,6 +115,7 @@ pub async fn dispatch(ctx: &Ctx, cmd: Cmd) -> Result<()> {
             dry_run,
             yes,
         } => super::scanner_cmds::run_request(ctx, domains, dry_run, yes).await,
+        Cmd::Autopilot { dry_run } => run_autopilot(ctx, dry_run).await,
         Cmd::Help { .. } => Ok(()),
     }
 }
@@ -522,6 +523,46 @@ pub fn truncate(s: &str, max_len: usize) -> String {
         end -= 1;
     }
     format!("{}...", &s[..end])
+}
+
+async fn run_autopilot(ctx: &Ctx, dry_run: bool) -> Result<()> {
+    let cfg = ctx.load_config()?;
+    if !dry_run {
+        cfg.validate().context("invalid config")?;
+    }
+    let db = ctx.load_brokers()?;
+    let store = open_store("initialize")?;
+    let sender = email::new_sender(&cfg.email).context("failed to initialize email sender")?;
+    let engine = template::Engine::new().context("failed to initialize templates")?;
+    let http = eraser::scanner::actions::http_client();
+    let discoverer = eraser::scanner::discovery::Discoverer::new()?;
+    let monitor = eraser::autopilot::default_monitor(&cfg, &db, &store);
+    let Some(id) = store.begin_round(dry_run)? else {
+        anyhow::bail!("another autopilot round is running");
+    };
+    println!(
+        "🤖 Autopilot round{}...",
+        if dry_run {
+            " (dry run: nobody is contacted)"
+        } else {
+            ""
+        }
+    );
+    let deps = eraser::autopilot::Deps {
+        cfg: &cfg,
+        store: &store,
+        brokers: &db,
+        engine: &engine,
+        sender: sender.as_ref(),
+        http: &http,
+        discoverer: &discoverer,
+    };
+    let report = eraser::autopilot::run_round(&deps, monitor, dry_run, id).await;
+    println!("✅ {}", report.summary());
+    for e in &report.errors {
+        println!("   ⚠️  {e}");
+    }
+    Ok(())
 }
 
 async fn run_serve(

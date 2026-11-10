@@ -99,30 +99,6 @@ pub fn load_from_file(path: impl AsRef<Path>) -> Result<BrokerDatabase> {
     Ok(db)
 }
 
-/// Loads and concatenates every *.yaml / *.yml file in `dir` (sorted by filename, like os.ReadDir).
-pub fn load_from_dir(dir: impl AsRef<Path>) -> Result<BrokerDatabase> {
-    let mut entries: Vec<_> = std::fs::read_dir(dir)
-        .context("failed to read broker directory")?
-        .collect::<std::io::Result<_>>()
-        .context("failed to read broker directory")?;
-    entries.sort_by_key(|e| e.file_name());
-
-    let mut db = BrokerDatabase::default();
-    for entry in entries {
-        if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
-            continue;
-        }
-        let name = entry.file_name().to_string_lossy().into_owned();
-        if !name.ends_with(".yaml") && !name.ends_with(".yml") {
-            continue;
-        }
-        let partial =
-            load_from_file(entry.path()).with_context(|| format!("failed to load {name}"))?;
-        db.brokers.extend(partial.brokers);
-    }
-    Ok(db)
-}
-
 impl BrokerDatabase {
     /// Excludes brokers whose id or name (case-insensitive) is in `excluded`. If `regions` is
     /// non-empty, keeps only brokers in those regions, plus "global" brokers; a "global" entry in
@@ -184,16 +160,6 @@ impl BrokerDatabase {
             .brokers
             .iter()
             .position(|b| b.email.to_lowercase() == email)?;
-        Some(self.brokers.remove(i))
-    }
-
-    /// Removes the first broker with this id (case-insensitive) and returns it.
-    pub fn remove_by_id(&mut self, id: &str) -> Option<Broker> {
-        let id = id.to_lowercase();
-        let i = self
-            .brokers
-            .iter()
-            .position(|b| b.id.to_lowercase() == id)?;
         Some(self.brokers.remove(i))
     }
 
@@ -276,13 +242,11 @@ mod tests {
             db.add(b("Spokeo", "x", "us")).unwrap_err().to_string(),
             "broker with ID \"Spokeo\" already exists"
         );
-        db.add(b("new", "New", "us")).unwrap();
-        assert_eq!(db.remove_by_id("new").unwrap().id, "new");
         assert_eq!(
             db.remove_by_email("privacy@acxiom.com").unwrap().id,
             "acxiom"
         );
-        assert!(db.remove_by_id("acxiom").is_none());
+        assert!(db.remove_by_email("privacy@acxiom.com").is_none());
         assert_eq!(db.brokers.len(), 3);
     }
 
@@ -307,13 +271,6 @@ mod tests {
         db.save_with_backup(&path).unwrap();
         assert!(dir.path().join("brokers.yaml.bak").exists());
         assert_eq!(load_from_file(&path).unwrap(), db);
-        std::fs::write(
-            dir.path().join("more.yml"),
-            "brokers:\n  - id: z\n    name: Z\n",
-        )
-        .unwrap();
-        std::fs::write(dir.path().join("ignored.txt"), "x").unwrap();
-        assert_eq!(load_from_dir(dir.path()).unwrap().brokers.len(), 5);
     }
 
     #[test]

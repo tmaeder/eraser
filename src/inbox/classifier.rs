@@ -453,10 +453,6 @@ pub(crate) fn strip_html(html: &str) -> String {
     WHITESPACE_RE.replace_all(&s, " ").trim().to_string()
 }
 
-pub fn classify_batch(emails: &[Email]) -> Vec<ClassifiedResponse> {
-    emails.iter().map(classify_response).collect()
-}
-
 /// Classifies from the subject line only (for reclassifying stored records).
 /// Returns (type, confidence, needs_review).
 pub fn classify_by_subject_only(subject: &str) -> (ResponseType, f64, bool) {
@@ -481,35 +477,6 @@ pub fn classify_by_subject_only(subject: &str) -> (ResponseType, f64, bool) {
         1.. => (best, 0.4, true),  // Weak match
         _ => (ResponseType::Unknown, 0.0, true),
     }
-}
-
-pub fn filter_by_type(
-    responses: &[ClassifiedResponse],
-    response_type: ResponseType,
-) -> Vec<ClassifiedResponse> {
-    responses
-        .iter()
-        .filter(|r| r.r#type == response_type)
-        .cloned()
-        .collect()
-}
-
-/// Responses that need action (form or confirmation).
-pub fn get_actionable_responses(responses: &[ClassifiedResponse]) -> Vec<ClassifiedResponse> {
-    responses
-        .iter()
-        .filter(|r| {
-            matches!(
-                r.r#type,
-                ResponseType::FormRequired | ResponseType::ConfirmationRequired
-            )
-        })
-        .cloned()
-        .collect()
-}
-
-pub fn get_bounced_responses(responses: &[ClassifiedResponse]) -> Vec<ClassifiedResponse> {
-    filter_by_type(responses, ResponseType::Bounced)
 }
 
 /// Counts of classified responses by type.

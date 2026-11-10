@@ -4,7 +4,7 @@ use anyhow::{Context, Result, anyhow, bail};
 use chromiumoxide::Page;
 use chromiumoxide::browser::{Browser as CdpBrowser, BrowserConfig as CdpConfig};
 use chromiumoxide::cdp::browser_protocol::input::{DispatchKeyEventParams, DispatchKeyEventType};
-use chromiumoxide::cdp::browser_protocol::page::{CaptureScreenshotFormat, EnableParams};
+use chromiumoxide::cdp::browser_protocol::page::CaptureScreenshotFormat;
 use chromiumoxide::page::ScreenshotParams;
 use futures::StreamExt;
 use std::path::PathBuf;
@@ -371,11 +371,6 @@ impl Browser {
         Ok(filename)
     }
 
-    /// Current page HTML.
-    pub async fn get_page_html(&self) -> Result<String> {
-        Ok(self.page.content().await?)
-    }
-
     /// Current page title.
     pub async fn get_page_title(&self) -> Result<String> {
         Ok(self.page.get_title().await?.unwrap_or_default())
@@ -389,12 +384,6 @@ impl Browser {
             }
             sleep(Duration::from_millis(100)).await;
         }
-    }
-
-    /// Enables page lifecycle events.
-    pub async fn enable_page_events(&self) -> Result<()> {
-        self.page.execute(EnableParams::default()).await?;
-        Ok(())
     }
 }
 

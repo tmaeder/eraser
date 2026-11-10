@@ -245,51 +245,6 @@ impl FormFiller {
         ]
     }
 
-    /// Fills a select/dropdown by matching option value or text (case-insensitive, substring).
-    pub async fn fill_dropdown(&self, page: &Page, selector: &str, value: &str) -> bool {
-        // Go interpolated `value` raw into the JS string; JSON-quoting it is identical for plain
-        // values and avoids script injection from profile data.
-        let js = format!(
-            r#"(function() {{
-		var select = document.querySelector("{}");
-		if (!select) return false;
-		var value = {}.toLowerCase();
-		for (var i = 0; i < select.options.length; i++) {{
-			var opt = select.options[i];
-			if (opt.value.toLowerCase() === value ||
-				opt.text.toLowerCase() === value ||
-				opt.value.toLowerCase().includes(value) ||
-				opt.text.toLowerCase().includes(value)) {{
-				select.value = opt.value;
-				select.dispatchEvent(new Event('change', {{ bubbles: true }}));
-				return true;
-			}}
-		}}
-		return false;
-	}})()"#,
-            escape_selector(selector),
-            Value::from(value)
-        );
-        eval_bool(page, &js).await
-    }
-
-    /// Checks a checkbox if found and unchecked.
-    pub async fn check_checkbox(&self, page: &Page, selector: &str) -> bool {
-        let js = format!(
-            r#"(function() {{
-		var el = document.querySelector("{}");
-		if (el && el.type === 'checkbox' && !el.checked) {{
-			el.checked = true;
-			el.dispatchEvent(new Event('change', {{ bubbles: true }}));
-			return true;
-		}}
-		return false;
-	}})()"#,
-            escape_selector(selector)
-        );
-        eval_bool(page, &js).await
-    }
-
     /// Lists all non-hidden, non-button form fields on the page.
     pub async fn detect_form_fields(&self, page: &Page) -> Result<Vec<FormField>> {
         const JS: &str = r#"(function() {

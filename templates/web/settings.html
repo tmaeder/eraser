@@ -261,6 +261,59 @@
             {% endif %}
         </div>
 
+        <!-- Autopilot -->
+        <div class="card p-6 lg:col-span-2" id="autopilot">
+            <div class="flex items-center gap-3 mb-6">
+                <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background: var(--accent-muted);">
+                    <svg class="w-5 h-5 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </div>
+                <div>
+                    <h2 class="font-display text-lg font-semibold text-primary">Autopilot</h2>
+                    <p class="text-sm text-muted">One round every 6 hours on the hosted copy; locally run <code>eraser autopilot</code>.</p>
+                </div>
+            </div>
+            <form method="post" action="/settings/autopilot" class="space-y-5">
+                {{ csrf_field }}
+                <label class="flex items-center gap-3">
+                    <input type="checkbox" name="enabled" {% if config.autopilot.enabled %}checked{% endif %}>
+                    <span class="text-primary font-medium">Autopilot on</span>
+                </label>
+                <fieldset class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <legend class="label mb-2">Steps</legend>
+                    <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="check_inbox" {% if config.autopilot.check_inbox %}checked{% endif %}> Check the inbox for replies</label>
+                    <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="confirm_links" {% if config.autopilot.confirm_links %}checked{% endif %}> Open confirmation links (broker's own domain only)</label>
+                    <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="broker_requests" {% if config.autopilot.broker_requests %}checked{% endif %}> Broker requests and one reminder</label>
+                    <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="scan_inbox" {% if config.autopilot.scan_inbox %}checked{% endif %}> Scan the inbox for companies</label>
+                    <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="unsubscribe" {% if config.autopilot.unsubscribe %}checked{% endif %}> One-click unsubscribe (RFC 8058)</label>
+                    <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="company_requests" {% if config.autopilot.company_requests %}checked{% endif %}> Requests to inactive / newsletter-only companies</label>
+                </fieldset>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="reminder_days" class="label">Reminder after (days without reply)</label>
+                        <input type="number" id="reminder_days" name="reminder_days" min="1" max="365" class="input" value="{% if config.autopilot.reminder_days %}{{ config.autopilot.reminder_days }}{% else %}30{% endif %}">
+                    </div>
+                    <div>
+                        <label for="inactive_months" class="label">Company inactive after (months)</label>
+                        <input type="number" id="inactive_months" name="inactive_months" min="1" max="120" class="input" value="{% if config.autopilot.inactive_months %}{{ config.autopilot.inactive_months }}{% else %}12{% endif %}">
+                    </div>
+                </div>
+                <div>
+                    <label for="keep_domains" class="label">Keep list (never contacted, one domain per line)</label>
+                    <textarea id="keep_domains" name="keep_domains" rows="4" class="input font-mono text-sm">{% for d in config.autopilot.keep_domains %}{{ d }}
+{% endfor %}</textarea>
+                    <p class="text-xs text-muted mt-2">{{ keep_builtin }}</p>
+                </div>
+                <button type="submit" class="btn btn-primary">Save autopilot settings</button>
+            </form>
+            {% if autopilot_message %}
+            <div class="mt-4 p-3 rounded-lg {% if autopilot_success %}bg-green-500/10 text-green-400{% else %}bg-red-500/10 text-red-400{% endif %}">
+                {{ autopilot_message }}
+            </div>
+            {% endif %}
+        </div>
+
         <!-- Danger Zone -->
         <div class="card p-6" style="border-color: rgba(244, 63, 94, 0.3);">
             <div class="flex items-center gap-3 mb-6">

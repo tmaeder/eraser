@@ -26,6 +26,7 @@ fn state(cfg: Config, dir: &std::path::Path, mail: MockSender) -> Arc<AppState> 
         port: 8080,
         public_origin: None,
         sender_factory: Arc::new(move |_| Ok(Box::new(mail.clone()) as Box<dyn Sender>)),
+        autopilot_token: None,
     })
     .unwrap();
     st
@@ -107,4 +108,17 @@ async fn resumed_job_keeps_its_counters() {
     );
     assert_eq!(j["progress"], 100);
     assert_eq!(mail.0.lock().unwrap().len(), 2);
+}
+
+#[tokio::test]
+async fn autopilot_tick_rejected_without_server_token() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut cfg = configured();
+    cfg.autopilot.enabled = true;
+    let st = state(cfg, dir.path(), MockSender::default());
+    let mut headers = HeaderMap::new();
+    headers.insert(today::TOKEN_HEADER, "".parse().unwrap());
+    let r = today::tick(State(st.clone()), headers).await;
+    assert_eq!(r.status(), axum::http::StatusCode::UNAUTHORIZED);
+    assert!(st.history.recent_rounds(1).unwrap().is_empty());
 }

@@ -1,0 +1,121 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="fade-in-up space-y-6">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h1 class="font-display text-3xl font-bold text-primary">Today</h1>
+            <p class="text-secondary mt-1">Only what needs you, {{ profile.first_name }}. Eraser handles the rest.</p>
+        </div>
+        <a href="/dashboard" class="btn btn-ghost">Dashboard</a>
+    </div>
+
+    <section class="card p-6" aria-labelledby="status-h">
+        <h2 id="status-h" class="font-display text-lg font-semibold text-primary mb-4">Status</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+            <div>
+                <p class="text-muted">Autopilot</p>
+                {% if enabled %}<span class="badge badge-success">On</span>{% else %}<span class="badge badge-neutral">Off</span>{% endif %}
+                {% if running %}<span class="badge badge-neutral">Round running</span>{% endif %}
+            </div>
+            <div>
+                <p class="text-muted">Last round</p>
+                <p class="text-primary">{% if last_round %}{{ last_round }}{% else %}never{% endif %}</p>
+            </div>
+            <div>
+                <p class="text-muted">Next round</p>
+                <p class="text-primary">{% if not enabled %}paused{% elif next_round %}{{ next_round }}{% else %}not scheduled here (run <code>eraser autopilot</code>){% endif %}</p>
+            </div>
+        </div>
+        <div class="flex flex-wrap gap-3 mt-5">
+            <form method="post" action="/autopilot/enabled">
+                {{ csrf_field }}
+                {% if enabled %}
+                <input type="hidden" name="enabled" value="false">
+                <button type="submit" class="btn btn-secondary">Pause</button>
+                {% else %}
+                <input type="hidden" name="enabled" value="true">
+                <button type="submit" class="btn btn-primary" {% if not setup_ok %}disabled title="Finish setup first"{% endif %}>Turn on</button>
+                {% endif %}
+            </form>
+            <form method="post" action="/autopilot/run">
+                {{ csrf_field }}
+                <input type="hidden" name="dry_run" value="true">
+                <button type="submit" class="btn btn-ghost" {% if running %}disabled{% endif %}>Dry run now</button>
+            </form>
+            {% if enabled %}
+            <form method="post" action="/autopilot/run">
+                {{ csrf_field }}
+                <input type="hidden" name="dry_run" value="false">
+                <button type="submit" class="btn btn-ghost" {% if running %}disabled{% endif %}>Run now</button>
+            </form>
+            {% endif %}
+            <a href="/settings#autopilot" class="btn btn-ghost">Autopilot settings</a>
+        </div>
+    </section>
+
+    <section class="card p-6" aria-labelledby="todo-h">
+        <h2 id="todo-h" class="font-display text-lg font-semibold text-primary mb-4">To do <span class="text-muted text-sm font-normal">({{ todo_total }})</span></h2>
+        {% if todos %}
+        <ul class="divide-y divide-[var(--border-subtle)]">
+            {% for it in todos %}
+            <li class="py-3 flex flex-col md:flex-row md:items-center gap-3">
+                <div class="flex-1 min-w-0">
+                    <p class="text-primary font-medium">{{ it.name }} <span class="badge badge-neutral ml-2">{{ it.label }}</span></p>
+                    {% if it.notes %}<p class="text-sm text-secondary break-words">{{ it.notes }}</p>{% endif %}
+                    {% if it.due %}<p class="text-xs text-muted">Due {{ it.due }}</p>{% endif %}
+                </div>
+                <div class="flex flex-wrap gap-2 shrink-0">
+                    <a href="{{ it.action_url|safe_url }}" class="btn btn-primary text-xs px-3 py-1.5" {% if it.external %}target="_blank" rel="noopener noreferrer"{% endif %}>{{ it.action_label }}</a>
+                    <form method="post" action="/today/tasks/{{ it.id }}/done">
+                        {{ csrf_field }}
+                        <button type="submit" class="btn btn-secondary text-xs px-3 py-1.5">Done</button>
+                    </form>
+                    <form method="post" action="/today/tasks/{{ it.id }}/skip">
+                        {{ csrf_field }}
+                        <button type="submit" class="btn btn-ghost text-xs px-3 py-1.5" title="Hide for 30 days">Skip</button>
+                    </form>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+        {% if not show_all %}<a href="/?all=1" class="text-sm underline mt-3 inline-block">Show all {{ todo_total }}</a>{% endif %}
+        {% else %}
+        <p class="text-muted">Nothing needs you right now.</p>
+        {% endif %}
+    </section>
+
+    <section class="card p-6" aria-labelledby="progress-h">
+        <h2 id="progress-h" class="font-display text-lg font-semibold text-primary mb-4">Progress</h2>
+        <p class="text-sm text-secondary mb-2">Brokers: {{ brokers.p.contacted }} of {{ broker_total }} contacted · {{ brokers.p.confirmed }} confirmed deleted · {{ brokers.p.rejected }} rejected · {{ brokers.p.no_response }} no response · {{ brokers.p.waiting }} waiting</p>
+        <div class="flex h-3 rounded-full overflow-hidden" style="background: var(--border-subtle);" role="img" aria-label="Broker progress">
+            <div style="width: {{ brokers.confirmed_pct }}%; background: var(--success);"></div>
+            <div style="width: {{ brokers.rejected_pct }}%; background: var(--error);"></div>
+            <div style="width: {{ brokers.no_response_pct }}%; background: var(--warning);"></div>
+            <div style="width: {{ brokers.waiting_pct }}%; background: var(--accent-muted);"></div>
+        </div>
+        <p class="text-sm text-secondary mt-5 mb-2">Inbox companies: {{ companies_requested }} of {{ companies_total }} requested · {{ companies_unsubscribed }} unsubscribed · {{ company_progress.p.confirmed }} confirmed deleted</p>
+        <div class="flex h-3 rounded-full overflow-hidden" style="background: var(--border-subtle);" role="img" aria-label="Company progress">
+            <div style="width: {{ company_progress.confirmed_pct }}%; background: var(--success);"></div>
+            <div style="width: {{ company_progress.rejected_pct }}%; background: var(--error);"></div>
+            <div style="width: {{ company_progress.no_response_pct }}%; background: var(--warning);"></div>
+            <div style="width: {{ company_progress.waiting_pct }}%; background: var(--accent-muted);"></div>
+        </div>
+    </section>
+
+    <section class="card p-6" aria-labelledby="activity-h">
+        <h2 id="activity-h" class="font-display text-lg font-semibold text-primary mb-4">Activity</h2>
+        {% if rounds %}
+        <ul class="space-y-2">
+            {% for r in rounds %}
+            <li class="text-sm flex flex-col md:flex-row gap-1 md:gap-3">
+                <span class="text-muted md:w-32 shrink-0">{{ r.started }}</span>
+                <span class="text-primary break-words">{{ r.summary }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-muted">No rounds yet.</p>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

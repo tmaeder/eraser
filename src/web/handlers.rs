@@ -193,7 +193,7 @@ pub(super) fn query(uri: &Uri) -> FormValues {
 }
 
 /// fmt.Sscanf("%d"): leading (optionally signed) integer, 0 if none.
-fn parse_id(s: &str) -> i64 {
+pub(super) fn parse_id(s: &str) -> i64 {
     let s = s.trim_start();
     let end = s
         .char_indices()
@@ -260,6 +260,7 @@ fn config_view(cfg: &Option<Config>) -> serde_json::Value {
             "options": c.options,
             "inbox": c.inbox,
             "pipeline": c.pipeline,
+            "autopilot": c.autopilot,
         }),
     }
 }
@@ -532,10 +533,24 @@ pub async fn history(State(st): St, Extension(t): Extension<CsrfToken>, uri: Uri
 }
 
 fn settings_page(st: &AppState, t: &CsrfToken, message: Option<(&str, bool)>) -> Response {
-    let mut data = json!({ "title": "Settings", "config": config_view(&st.config()) });
+    settings_with(st, t, "inbox", message)
+}
+
+/// Settings page with a message for one section ("inbox", "autopilot").
+pub(super) fn settings_with(
+    st: &AppState,
+    t: &CsrfToken,
+    section: &str,
+    message: Option<(&str, bool)>,
+) -> Response {
+    let mut data = json!({
+        "title": "Settings",
+        "config": config_view(&st.config()),
+        "keep_builtin": crate::autopilot::keep::summary(),
+    });
     if let Some((msg, ok)) = message {
-        data["inbox_message"] = json!(msg);
-        data["inbox_success"] = json!(ok);
+        data[format!("{section}_message")] = json!(msg);
+        data[format!("{section}_success")] = json!(ok);
     }
     render(st, t, "settings.html", data)
 }

@@ -5,6 +5,7 @@ mod csrf;
 mod handlers;
 mod job;
 mod session;
+mod today;
 mod views;
 
 use crate::broker::{self, BrokerDatabase};
@@ -50,6 +51,8 @@ pub struct AppOptions {
     pub port: u16,
     pub public_origin: Option<String>,
     pub sender_factory: SenderFactory,
+    /// Shared secret for POST /internal/autopilot/tick (None: endpoint answers 404).
+    pub autopilot_token: Option<String>,
 }
 
 struct RateLimiter {
@@ -97,6 +100,7 @@ pub struct AppState {
     job_tasks: AtomicUsize,
     /// No-cookie client for one-click unsubscribes.
     http: reqwest::Client,
+    autopilot_token: Option<String>,
 }
 
 impl AppState {
@@ -152,9 +156,14 @@ pub fn app(opts: AppOptions) -> Result<(Router, Arc<AppState>)> {
         shutting_down: AtomicBool::new(false),
         job_tasks: AtomicUsize::new(0),
         http: crate::scanner::actions::http_client(),
+        autopilot_token: opts.autopilot_token,
     });
 
     use handlers as h;
+    // Outside the CSRF layer: the handler accepts only a valid X-Autopilot-Token.
+    let internal = Router::new()
+        .route("/internal/autopilot/tick", post(today::tick))
+        .with_state(state.clone());
     let api = Router::new()
         .route("/stats", get(h::api_stats))
         .route("/brokers", get(h::api_brokers))
@@ -176,11 +185,17 @@ pub fn app(opts: AppOptions) -> Result<(Router, Arc<AppState>)> {
 
     let router = Router::new()
         .route("/static/{*path}", get(h::static_file))
-        .route("/", get(h::dashboard))
+        .route("/", get(today::today))
+        .route("/dashboard", get(h::dashboard))
+        .route("/autopilot/enabled", post(today::set_enabled))
+        .route("/autopilot/run", post(today::run_now))
+        .route("/today/tasks/{task_id}/done", post(today::todo_done))
+        .route("/today/tasks/{task_id}/skip", post(today::todo_skip))
         .route("/brokers", get(h::brokers))
         .route("/history", get(h::history))
         .route("/settings", get(h::settings))
         .route("/settings/inbox", post(h::settings_inbox))
+        .route("/settings/autopilot", post(today::settings_autopilot))
         .route("/pipeline", get(h::pipeline))
         .route("/tasks", get(h::tasks))
         .route("/tasks/{task_id}", get(h::task_detail))
@@ -220,6 +235,7 @@ pub fn app(opts: AppOptions) -> Result<(Router, Arc<AppState>)> {
         .fallback(h::not_found)
         .with_state(state.clone())
         .layer(axum::middleware::from_fn_with_state(csrf, csrf::protect))
+        .merge(internal)
         .layer(axum::middleware::from_fn(security_headers))
         .layer(tower_http::trace::TraceLayer::new_for_http());
 
@@ -297,6 +313,21 @@ async fn shutdown_signal() {
 /// Runs the web UI until SIGINT/SIGTERM. In-flight requests get a short grace period; a running
 /// send job stops at its next broker (its progress is persisted after every broker, so it
 /// resumes on the next start).
+/// ERASER_AUTOPILOT_TOKEN (at least 32 characters) enables the internal tick endpoint.
+fn autopilot_token_from_env() -> Option<String> {
+    let token = std::env::var("ERASER_AUTOPILOT_TOKEN")
+        .ok()?
+        .trim()
+        .to_string();
+    if token.len() < 32 {
+        if !token.is_empty() {
+            tracing::warn!("ERASER_AUTOPILOT_TOKEN is shorter than 32 characters; tick disabled");
+        }
+        return None;
+    }
+    Some(token)
+}
+
 pub async fn serve(opts: ServeOptions) -> Result<()> {
     let cfg = if opts.config_path.exists() {
         match config::load(&opts.config_path) {
@@ -323,6 +354,7 @@ pub async fn serve(opts: ServeOptions) -> Result<()> {
         port: opts.port,
         public_origin: opts.public_origin.clone(),
         sender_factory: Arc::new(|cfg: &EmailConfig| email::new_sender(cfg)),
+        autopilot_token: autopilot_token_from_env(),
     })?;
 
     let listener = tokio::net::TcpListener::bind((opts.host.as_str(), opts.port))

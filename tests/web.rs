@@ -6,7 +6,7 @@ use axum::http::{Request, StatusCode, header};
 use eraser::broker::{Broker, BrokerDatabase};
 use eraser::config::{self, Config};
 use eraser::email::{Message, SendResult, Sender};
-use eraser::history::{Record, Status, Store};
+use eraser::history::{PendingTask, Record, Status, Store, TaskType};
 use eraser::web::{AppOptions, app};
 use futures::future::BoxFuture;
 use std::collections::HashMap;
@@ -30,6 +30,27 @@ impl Sender for MockSender {
     fn name(&self) -> &'static str {
         "mock"
     }
+}
+
+const TOKEN: &str = "0123456789abcdef0123456789abcdef0123456789abcdef";
+
+/// `configured()` plus SMTP host/port, so `Config::validate` passes (setup complete).
+fn ready() -> Config {
+    let mut c = configured();
+    c.email.smtp.host = "smtp.example.com".into();
+    c.email.smtp.port = 587;
+    c
+}
+
+fn tick(token: Option<&str>) -> Request<Body> {
+    let mut b = Request::builder()
+        .method("POST")
+        .uri("/internal/autopilot/tick")
+        .header(header::HOST, "localhost:8080");
+    if let Some(t) = token {
+        b = b.header("X-Autopilot-Token", t);
+    }
+    b.body(Body::empty()).unwrap()
 }
 
 fn broker(id: &str, name: &str, category: &str, region: &str) -> Broker {
@@ -85,6 +106,7 @@ fn harness(cfg: Option<Config>, public_origin: Option<&str>) -> Harness {
         port: 8080,
         public_origin: public_origin.map(String::from),
         sender_factory: Arc::new(move |_| Ok(Box::new(m.clone()) as Box<dyn Sender>)),
+        autopilot_token: Some(TOKEN.into()),
     })
     .unwrap();
     Harness {
@@ -984,4 +1006,212 @@ async fn task_helper_forms_post_with_csrf() {
     assert_eq!(r.status, StatusCode::FOUND, "{}", r.body);
     let done = h.history.get_pending_task_by_id(task.id).unwrap().unwrap();
     assert_eq!(done.status, "completed");
+}
+
+#[tokio::test]
+async fn autopilot_tick_needs_token_and_runs_one_round() {
+    let mut cfg = ready();
+    cfg.autopilot.enabled = true;
+    let mut h = harness(Some(cfg), None);
+    assert_eq!(h.call(tick(None)).await.status, StatusCode::UNAUTHORIZED);
+    assert_eq!(
+        h.call(tick(Some("wrong"))).await.status,
+        StatusCode::UNAUTHORIZED
+    );
+    assert!(
+        h.history.recent_rounds(1).unwrap().is_empty(),
+        "no round without the token"
+    );
+
+    // valid token: no CSRF token or Origin needed; a running round answers 409
+    let busy = h.history.begin_round(false).unwrap().unwrap();
+    assert_eq!(h.call(tick(Some(TOKEN))).await.status, StatusCode::CONFLICT);
+    h.history.finish_round(busy, "{}").unwrap();
+
+    let r = h.call(tick(Some(TOKEN))).await;
+    assert_eq!(r.status, StatusCode::ACCEPTED, "{}", r.body);
+    for _ in 0..250 {
+        if !h.history.round_running().unwrap() {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+    }
+    assert!(h.history.recent_rounds(1).unwrap()[0].finished_at.is_some());
+    assert_eq!(
+        h.mail.0.lock().unwrap().len(),
+        3,
+        "requests to the 3 brokers"
+    );
+}
+
+#[tokio::test]
+async fn autopilot_tick_when_switched_off() {
+    let mut h = harness(Some(ready()), None);
+    let r = h.call(tick(Some(TOKEN))).await;
+    assert_eq!(r.status, StatusCode::OK);
+    assert!(r.body.contains("disabled"), "{}", r.body);
+    assert!(h.history.recent_rounds(1).unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn today_page_todos_done_and_skip_with_csrf() {
+    let mut h = harness(Some(ready()), None);
+    let r = h.get("/").await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    assert!(r.body.contains("Nothing needs you right now"), "{}", r.body);
+    assert!(r.body.contains(">Off<"));
+
+    let mut id_task = PendingTask {
+        broker_id: "acme".into(),
+        broker_name: "Acme People Search".into(),
+        task_type: TaskType::IdRequired,
+        notes: "Identity check".into(),
+        ..Default::default()
+    };
+    h.history.add_pending_task(&mut id_task).unwrap();
+    let mut unsub = PendingTask {
+        broker_id: "company:news.test".into(),
+        broker_name: "News".into(),
+        task_type: TaskType::UnsubscribeLink,
+        form_url: "https://news.test/unsub".into(),
+        ..Default::default()
+    };
+    h.history.add_pending_task(&mut unsub).unwrap();
+    let page = h.get("/").await;
+    assert!(page.body.contains("ID requested") && page.body.contains("Unsubscribe link"));
+    assert!(page.body.contains("Show request") && page.body.contains("news.test"));
+    let t = token_from(&page.body);
+
+    // no CSRF token: refused, nothing changes
+    let req = h
+        .req("POST", &format!("/today/tasks/{}/done", id_task.id))
+        .header(header::ORIGIN, h.origin)
+        .body(Body::empty())
+        .unwrap();
+    assert_eq!(h.call(req).await.status, StatusCode::FORBIDDEN);
+    assert_eq!(
+        h.history
+            .get_pending_task_by_id(id_task.id)
+            .unwrap()
+            .unwrap()
+            .status,
+        "pending"
+    );
+
+    let r = h
+        .post_form(&format!("/today/tasks/{}/done", id_task.id), &t, &[])
+        .await;
+    assert_eq!((r.status, location(&r)), (StatusCode::FOUND, "/"));
+    assert_eq!(
+        h.history
+            .get_pending_task_by_id(id_task.id)
+            .unwrap()
+            .unwrap()
+            .status,
+        "completed"
+    );
+    let r = h
+        .post_form(&format!("/today/tasks/{}/skip", unsub.id), &t, &[])
+        .await;
+    assert_eq!(r.status, StatusCode::FOUND);
+    assert!(
+        h.get("/")
+            .await
+            .body
+            .contains("Nothing needs you right now"),
+        "hidden 30 days"
+    );
+    assert_eq!(
+        h.history
+            .get_pending_task_by_id(unsub.id)
+            .unwrap()
+            .unwrap()
+            .status,
+        "pending"
+    );
+    assert!(h.get("/dashboard").await.body.contains("Welcome back, Ada"));
+}
+
+#[tokio::test]
+async fn today_pause_resume_and_dry_run() {
+    let mut h = harness(Some(configured()), None);
+    let t = h.token("/").await;
+    let r = h
+        .post_form("/autopilot/enabled", &t, &[("enabled", "true")])
+        .await;
+    assert_eq!(
+        r.status,
+        StatusCode::BAD_REQUEST,
+        "setup incomplete: stays off"
+    );
+
+    let mut h = harness(Some(ready()), None);
+    let t = h.token("/").await;
+    let path = h.dir.path().join(".eraser/config.yaml");
+    let r = h
+        .post_form("/autopilot/enabled", &t, &[("enabled", "true")])
+        .await;
+    assert_eq!((r.status, location(&r)), (StatusCode::FOUND, "/"));
+    assert!(config::load(&path).unwrap().autopilot.enabled);
+    assert!(h.get("/").await.body.contains("Pause"));
+    h.post_form("/autopilot/enabled", &t, &[("enabled", "false")])
+        .await;
+    assert!(!config::load(&path).unwrap().autopilot.enabled);
+
+    let r = h
+        .post_form("/autopilot/run", &t, &[("dry_run", "false")])
+        .await;
+    assert_eq!(
+        r.status,
+        StatusCode::BAD_REQUEST,
+        "real run needs the switch on"
+    );
+    let r = h
+        .post_form("/autopilot/run", &t, &[("dry_run", "true")])
+        .await;
+    assert_eq!(r.status, StatusCode::FOUND);
+    for _ in 0..250 {
+        if !h.history.round_running().unwrap() {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+    }
+    assert!(h.mail.0.lock().unwrap().is_empty(), "dry run sends nothing");
+    assert!(h.get("/").await.body.contains("Dry run: 3 broker requests"));
+}
+
+#[tokio::test]
+async fn settings_autopilot_saves_and_requires_setup() {
+    let mut h = harness(Some(configured()), None); // no SMTP host: setup incomplete
+    let page = h.get("/settings").await;
+    assert!(page.body.contains(r#"id="autopilot""#) && page.body.contains("versicherung"));
+    let t = token_from(&page.body);
+
+    let r = h
+        .post_form("/settings/autopilot", "bogus", &[("enabled", "on")])
+        .await;
+    assert_eq!(r.status, StatusCode::FORBIDDEN, "CSRF");
+
+    let r = h
+        .post_form(
+            "/settings/autopilot",
+            &t,
+            &[
+                ("enabled", "on"),
+                ("check_inbox", "on"),
+                ("reminder_days", "45"),
+                ("inactive_months", "0"),
+                ("keep_domains", "Club.Example\n@club.example, bank.example"),
+            ],
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::OK);
+    assert!(r.body.contains("Finish setup"), "{}", r.body);
+    let a = config::load(h.dir.path().join(".eraser/config.yaml"))
+        .unwrap()
+        .autopilot;
+    assert!(!a.enabled, "stays off until setup is complete");
+    assert!(a.check_inbox && !a.unsubscribe && !a.company_requests);
+    assert_eq!((a.reminder_days, a.inactive_months), (45, 12));
+    assert_eq!(a.keep_domains, ["club.example", "bank.example"]);
 }

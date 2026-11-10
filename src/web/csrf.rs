@@ -49,7 +49,7 @@ fn unmask(issued: &[u8]) -> Option<Vec<u8>> {
     (issued.len() == TOKEN_LEN * 2).then(|| xor(&issued[TOKEN_LEN..], &issued[..TOKEN_LEN]))
 }
 
-fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
+pub(super) fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
     a.len() == b.len() && a.iter().zip(b).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
 }
 

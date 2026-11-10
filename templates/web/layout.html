@@ -566,7 +566,8 @@
 
                     <!-- Desktop Navigation -->
                     <div class="hidden sm:flex items-center gap-1 desktop-nav">
-                        <a href="/" class="nav-link {% if title == "Dashboard" %}active{% endif %}">Dashboard</a>
+                        <a href="/" class="nav-link {% if title == "Today" %}active{% endif %}">Today</a>
+                        <a href="/dashboard" class="nav-link {% if title == "Dashboard" %}active{% endif %}">Dashboard</a>
                         <a href="/brokers" class="nav-link {% if title == "Data Brokers" %}active{% endif %}">Brokers</a>
                         <a href="/pipeline" class="nav-link {% if title == "Pipeline" %}active{% endif %}">Pipeline</a>
                         <a href="/companies" class="nav-link {% if title == "Companies" %}active{% endif %}">Companies</a>
@@ -592,7 +593,8 @@
                 <!-- Mobile Navigation -->
                 <div id="mobile-nav" class="hidden sm:hidden mt-4 pt-4 border-t border-[var(--border)]">
                     <div class="flex flex-col gap-2">
-                        <a href="/" class="nav-link {% if title == "Dashboard" %}active{% endif %}">Dashboard</a>
+                        <a href="/" class="nav-link {% if title == "Today" %}active{% endif %}">Today</a>
+                        <a href="/dashboard" class="nav-link {% if title == "Dashboard" %}active{% endif %}">Dashboard</a>
                         <a href="/brokers" class="nav-link {% if title == "Data Brokers" %}active{% endif %}">Brokers</a>
                         <a href="/pipeline" class="nav-link {% if title == "Pipeline" %}active{% endif %}">Pipeline</a>
                         <a href="/companies" class="nav-link {% if title == "Companies" %}active{% endif %}">Companies</a>

@@ -56,6 +56,9 @@ impl ChipKind {
 pub struct Chip {
     pub kind: &'static str,
     pub label: String,
+    /// Tooltip: the mail server's reply for failed sends.
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub title: String,
 }
 
 impl Chip {
@@ -63,16 +66,21 @@ impl Chip {
         Self {
             kind: ChipKind::NotContacted.key(),
             label: "Not contacted".into(),
+            title: String::new(),
         }
     }
 
     /// Chip for one history row (older rows than the broker's latest one).
     pub fn for_record(r: &super::Record) -> Option<Self> {
         match r.status {
-            Status::Failed => Some(Self::failed()),
+            Status::Failed => Some(Self {
+                title: r.error.clone(),
+                ..Self::failed()
+            }),
             Status::Pending if r.error == INTERRUPTED => Some(Self {
                 kind: ChipKind::Interrupted.key(),
                 label: INTERRUPTED_LABEL.into(),
+                title: String::new(),
             }),
             _ => None,
         }
@@ -82,6 +90,7 @@ impl Chip {
         Self {
             kind: ChipKind::Failed.key(),
             label: "Failed".into(),
+            title: String::new(),
         }
     }
 }
@@ -142,9 +151,15 @@ impl RequestState {
             ChipKind::Interrupted => INTERRUPTED_LABEL.into(),
             ChipKind::NotContacted => "Not contacted".into(),
         };
+        let title = if kind == ChipKind::Failed {
+            self.error.clone()
+        } else {
+            String::new()
+        };
         Chip {
             kind: kind.key(),
             label,
+            title,
         }
     }
 
@@ -562,6 +577,14 @@ mod tests {
             })
             .unwrap();
         send(&store, "broken", Status::Failed, 1);
+        let mut bounced = Record {
+            broker_id: "bounced".into(),
+            broker_name: "bounced".into(),
+            status: Status::Failed,
+            error: "Rejected by mail server: 550 5.1.1 Mailbox does not exist".into(),
+            ..Default::default()
+        };
+        store.add(&mut bounced).unwrap();
         // a failed first attempt followed by a successful resend counts as the resend
         send(&store, "retry", Status::Failed, 3);
         send(&store, "retry", Status::Sent, 2);
@@ -592,6 +615,15 @@ mod tests {
         assert_eq!(chip("silent").label, "Reminder sent");
         assert_eq!(chip("form").label, "Needs action");
         assert_eq!(chip("broken"), Chip::failed());
+        assert_eq!(
+            chip("bounced").title,
+            bounced.error,
+            "server reply as tooltip"
+        );
+        assert!(
+            s["bounced"].can_resend(now, 30),
+            "a rejected send can be retried"
+        );
         assert_eq!(chip("retry").kind, "waiting");
         assert_eq!(chip("cut").label, INTERRUPTED_LABEL);
         assert!(!s["cut"].matches_stage("sent") && s["cut"].matches_stage("interrupted"));

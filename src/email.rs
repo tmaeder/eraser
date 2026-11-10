@@ -110,22 +110,33 @@ fn html_body(text: &str, origin: &str, token: &str) -> String {
     )
 }
 
-/// Builds the RFC 5322 message: own Message-ID `<token@sender-domain>`, read-receipt headers
-/// and, with a public origin, multipart/alternative (unchanged text + HTML with the pixel).
-/// Returns (message, Message-ID).
+/// Builds the RFC 5322 message. Returns (message, Message-ID).
+///
+/// With `tracking`: own Message-ID `<token@sender-domain>`, read-receipt headers and, with a
+/// public origin, multipart/alternative (unchanged text + HTML with the pixel). Without it: the
+/// pre-tracking format, plain text only and no Message-ID (the server adds one); the returned
+/// ID is then empty.
 fn build_email(
     msg: &Message,
     token: &str,
     public_origin: Option<&str>,
+    tracking: bool,
 ) -> Result<(lettre::Message, String)> {
     let from: Mailbox = msg.from.parse()?;
     let to: Mailbox = msg.to.parse()?;
+    let builder = lettre::Message::builder()
+        .from(from.clone())
+        .to(to)
+        .subject(msg.subject.clone());
+    if !tracking {
+        let email = builder
+            .header(ContentType::TEXT_PLAIN)
+            .body(msg.body.clone())?;
+        return Ok((email, String::new()));
+    }
     let message_id = format!("<{token}@{}>", from.email.domain());
     let receipt_to = from.email.to_string();
-    let builder = lettre::Message::builder()
-        .from(from)
-        .to(to)
-        .subject(msg.subject.clone())
+    let builder = builder
         .message_id(Some(message_id.clone()))
         .raw_header(HeaderValue::new(
             HeaderName::new_from_ascii_str("Disposition-Notification-To"),
@@ -148,7 +159,7 @@ fn build_email(
 }
 
 pub trait Sender: Send + Sync {
-    /// `sequence` is unused by the SMTP sender (it generates its own Message-ID).
+    /// `sequence` only feeds the untracked SMTP result ID (`smtp-<to>-<sequence>`).
     fn send<'a>(&'a self, msg: &'a Message, sequence: Option<usize>) -> BoxFuture<'a, SendResult>;
     fn name(&self) -> &'static str;
 }
@@ -163,7 +174,9 @@ pub fn daily_limit(provider: &str) -> i64 {
 
 pub fn new_sender(cfg: &EmailConfig) -> Result<Box<dyn Sender>> {
     if cfg.provider.is_empty() || cfg.provider == "smtp" {
-        return Ok(Box::new(SmtpSender::new(cfg.smtp.clone())));
+        let mut sender = SmtpSender::new(cfg.smtp.clone());
+        sender.tracking = cfg.tracking;
+        return Ok(Box::new(sender));
     }
     bail!(
         "unknown email provider: {} (only smtp is supported)",
@@ -190,8 +203,10 @@ fn validate_message(msg: &Message) -> Result<()> {
 
 pub struct SmtpSender {
     config: SmtpConfig,
-    /// Embeds the open-tracking pixel when set (see [`set_public_origin`]).
+    /// Embeds the open-tracking pixel when set (see [`set_public_origin`]) and `tracking` is on.
     public_origin: Option<String>,
+    /// `email.tracking`: own Message-ID, read-receipt headers, pixel. Off = pre-tracking format.
+    tracking: bool,
 }
 
 impl SmtpSender {
@@ -199,10 +214,11 @@ impl SmtpSender {
         Self {
             config,
             public_origin: public_origin(),
+            tracking: false,
         }
     }
 
-    async fn send_inner(&self, msg: &Message) -> SendResult {
+    async fn send_inner(&self, msg: &Message, sequence: Option<usize>) -> SendResult {
         if let Err(e) = validate_message(msg) {
             return SendResult::failed(e);
         }
@@ -215,11 +231,15 @@ impl SmtpSender {
         }
 
         // One Message-ID for all retries, so a duplicate delivery is recognizable as such.
-        let (email, message_id) =
-            match build_email(msg, &new_token(), self.public_origin.as_deref()) {
-                Ok(built) => built,
-                Err(e) => return SendResult::failed(format!("could not build email: {e}")),
-            };
+        let (email, message_id) = match build_email(
+            msg,
+            &new_token(),
+            self.public_origin.as_deref(),
+            self.tracking,
+        ) {
+            Ok(built) => built,
+            Err(e) => return SendResult::failed(format!("could not build email: {e}")),
+        };
         let delivered = crate::retry::run(
             SMTP_RETRY,
             || self.deliver(&email),
@@ -235,6 +255,13 @@ impl SmtpSender {
         if let Err(f) = delivered {
             return SendResult::failed(f.message);
         }
+        let message_id = if message_id.is_empty() {
+            // Pre-tracking ID (Go formats a missing value with %d as "%!d(<nil>)").
+            let seq = sequence.map_or_else(|| "%!d(<nil>)".to_string(), |s| s.to_string());
+            format!("smtp-{}-{seq}", msg.to)
+        } else {
+            message_id
+        };
 
         SendResult {
             success: true,
@@ -293,8 +320,8 @@ impl SmtpSender {
 }
 
 impl Sender for SmtpSender {
-    fn send<'a>(&'a self, msg: &'a Message, _sequence: Option<usize>) -> BoxFuture<'a, SendResult> {
-        Box::pin(self.send_inner(msg))
+    fn send<'a>(&'a self, msg: &'a Message, sequence: Option<usize>) -> BoxFuture<'a, SendResult> {
+        Box::pin(self.send_inner(msg, sequence))
     }
 
     fn name(&self) -> &'static str {
@@ -335,7 +362,13 @@ fn sanitize_message(text: &str, auth_code: bool) -> String {
         // Server replies carry no credentials; show them so rejections are diagnosable.
         let detail: String = text.split_whitespace().collect::<Vec<_>>().join(" ");
         let detail: String = detail.chars().take(200).collect();
-        format!("SMTP error: {detail}")
+        match detail
+            .strip_prefix("permanent error (")
+            .and_then(|r| r.split_once("): "))
+        {
+            Some((code, reply)) => format!("Rejected by mail server: {code} {reply}"),
+            None => format!("SMTP error: {detail}"),
+        }
     }
 }
 
@@ -370,7 +403,7 @@ mod tests {
                 body: rendered.body.clone(),
             };
             for origin in [None, Some("https://erase.kampa.app")] {
-                let (email, _) = build_email(&m, &new_token(), origin)
+                let (email, _) = build_email(&m, &new_token(), origin, true)
                     .unwrap_or_else(|e| panic!("{name} {origin:?}: {e}"));
                 let raw = String::from_utf8(email.formatted()).unwrap();
                 let longest = raw.split("\r\n").map(str::len).max().unwrap();
@@ -452,7 +485,11 @@ mod tests {
                 "permanent error (554): 5.7.1 [CS01] Message rejected due to local policy",
                 false
             ),
-            "SMTP error: permanent error (554): 5.7.1 [CS01] Message rejected due to local policy"
+            "Rejected by mail server: 554 5.7.1 [CS01] Message rejected due to local policy"
+        );
+        assert_eq!(
+            sanitize_message("permanent error (550): 5.1.1 Mailbox does not exist", false),
+            "Rejected by mail server: 550 5.1.1 Mailbox does not exist"
         );
     }
 
@@ -579,6 +616,22 @@ mod tests {
         let (port, server) = fake_smtp(vec!["250 ok"]).await;
         let r = smtp(i64::from(port), false, "").send(&msg(), Some(7)).await;
         assert!(r.success, "{:?}", r.error);
+        assert_eq!(
+            r.message_id, "smtp-privacy@broker.com-7",
+            "untracked: pre-tracking ID"
+        );
+        let (data, _) = server.await.unwrap();
+        assert!(!data.contains("Message-ID") && !data.contains("Disposition-Notification-To"));
+        assert!(
+            data.contains("Content-Type: text/plain; charset=utf-8\n"),
+            "{data}"
+        );
+
+        let (port, server) = fake_smtp(vec!["250 ok"]).await;
+        let mut s = smtp(i64::from(port), false, "");
+        s.tracking = true;
+        let r = s.send(&msg(), Some(7)).await;
+        assert!(r.success, "{:?}", r.error);
         assert!(tracking_token(&r.message_id).is_some(), "own Message-ID");
         assert!(r.message_id.ends_with("@example.com>"));
         let (data, conns) = server.await.unwrap();
@@ -596,6 +649,7 @@ mod tests {
         let (port, server) = fake_smtp(vec!["250 ok"]).await;
         let mut s = smtp(i64::from(port), false, "");
         s.public_origin = Some("https://erase.example".into());
+        s.tracking = true;
         let r = s.send(&msg(), None).await;
         assert!(r.success, "{:?}", r.error);
         let token = tracking_token(&r.message_id).unwrap();
@@ -607,7 +661,7 @@ mod tests {
     fn formatted(origin: Option<&str>) -> String {
         let mut m = msg();
         m.body = "Line <1> & \"two\"\nLine 2".into();
-        let (email, id) = build_email(&m, "AAAAAAAAAAAAAAAAAAAAAA", origin).unwrap();
+        let (email, id) = build_email(&m, "AAAAAAAAAAAAAAAAAAAAAA", origin, true).unwrap();
         assert_eq!(id, "<AAAAAAAAAAAAAAAAAAAAAA@example.com>");
         String::from_utf8(email.formatted()).unwrap()
     }
@@ -623,6 +677,28 @@ mod tests {
         assert!(raw.contains("Return-Receipt-To: me@example.com\r\n"));
         assert!(raw.contains("Content-Type: text/plain; charset=utf-8\r\n"));
         assert!(!raw.contains("multipart") && !raw.contains("<img"));
+    }
+
+    #[test]
+    fn untracked_is_the_pre_tracking_format() {
+        let mut m = msg();
+        m.body = "Line 1\nLine 2".into();
+        for origin in [None, Some("https://erase.example")] {
+            let (email, id) = build_email(&m, "AAAAAAAAAAAAAAAAAAAAAA", origin, false).unwrap();
+            let raw = String::from_utf8(email.formatted()).unwrap();
+            assert_eq!(id, "");
+            assert!(raw.contains("Content-Type: text/plain; charset=utf-8\r\n"));
+            for absent in [
+                "Message-ID",
+                "Disposition-Notification-To",
+                "Return-Receipt-To",
+                "multipart",
+                "text/html",
+                "<img",
+            ] {
+                assert!(!raw.contains(absent), "{absent}: {raw}");
+            }
+        }
     }
 
     #[test]

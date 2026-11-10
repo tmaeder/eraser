@@ -176,6 +176,9 @@ pub struct EmailConfig {
     pub from: String,
     #[serde(skip_serializing_if = "is_default", deserialize_with = "nullable")]
     pub smtp: SmtpConfig,
+    /// Open tracking (own Message-ID, read-receipt headers, pixel). Off: plain text as before.
+    #[serde(skip_serializing_if = "is_default")]
+    pub tracking: bool,
 }
 
 pub type Email = EmailConfig;

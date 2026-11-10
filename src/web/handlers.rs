@@ -1330,14 +1330,11 @@ pub async fn api_send_one(State(st): St, Path(broker_id): Path<String>) -> Respo
         )
     } else {
         let err = result.error.unwrap_or_else(|| "Unknown error".into());
-        fragment(
-            StatusCode::OK,
-            format!(
-                r#"<span title="{}">{}</span>"#,
-                html_escape(&err),
-                chip_html(&st, &Chip::failed())
-            ),
-        )
+        let chip = Chip {
+            title: err,
+            ..Chip::failed()
+        };
+        fragment(StatusCode::OK, chip_html(&st, &chip))
     }
 }
 

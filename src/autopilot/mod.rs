@@ -9,11 +9,13 @@
 pub mod keep;
 
 use crate::broker::{Broker, BrokerDatabase};
+use crate::browser::{ConfirmationHandler, detect_captcha_from_html, extract_confirmation_status};
 use crate::config::Config;
 use crate::email::{self, Message, SendResult, Sender};
-use crate::history::{PendingTask, Record, Store, TaskType};
+use crate::history::{PendingTask, PipelineStatus, Record, Store, TaskType};
+use crate::inbox::classifier::ResponseType;
 use crate::inbox::monitor::Monitor;
-use crate::scanner::{self, discovery::Discoverer};
+use crate::scanner::{self, discovery::Discoverer, domain};
 use crate::template::Engine;
 use chrono::{DateTime, Datelike, Local, TimeDelta, TimeZone, Timelike, Utc};
 use serde::{Deserialize, Serialize};
@@ -316,6 +318,110 @@ async fn broker_requests(d: &Deps<'_>, dry_run: bool, budget: &mut i64, r: &mut 
     }
 }
 
+/// Allowed hosts for a broker's confirmation links: the registrable domains of its website and
+/// of its privacy address.
+fn broker_domains(b: &Broker) -> Vec<String> {
+    let mut v = Vec::new();
+    if let Ok(u) = url::Url::parse(&b.website)
+        && let Some(host) = u.host_str()
+    {
+        v.push(domain::registrable_domain(host));
+    }
+    if let Some((_, host)) = b.email.rsplit_once('@') {
+        v.push(domain::registrable_domain(host));
+    }
+    v.retain(|d| !d.is_empty());
+    v
+}
+
+/// Step 2: confirmation links, only on the broker's own domain and at most once per link.
+/// Captchas, foreign domains and failures become to-dos.
+async fn confirm_links(d: &Deps<'_>, dry_run: bool, r: &mut RoundReport) {
+    let responses = match d.store.get_broker_responses(
+        Some(ResponseType::ConfirmationRequired.as_str()),
+        false,
+        1000,
+    ) {
+        Ok(v) => v,
+        Err(e) => {
+            r.errors.push(format!("confirm links: {e:#}"));
+            return;
+        }
+    };
+    for resp in responses.iter().filter(|x| !x.confirm_url.is_empty()) {
+        let url = &resp.confirm_url;
+        if matches!(
+            d.store.find_task_by_url(TaskType::Confirm, url),
+            Ok(Some(_))
+        ) {
+            continue; // handled in an earlier round
+        }
+        let todo = |notes: String| PendingTask {
+            broker_id: resp.broker_id.clone(),
+            broker_name: resp.broker_name.clone(),
+            task_type: TaskType::Confirm,
+            form_url: url.clone(),
+            notes,
+            ..Default::default()
+        };
+        let allowed = find_broker(d, &resp.broker_id)
+            .map(|b| broker_domains(&b))
+            .unwrap_or_default();
+        let handler = ConfirmationHandler::new(&allowed);
+        match handler.validate_domain(url) {
+            Ok((true, _)) => {}
+            Ok((false, host)) => {
+                let note = format!(
+                    "Link is on {host}, not on the broker's own domain: open it only if you trust it."
+                );
+                add_todo(d.store, r, todo(note));
+                continue;
+            }
+            Err(e) => {
+                add_todo(d.store, r, todo(format!("Invalid link: {e:#}")));
+                continue;
+            }
+        }
+        if dry_run {
+            r.links_confirmed += 1;
+            continue;
+        }
+        let result = match handler.click_confirmation_link(url, false).await {
+            Ok(x) => x,
+            Err(e) => {
+                add_todo(d.store, r, todo(format!("Opening the link failed: {e:#}")));
+                continue;
+            }
+        };
+        let captcha = detect_captcha_from_html(&result.response_body);
+        if captcha.is_captcha_blocking() {
+            let _ = d
+                .store
+                .update_pipeline_status(&resp.broker_id, PipelineStatus::AwaitingCaptcha);
+            add_todo(d.store, r, todo(captcha.get_captcha_description()));
+        } else if result.success {
+            r.links_confirmed += 1;
+            let _ = d
+                .store
+                .update_pipeline_status(&resp.broker_id, PipelineStatus::Confirmed);
+            let mut log = todo(format!(
+                "Confirmed automatically (HTTP {})",
+                result.status_code
+            ));
+            if d.store.add_pending_task(&mut log).is_ok() {
+                let _ = d.store.complete_pending_task(log.id, "completed");
+            }
+        } else {
+            let note = format!(
+                "{} (HTTP {}): please check the link yourself.",
+                extract_confirmation_status(&result),
+                result.status_code
+            );
+            add_todo(d.store, r, todo(note));
+        }
+    }
+}
+
 /// Web-form replies without a to-do get one (forms are always filled by the user).
 fn sync_form_todos(store: &Store, r: &mut RoundReport) {
     let forms = match store.get_forms_with_status() {
@@ -380,6 +486,9 @@ pub async fn run_round(
         _ => false,
     };
 
+    if steps.confirm_links {
+        confirm_links(d, dry_run, &mut r).await;
+    }
     if steps.broker_requests {
         reminders(d, dry_run, &mut budget, &mut r).await;
         broker_requests(d, dry_run, &mut budget, &mut r).await;

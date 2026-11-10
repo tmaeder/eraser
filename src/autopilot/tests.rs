@@ -2,7 +2,7 @@ use super::*;
 use crate::history::{BrokerResponse, ScannedMessage, Status};
 use crate::scanner::actions;
 use crate::scanner::tests::MockSender;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 fn cfg() -> Config {
     let mut c = Config::default();
@@ -274,4 +274,90 @@ async fn web_form_replies_become_todos_once() {
         f.store.get_forms_with_status().unwrap()[0].status,
         "pending"
     );
+}
+
+/// Serves `router` on 127.0.0.1 and returns `http://localhost:<port>`.
+async fn serve(router: axum::Router) -> String {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
+    format!("http://localhost:{port}")
+}
+
+type Hits = Arc<Mutex<Vec<String>>>;
+
+/// Fake broker site: `/captcha` shows a reCAPTCHA, every other path confirms.
+async fn fake_broker_site() -> (String, Hits) {
+    let hits: Hits = Arc::default();
+    let log = hits.clone();
+    let app = axum::Router::new().fallback(move |uri: axum::http::Uri| {
+        let log = log.clone();
+        async move {
+            log.lock().unwrap().push(uri.path().to_string());
+            match uri.path() {
+                "/captcha" => axum::response::Html(r#"<div class="g-recaptcha"></div>"#),
+                _ => axum::response::Html("Your removal request has been confirmed. Thank you!"),
+            }
+        }
+    });
+    (serve(app).await, hits)
+}
+
+#[tokio::test]
+async fn confirm_links_only_on_broker_domain_and_once() {
+    let (origin, hits) = fake_broker_site().await;
+    let mut c = cfg();
+    c.autopilot.broker_requests = false;
+    let f = fixture(c, vec![broker("acme", &origin)]);
+    for (subject, url) in [
+        ("Confirm 1", format!("{origin}/ok")),
+        ("Confirm 2", format!("{origin}/captcha")),
+        ("Confirm 3", "https://evil.test/confirm".to_string()),
+    ] {
+        f.store
+            .add_broker_response(&mut BrokerResponse {
+                broker_id: "acme".into(),
+                broker_name: "Acme".into(),
+                response_type: "confirmation_required".into(),
+                email_subject: subject.into(),
+                confirm_url: url,
+                ..Default::default()
+            })
+            .unwrap();
+    }
+
+    let dry = f.round(true, None).await;
+    assert_eq!(
+        dry.links_confirmed, 2,
+        "would open both broker-domain links"
+    );
+    assert_eq!(dry.todos_added, 1, "foreign domain becomes a to-do");
+    assert!(hits.lock().unwrap().is_empty(), "dry run opens nothing");
+
+    let r = f.round(false, None).await;
+    assert_eq!(
+        (r.links_confirmed, r.todos_added),
+        (1, 1),
+        "captcha becomes a to-do"
+    );
+    let mut opened = hits.lock().unwrap().clone();
+    opened.sort();
+    assert_eq!(opened, ["/captcha", "/ok"]);
+    let todos = f.store.todo_tasks(Local::now()).unwrap();
+    assert_eq!(todos.len(), 2);
+    assert!(
+        todos
+            .iter()
+            .any(|t| t.form_url == "https://evil.test/confirm")
+    );
+    assert!(todos.iter().any(|t| t.form_url.ends_with("/captcha")));
+    let done = f
+        .store
+        .find_task_by_url(TaskType::Confirm, &format!("{origin}/ok"))
+        .unwrap()
+        .unwrap();
+    assert_eq!(done.status, "completed", "the click is logged");
+
+    f.round(false, None).await;
+    assert_eq!(hits.lock().unwrap().len(), 2, "each link at most once");
 }

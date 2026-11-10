@@ -67,7 +67,7 @@ Eraser sends removal requests from your iCloud Mail account. Apple requires an *
 3. Go to **Sign-In and Security → App-Specific Passwords**
 4. Click **+**, name it "Eraser", and copy the password (looks like `xxxx-xxxx-xxxx-xxxx`)
 
-Use your `@icloud.com` / `@me.com` address plus that password in the setup wizard. Eraser connects to `smtp.mail.me.com:587` (STARTTLS) and, for inbox monitoring, `imap.mail.me.com:993`.
+Use your `@icloud.com` / `@me.com` address plus that password in the setup wizard. You enter the account **once**: the same address and app-specific password are used for sending requests and for reading broker replies. Eraser connects to `smtp.mail.me.com:587` (STARTTLS) and, for inbox monitoring, `imap.mail.me.com:993`.
 
 **Note:** iCloud only sends mail whose *From* address is one of your iCloud addresses, so Eraser uses your iCloud login as the sender.
 
@@ -291,40 +291,29 @@ Or use the interactive command:
 
 ---
 
-## Automate It with GitHub Actions
+## Run It Hosted (Cloudflare)
 
-Want Eraser to run automatically every month? Fork the repo and set up GitHub Actions.
+Instead of keeping your Mac on, you can run Eraser in a Cloudflare Container. The autopilot then runs every 6 hours on its own. The `deploy/` folder has everything:
 
-### Setup
+- a Worker in front of the app with a login page (signed cookie, rate-limited), plus basic auth for scripts
+- `/internal/*` blocked from the internet; a cron trigger calls the autopilot every 6 hours
+- your `~/.eraser` (config + history) saved to a private R2 bucket every 60 seconds and on shutdown
+- the app password in the config encrypted with a key that only lives in a Cloudflare secret
 
-1. Fork this repository
-2. Go to Settings → Secrets and Variables → Actions
-3. Add these secrets:
+**Setup (one time):**
 
-**Required:**
-| Secret | Value |
-|--------|-------|
-| `ERASER_FIRST_NAME` | Your first name |
-| `ERASER_LAST_NAME` | Your last name |
-| `ERASER_EMAIL` | Your iCloud address |
-| `ERASER_EMAIL_PROVIDER` | `smtp` |
-| `ERASER_TEMPLATE` | `gdpr`, `ccpa`, or `generic` |
-| `ERASER_SMTP_HOST` | `smtp.mail.me.com` |
-| `ERASER_SMTP_PORT` | `587` |
-| `ERASER_SMTP_USERNAME` | Your iCloud address |
-| `ERASER_SMTP_PASSWORD` | Your Apple app-specific password |
+1. Install [Docker](https://www.docker.com/) and Node.js, and log in with `npx wrangler login`
+2. Create the R2 bucket: `npx wrangler r2 bucket create eraser-state`
+3. Point `routes` in `deploy/wrangler.jsonc` at your own domain
+4. Set three secrets (`cd deploy`, then `npx wrangler secret put <NAME>`; generate each value with `openssl rand -base64 32` and keep a copy in your password manager):
+   - `ERASER_PASSWORD`: your login password for the web UI
+   - `ERASER_AUTOPILOT_TOKEN`: lets the cron trigger start autopilot rounds
+   - `ERASER_CONFIG_KEY`: encrypts the app password in the config (if you lose it, you only re-enter the app password)
+5. Deploy: `cd deploy && npm install && npx wrangler deploy`
 
-**Optional (but recommended):**
-| Secret | Value |
-|--------|-------|
-| `ERASER_ADDRESS` | Street address |
-| `ERASER_CITY` | City |
-| `ERASER_STATE` | State |
-| `ERASER_ZIP_CODE` | ZIP code |
-| `ERASER_COUNTRY` | Country |
-| `ERASER_PHONE` | Phone number |
+Open your domain, sign in, finish the setup wizard, then turn on the autopilot under **Settings → Autopilot** (try **Dry run now** on the Today page first).
 
-The workflow runs on the 1st of every month. You can also trigger it manually from the Actions tab.
+Requires a Cloudflare Workers paid plan (Containers). The container sleeps when idle, so it only runs a few minutes per day.
 
 ---
 

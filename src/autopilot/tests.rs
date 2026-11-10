@@ -485,7 +485,7 @@ async fn plain_unsubscribe_links_become_todos_once() {
             "https://news.test/unsub?u=1"
         )
     );
-    assert!(f.sent().is_empty());
+    assert_eq!(f.sent(), []);
     assert!(
         f.store
             .get_company("news.test")
@@ -693,7 +693,7 @@ async fn interrupted_sends_are_flagged_once_and_not_resent() {
 
     let r = f.round(false, None).await;
     assert_eq!(r.todos_added, 0, "flagged only once");
-    assert!(f.sent().is_empty());
+    assert_eq!(f.sent(), []);
 }
 
 #[tokio::test]

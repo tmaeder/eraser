@@ -140,7 +140,7 @@ impl Record {
         };
         if result.success {
             r.status = Status::Sent;
-            r.message_id = result.message_id.clone();
+            r.message_id.clone_from(&result.message_id);
         } else {
             r.status = Status::Failed;
             r.error = result.error.clone().unwrap_or_default();
@@ -282,7 +282,7 @@ fn zone_abbreviation(ts: i64) -> Option<String> {
     // SAFETY: localtime_r writes into the provided tm; tm_zone points at static tz data.
     unsafe {
         let mut tm: libc::tm = std::mem::zeroed();
-        if libc::localtime_r(&t, &mut tm).is_null() || tm.tm_zone.is_null() {
+        if libc::localtime_r(&raw const t, &raw mut tm).is_null() || tm.tm_zone.is_null() {
             return None;
         }
         let name = std::ffi::CStr::from_ptr(tm.tm_zone).to_str().ok()?;
@@ -349,8 +349,8 @@ fn str_col(row: &Row, idx: usize) -> rusqlite::Result<String> {
     Ok(row.get::<_, Option<String>>(idx)?.unwrap_or_default())
 }
 
-fn opt_time(t: &Option<DateTime<Local>>) -> Option<String> {
-    t.as_ref().map(format_time)
+fn opt_time(t: Option<&DateTime<Local>>) -> Option<String> {
+    t.map(format_time)
 }
 
 fn now_str() -> String {
@@ -437,7 +437,9 @@ impl Store {
 
     fn db(&self) -> MutexGuard<'_, Connection> {
         // A panic while holding the lock cannot leave SQLite in a bad state; keep going.
-        self.conn.lock().unwrap_or_else(|e| e.into_inner())
+        self.conn
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
     fn migrate(&self) -> Result<()> {
@@ -453,7 +455,7 @@ impl Store {
         );
 
         db.execute_batch(
-            r#"
+            r"
 	CREATE TABLE IF NOT EXISTS removal_requests (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		broker_id TEXT NOT NULL,
@@ -513,7 +515,7 @@ impl Store {
 	CREATE INDEX IF NOT EXISTS idx_pt_broker_id ON pending_tasks(broker_id);
 	CREATE INDEX IF NOT EXISTS idx_pt_task_type ON pending_tasks(task_type);
 	CREATE INDEX IF NOT EXISTS idx_pt_status ON pending_tasks(status);
-	"#,
+	",
         )
         .context("failed to migrate database")?;
 
@@ -555,7 +557,7 @@ impl Store {
                 record.status,
                 record.message_id,
                 record.error,
-                opt_time(&record.sent_at),
+                opt_time(record.sent_at.as_ref()),
                 now_str(),
             ],
         )
@@ -680,8 +682,8 @@ impl Store {
                 resp.form_url,
                 resp.confirm_url,
                 resp.confidence,
-                resp.needs_review as i64,
-                opt_time(&resp.received_at),
+                i64::from(resp.needs_review),
+                opt_time(resp.received_at.as_ref()),
                 now,
                 now,
             ],
@@ -724,7 +726,7 @@ impl Store {
                     form_url,
                     confirm_url,
                     confidence,
-                    needs_review as i64,
+                    i64::from(needs_review),
                     now_str(),
                     id
                 ],

@@ -11,7 +11,7 @@ use chrono::{DateTime, Local, SecondsFormat, TimeDelta, Utc};
 use rusqlite::{OptionalExtension, TransactionBehavior, params};
 use serde::Serialize;
 
-pub(super) const SCHEMA: &str = r#"
+pub(super) const SCHEMA: &str = r"
 CREATE TABLE IF NOT EXISTS autopilot_rounds (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     started_at TEXT NOT NULL,
@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS autopilot_rounds (
     dry_run INTEGER NOT NULL DEFAULT 0,
     report TEXT NOT NULL DEFAULT ''
 );
-"#;
+";
 
 /// An unfinished round older than this was interrupted (container killed) and no longer blocks.
 pub const STALE_ROUND: TimeDelta = TimeDelta::hours(2);
@@ -83,7 +83,7 @@ impl Store {
         }
         tx.execute(
             "INSERT INTO autopilot_rounds (started_at, dry_run) VALUES (?, ?)",
-            params![ts(now), dry_run as i64],
+            params![ts(now), i64::from(dry_run)],
         )?;
         let id = tx.last_insert_rowid();
         tx.commit().context("failed to start autopilot round")?;

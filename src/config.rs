@@ -474,7 +474,7 @@ mod tests {
         assert!(cfg.email.smtp.use_tls);
         assert_eq!(cfg.options.template, "generic");
         assert_eq!(cfg.options.rate_limit_ms, 2000);
-        assert!(cfg.options.regions.is_empty());
+        assert_eq!(cfg.options.regions, Vec::<String>::new());
         assert_eq!(cfg.inbox.folder, "INBOX");
         assert_eq!(cfg.inbox.archive_folder, "Eraser");
         assert_eq!(cfg.pipeline.browser_timeout_sec, 30);

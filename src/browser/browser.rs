@@ -205,7 +205,7 @@ impl Browser {
         let blocking = detect_captcha(page).await;
         if blocking.is_captcha_blocking() {
             result.captcha_found = true;
-            result.captcha_type = blocking.r#type.clone();
+            result.captcha_type.clone_from(&blocking.r#type);
             if !self.config.screenshot_dir.is_empty() {
                 result.screenshot_path = self
                     .take_screenshot(&result.broker_id, "captcha_gate")
@@ -249,7 +249,7 @@ impl Browser {
         let form_captcha = detect_captcha(page).await;
         if form_captcha.is_captcha_blocking() {
             result.captcha_found = true;
-            result.captcha_type = form_captcha.r#type.clone();
+            result.captcha_type.clone_from(&form_captcha.r#type);
             if !self.config.screenshot_dir.is_empty() {
                 result.screenshot_path = self
                     .take_screenshot(&result.broker_id, "filled_captcha")

@@ -326,7 +326,7 @@ fn fresh_database_round_trip() {
     assert!(store.get_pending_task_by_id(999).unwrap().is_none());
 
     store.clear_broker_responses().unwrap();
-    assert!(store.get_all_broker_responses().unwrap().is_empty());
+    assert_eq!(store.get_all_broker_responses().unwrap(), []);
     assert_eq!(store.delete_by_status(Status::Sent).unwrap(), 2);
     assert_eq!(store.get_stats().unwrap(), (1, 0, 1));
 
@@ -396,7 +396,7 @@ fn enums_round_trip() {
 
 /// Writes a DB with Rust for the Go reader check: `ERASER_RUST_DB=/path cargo test -- --ignored`.
 #[test]
-#[ignore]
+#[ignore = "needs ERASER_RUST_DB"]
 fn write_db_for_go() {
     let path = std::env::var("ERASER_RUST_DB").unwrap();
     let _ = std::fs::remove_file(&path);
@@ -630,7 +630,7 @@ fn reminders_todos_and_progress() {
     store
         .skip_task_until(link.id, now + chrono::TimeDelta::days(30))
         .unwrap();
-    assert!(store.todo_tasks(now).unwrap().is_empty());
+    assert_eq!(store.todo_tasks(now).unwrap(), []);
     assert_eq!(
         store
             .todo_tasks(now + chrono::TimeDelta::days(31))

@@ -283,7 +283,7 @@ mod tests {
                         axum::Router::new().route("/", axum::routing::post(|| async { "ok" }));
                     tokio::spawn(async move {
                         let l = tokio::net::TcpListener::from_std(l).unwrap();
-                        axum::serve(l, app).await.unwrap()
+                        axum::serve(l, app).await.unwrap();
                     });
                 }
                 client.post(&url)

@@ -9,7 +9,7 @@ use rusqlite::{Connection, params};
 use serde::Serialize;
 use std::collections::HashMap;
 
-pub(super) const SCHEMA: &str = r#"
+pub(super) const SCHEMA: &str = r"
 CREATE TABLE IF NOT EXISTS mail_tracking (
     message_id TEXT PRIMARY KEY,
     token TEXT NOT NULL UNIQUE,
@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS mail_tracking (
     read_receipt_at INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_mt_request ON mail_tracking(request_id);
-"#;
+";
 
 /// Pixel hits closer together than this (per token) are ignored.
 pub const OPEN_RATE_LIMIT_SECS: i64 = 10;
@@ -259,7 +259,7 @@ mod tests {
             ..Default::default()
         };
         s.add_broker_response(&mut resp).unwrap();
-        assert!(s.get_all_broker_responses().unwrap().is_empty());
+        assert_eq!(s.get_all_broker_responses().unwrap(), []);
         assert!(s.request_tracking().unwrap()[&id].read_receipt_at.is_some());
     }
 }

@@ -207,7 +207,7 @@ mod tests {
     }
 
     fn s(v: &[&str]) -> Vec<String> {
-        v.iter().map(|x| x.to_string()).collect()
+        v.iter().map(ToString::to_string).collect()
     }
 
     #[test]

@@ -317,13 +317,13 @@ async fn clear_and_send_keys(page: &Page, selector: &str, value: &str) -> Result
     let el = page.find_element(selector).await?;
     let cleared = el
         .call_js_fn(
-            r#"function() {
+            r"function() {
 				if (this.tagName === 'INPUT') { this.setAttribute('value', ''); return true; }
 				if (this.tagName === 'TEXTAREA') {
 					for (var c of this.childNodes) { if (c.nodeType === 3) { c.nodeValue = ''; return true; } }
 				}
 				return false;
-			}"#,
+			}",
             false,
         )
         .await?;
@@ -448,7 +448,7 @@ mod tests {
         );
         assert_eq!(m[3].profile_value, "Jane Döe");
         assert_eq!(m[6].profile_value, "Zürich");
-        assert!(m[4].profile_value.is_empty());
+        assert_eq!(m[4].profile_value, "");
         assert_eq!(m[0].selectors[0], "input[type='email']");
         assert_eq!(m[2].patterns, ["last", "lname", "family", "surname"]);
         assert!(

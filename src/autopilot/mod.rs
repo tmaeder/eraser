@@ -9,6 +9,8 @@
 
 pub mod keep;
 
+use std::fmt::Write as _;
+
 use crate::broker::{Broker, BrokerDatabase};
 use crate::browser::{ConfirmationHandler, detect_captcha_from_html, extract_confirmation_status};
 use crate::config::Config;
@@ -101,7 +103,7 @@ impl RoundReport {
             s.push_str("; SMTP authentication failed");
         }
         if !self.errors.is_empty() {
-            s.push_str(&format!("; {} errors", self.errors.len()));
+            let _ = write!(s, "; {} errors", self.errors.len());
         }
         if self.dry_run {
             format!("Dry run: {s}")
@@ -117,7 +119,7 @@ pub fn next_round(now: DateTime<Utc>) -> DateTime<Utc> {
     let slot = Utc
         .with_ymd_and_hms(now.year(), now.month(), now.day(), hour, 0, 0)
         .unwrap();
-    slot + TimeDelta::hours(ROUND_HOURS as i64)
+    slot + TimeDelta::hours(i64::from(ROUND_HOURS))
 }
 
 const ID_PHRASES: &[&str] = &[
@@ -531,11 +533,7 @@ async fn check_inbox(d: &Deps<'_>, m: &mut Monitor, dry_run: bool, r: &mut Round
 
 /// Step 4: incremental header-only company scan, then contact discovery for new companies.
 async fn scan_companies(d: &Deps<'_>, m: &mut Monitor, r: &mut RoundReport) {
-    let first = d
-        .store
-        .list_companies()
-        .map(|c| c.is_empty())
-        .unwrap_or(true);
+    let first = d.store.list_companies().map_or(true, |c| c.is_empty());
     let days = if first {
         scanner::DEFAULT_DAYS
     } else {

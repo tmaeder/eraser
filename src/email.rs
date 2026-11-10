@@ -64,14 +64,16 @@ static PUBLIC_ORIGIN: RwLock<Option<String>> = RwLock::new(None);
 
 /// Set once at startup by `serve`; senders created afterwards embed the tracking pixel.
 pub fn set_public_origin(origin: Option<String>) {
-    *PUBLIC_ORIGIN.write().unwrap_or_else(|e| e.into_inner()) =
+    *PUBLIC_ORIGIN
+        .write()
+        .unwrap_or_else(std::sync::PoisonError::into_inner) =
         origin.map(|o| o.trim_end_matches('/').to_string());
 }
 
 fn public_origin() -> Option<String> {
     PUBLIC_ORIGIN
         .read()
-        .unwrap_or_else(|e| e.into_inner())
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
         .clone()
 }
 
@@ -458,7 +460,7 @@ mod tests {
             let l = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
             l.local_addr().unwrap().port()
         }; // closed now
-        let r = smtp(port as i64, false, "").send(&msg(), Some(1)).await;
+        let r = smtp(i64::from(port), false, "").send(&msg(), Some(1)).await;
         assert!(!r.success);
         assert_eq!(
             r.error.as_deref(),
@@ -530,7 +532,7 @@ mod tests {
     #[tokio::test]
     async fn sends_plain_text_message() {
         let (port, server) = fake_smtp(vec!["250 ok"]).await;
-        let r = smtp(port as i64, false, "").send(&msg(), Some(7)).await;
+        let r = smtp(i64::from(port), false, "").send(&msg(), Some(7)).await;
         assert!(r.success, "{:?}", r.error);
         assert!(tracking_token(&r.message_id).is_some(), "own Message-ID");
         assert!(r.message_id.ends_with("@example.com>"));
@@ -547,7 +549,7 @@ mod tests {
     #[tokio::test]
     async fn sends_pixel_with_public_origin() {
         let (port, server) = fake_smtp(vec!["250 ok"]).await;
-        let mut s = smtp(port as i64, false, "");
+        let mut s = smtp(i64::from(port), false, "");
         s.public_origin = Some("https://erase.example".into());
         let r = s.send(&msg(), None).await;
         assert!(r.success, "{:?}", r.error);
@@ -621,7 +623,7 @@ mod tests {
     #[tokio::test]
     async fn retries_transient_4xx() {
         let (port, server) = fake_smtp(vec!["451 4.3.0 try again later", "250 ok"]).await;
-        let r = smtp(port as i64, false, "").send(&msg(), Some(1)).await;
+        let r = smtp(i64::from(port), false, "").send(&msg(), Some(1)).await;
         assert!(r.success, "{:?}", r.error);
         let (data, conns) = server.await.unwrap();
         assert_eq!(conns, 2, "second connection delivered");
@@ -631,7 +633,7 @@ mod tests {
     #[tokio::test]
     async fn never_retries_permanent_5xx() {
         let (port, server) = fake_smtp(vec!["550 5.7.1 rejected", "250 ok"]).await;
-        let r = smtp(port as i64, false, "").send(&msg(), Some(1)).await;
+        let r = smtp(i64::from(port), false, "").send(&msg(), Some(1)).await;
         assert_eq!(
             r.error.as_deref(),
             Some("SMTP error: check your configuration")

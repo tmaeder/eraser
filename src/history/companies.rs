@@ -8,7 +8,7 @@ use chrono::{DateTime, Utc};
 use rusqlite::{OptionalExtension, Row, params};
 use serde::Serialize;
 
-pub(super) const SCHEMA: &str = r#"
+pub(super) const SCHEMA: &str = r"
 CREATE TABLE IF NOT EXISTS scanned_messages (
     msg_key TEXT PRIMARY KEY,
     domain TEXT NOT NULL,
@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS company_actions (
     created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_ca_domain ON company_actions(domain);
-"#;
+";
 
 /// One stored message's header facts (input to the per-company aggregation).
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -178,10 +178,10 @@ impl Store {
                     m.from_addr,
                     m.from_name,
                     ts(&m.date),
-                    m.is_list as i64,
+                    i64::from(m.is_list),
                     m.unsub_mailto,
                     m.unsub_https,
-                    m.one_click as i64,
+                    i64::from(m.one_click),
                     scanned_at,
                 ])?;
             }
@@ -230,10 +230,10 @@ impl Store {
                     agg.message_count,
                     ts(&agg.first_seen),
                     ts(&agg.last_seen),
-                    agg.is_mailing_list as i64,
+                    i64::from(agg.is_mailing_list),
                     agg.unsub_mailto,
                     agg.unsub_https,
-                    agg.one_click as i64,
+                    i64::from(agg.one_click),
                     excluded_reason,
                     now(),
                 ],

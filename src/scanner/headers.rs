@@ -210,7 +210,7 @@ mod tests {
         assert_eq!((m.len(), h.len()), (1, 1));
         let (m, h) =
             parse_list_unsubscribe("garbage <ftp://x> <HTTPS://B.example/U> <unterminated");
-        assert!(m.is_empty());
+        assert!(m.is_empty(), "{m:?}");
         assert_eq!(h, ["HTTPS://B.example/U"]);
         assert!(is_one_click(" list-unsubscribe=one-click "));
         assert!(!is_one_click("List-Unsubscribe=One-Click; other=1"));

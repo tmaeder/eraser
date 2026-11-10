@@ -94,7 +94,7 @@ const JS_FUNCAPTCHA: &str = r#"(function() {
 		return {found: false};
 	})()"#;
 
-const JS_CLOUDFLARE: &str = r#"(function() {
+const JS_CLOUDFLARE: &str = r"(function() {
 		var title = document.title.toLowerCase();
 		if (title.includes('just a moment') || title.includes('checking your browser')) {
 			return {found: true, type: 'title'};
@@ -109,7 +109,7 @@ const JS_CLOUDFLARE: &str = r#"(function() {
 			return {found: true, type: 'rayid'};
 		}
 		return {found: false};
-	})()"#;
+	})()";
 
 const JS_GENERIC: &str = r#"(function() {
 		var body = document.body.innerHTML.toLowerCase();

@@ -313,7 +313,7 @@ pub type OriginFn = Arc<dyn Fn(&str) -> String + Send + Sync>;
 
 pub struct Discoverer {
     client: reqwest::Client,
-    /// host → origin ("https://host"); tests point it at a local server.
+    /// host → origin (`https://host`); tests point it at a local server.
     origin: OriginFn,
 }
 

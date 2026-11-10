@@ -270,14 +270,13 @@ impl SmtpSender {
         }
     }
 
-    /// One delivery attempt; the error message is already sanitized.
-    async fn deliver(&self, email: &lettre::Message) -> std::result::Result<(), SmtpFailure> {
+    fn transport(&self) -> std::result::Result<AsyncSmtpTransport<Tokio1Executor>, SmtpFailure> {
         let generic = || SmtpFailure::permanent("SMTP error: check your configuration".into());
 
         let host = self.config.host.as_str();
         let port = u16::try_from(self.config.port).map_err(|_| generic())?;
 
-        let transport = if self.config.use_tls {
+        Ok(if self.config.use_tls {
             let builder = if port == 587 {
                 // Port 587 (iCloud, Outlook) uses STARTTLS instead of implicit TLS
                 AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(host)
@@ -303,9 +302,12 @@ impl SmtpSender {
                 .timeout(Some(SMTP_TIMEOUT))
                 .tls(Tls::Opportunistic(tls))
                 .build()
-        };
+        })
+    }
 
-        transport
+    /// One delivery attempt; the error message is already sanitized.
+    async fn deliver(&self, email: &lettre::Message) -> std::result::Result<(), SmtpFailure> {
+        self.transport()?
             .send(email.clone())
             .await
             .map(|_| ())
@@ -317,7 +319,24 @@ impl SmtpSender {
                 }
             })
     }
+
+    /// Connects and logs in (no mail sent). Err: the sanitized server reply.
+    pub async fn test_connection(&self) -> std::result::Result<(), String> {
+        if !self.config.use_tls && !self.config.username.is_empty() {
+            return Err("SMTP auth requires TLS".into());
+        }
+        let transport = self.transport().map_err(|f| f.message)?;
+        match tokio::time::timeout(TEST_TIMEOUT, transport.test_connection()).await {
+            Err(_) => Err("SMTP server did not respond in time".into()),
+            Ok(Err(e)) => Err(sanitize_smtp_error(&e)),
+            Ok(Ok(true)) => Ok(()),
+            Ok(Ok(false)) => Err("SMTP server closed the connection".into()),
+        }
+    }
 }
+
+/// Upper bound for a connection test (connect, TLS, login).
+pub const TEST_TIMEOUT: Duration = Duration::from_secs(20);
 
 impl Sender for SmtpSender {
     fn send<'a>(&'a self, msg: &'a Message, sequence: Option<usize>) -> BoxFuture<'a, SendResult> {
@@ -739,6 +758,21 @@ mod tests {
         assert_eq!(tracking_token("smtp-privacy@spokeo.com-0"), None);
         assert_eq!(tracking_token("<short@x.y>"), None);
         assert_eq!(tracking_token("<AAAAAAAAAAAAAAAAAAAA.A@x.y>"), None);
+    }
+
+    #[tokio::test]
+    async fn connection_test_sends_nothing() {
+        let (port, server) = fake_smtp(vec!["250 ok"]).await;
+        smtp(i64::from(port), false, "")
+            .test_connection()
+            .await
+            .unwrap();
+        let (data, _) = server.await.unwrap();
+        assert_eq!(data, "", "no mail sent");
+        let err = smtp(1, false, "").test_connection().await.unwrap_err();
+        assert!(err.starts_with("SMTP error:"), "{err}");
+        let err = smtp(1, false, "u").test_connection().await.unwrap_err();
+        assert_eq!(err, "SMTP auth requires TLS");
     }
 
     #[tokio::test]

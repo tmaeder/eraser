@@ -24,7 +24,7 @@
 
             <!-- Header -->
             <div class="text-center mb-6">
-                <h1 class="font-display text-2xl font-bold text-primary mb-2">Connect Your iCloud Mail</h1>
+                <h1 class="font-display text-2xl font-bold text-primary mb-2">Connect Your Mail Account</h1>
                 <p class="text-secondary">We'll send removal requests from your email</p>
             </div>
 
@@ -80,39 +80,43 @@
             <form method="POST" action="/setup/email" class="space-y-5">
                 {{ csrf_field }}
 
-                <!-- iCloud Address -->
                 <div>
-                    <label for="smtp_username" class="label">iCloud Email Address</label>
-                    <input type="email" name="smtp_username" id="smtp_username"
-                        value="{{ email.smtp.username }}"
-                        class="input {% if errors.smtp_username %}border-error{% endif %}"
-                        placeholder="you@icloud.com">
-                    {% if errors.smtp_username %}
-                    <p class="mt-1 text-sm text-error">{{ errors.smtp_username }}</p>
+                    <label for="provider" class="label">Provider</label>
+                    <select id="provider" name="provider" class="input" onchange="document.getElementById('custom-servers').classList.toggle('hidden', this.value !== 'custom')">
+                        {% for p in ["icloud", "gmail", "outlook", "custom"] %}
+                        <option value="{{ p }}" {% if account.provider == p %}selected{% endif %}>{% if p == "icloud" %}iCloud{% elif p == "gmail" %}Gmail{% elif p == "outlook" %}Outlook / Microsoft 365{% else %}Other (custom servers){% endif %}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div id="custom-servers" class="{% if account.provider != "custom" %}hidden {% endif %}grid grid-cols-3 gap-3">
+                    <div class="col-span-2"><label for="smtp_host" class="label">SMTP server</label><input id="smtp_host" name="smtp_host" class="input {% if errors.smtp_host %}border-error{% endif %}" value="{% if account.provider == "custom" %}{{ account.smtp_host }}{% endif %}"></div>
+                    <div><label for="smtp_port" class="label">Port</label><input id="smtp_port" name="smtp_port" type="number" class="input" value="{% if account.provider == "custom" and account.smtp_port %}{{ account.smtp_port }}{% endif %}" placeholder="587"></div>
+                    <div class="col-span-2"><label for="imap_host" class="label">IMAP server</label><input id="imap_host" name="imap_host" class="input" value="{% if account.provider == "custom" %}{{ account.imap_host }}{% endif %}"></div>
+                    <div><label for="imap_port" class="label">Port</label><input id="imap_port" name="imap_port" type="number" class="input" value="{% if account.provider == "custom" and account.imap_port %}{{ account.imap_port }}{% endif %}" placeholder="993"></div>
+                    {% if errors.smtp_host %}<p class="col-span-3 text-sm text-error">{{ errors.smtp_host }}</p>{% endif %}
+                </div>
+
+                <div>
+                    <label for="account_email" class="label">Email Address</label>
+                    <input type="email" name="account_email" id="account_email"
+                        value="{{ account.email }}"
+                        class="input {% if errors.account_email %}border-error{% endif %}"
+                        placeholder="you@icloud.com" autocomplete="username">
+                    {% if errors.account_email %}
+                    <p class="mt-1 text-sm text-error">{{ errors.account_email }}</p>
                     {% endif %}
                 </div>
 
-                <!-- App Password -->
                 <div>
-                    <label for="smtp_password" class="label">App-Specific Password</label>
-                    <input type="password" name="smtp_password" id="smtp_password"
-                        value="{{ email.smtp.password }}"
-                        class="input {% if errors.smtp_password %}border-error{% endif %}"
-                        placeholder="xxxx-xxxx-xxxx-xxxx">
-                    {% if errors.smtp_password %}
-                    <p class="mt-1 text-sm text-error">{{ errors.smtp_password }}</p>
+                    <label for="account_password" class="label">App-Specific Password</label>
+                    <input type="password" name="account_password" id="account_password"
+                        class="input {% if errors.account_password %}border-error{% endif %}"
+                        placeholder="{% if account.has_password %}leave empty to keep{% else %}xxxx-xxxx-xxxx-xxxx{% endif %}" autocomplete="new-password">
+                    {% if errors.account_password %}
+                    <p class="mt-1 text-sm text-error">{{ errors.account_password }}</p>
                     {% endif %}
-                    <p class="mt-1 text-xs text-muted">The password from step 2 (not your Apple Account password)</p>
+                    <p class="mt-1 text-xs text-muted">The password from step 2 (not your Apple Account password). Used for sending and for reading replies.</p>
                 </div>
-
-                <!-- Hidden SMTP defaults for iCloud -->
-                <input type="hidden" name="smtp_host" value="{% if email.smtp.host %}{{ email.smtp.host }}{% else %}smtp.mail.me.com{% endif %}">
-                <input type="hidden" name="smtp_port" value="{% if email.smtp.port %}{{ email.smtp.port }}{% else %}587{% endif %}">
-                <input type="hidden" name="smtp_tls" value="on">
-
-                {% if errors.smtp_tls %}
-                <p class="text-sm text-error">{{ errors.smtp_tls }}</p>
-                {% endif %}
 
                 <!-- Navigation -->
                 <div class="flex items-center justify-between pt-4">

@@ -103,6 +103,24 @@ const BOUNCE_SUBJECTS: &[&str] = &[
     "could not be delivered",
 ];
 
+/// iCloud accepts the full address or only its local part as IMAP user name (Apple documents
+/// both): after a rejected login with the address, the local part to try once.
+fn icloud_login_fallback(cfg: &InboxConfig, rejected: bool) -> Option<String> {
+    let icloud = cfg.provider == "icloud" || cfg.server.eq_ignore_ascii_case("imap.mail.me.com");
+    let (local, _) = cfg.email.split_once('@')?;
+    (rejected && icloud && !local.is_empty()).then(|| local.to_string())
+}
+
+/// Logs in and out once (connection test). Err: why it failed.
+pub async fn test_login(cfg: InboxConfig) -> Result<()> {
+    let m = Monitor::new(cfg, &[]);
+    timed(crate::email::TEST_TIMEOUT, m.open_session())
+        .await?
+        .logout()
+        .await?;
+    Ok(())
+}
+
 /// An email fetched from the inbox.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Email {
@@ -202,11 +220,21 @@ impl Monitor {
             .context("failed to connect to IMAP server")?;
 
         info!("Connected, logging in as {}...", self.config.email);
-        let session = client
-            .login(&self.config.email, &self.config.password)
-            .await
-            .map_err(|(e, _)| anyhow::Error::from(e).context("failed to login"))?;
-        Ok(session)
+        let pw = &self.config.password;
+        match client.login(&self.config.email, pw).await {
+            Ok(session) => Ok(session),
+            Err((e, client)) => {
+                let rejected = matches!(e, async_imap::error::Error::No(_));
+                let Some(user) = icloud_login_fallback(&self.config, rejected) else {
+                    return Err(anyhow::Error::from(e).context("failed to login"));
+                };
+                info!("Login rejected, retrying as {user}");
+                client
+                    .login(&user, pw)
+                    .await
+                    .map_err(|(e, _)| anyhow::Error::from(e).context("failed to login"))
+            }
+        }
     }
 
     async fn dial_tls(&self, addr: &str) -> Result<TlsStream<TcpStream>> {
@@ -1234,6 +1262,8 @@ Ihre Nachricht wurde am 10.11.2026 gelesen.
         HangOnList,
         /// Rejects LOGIN.
         LoginNo,
+        /// Rejects LOGIN with a full address, accepts the local part.
+        LocalPartOnly,
     }
 
     /// Connection `i` behaves like `script[i]` (the last entry repeats). Returns (port, accepted
@@ -1279,6 +1309,11 @@ Ihre Nachricht wurde am 10.11.2026 gelesen.
                         let cmd = cmd.to_ascii_uppercase();
                         let reply = match mode {
                             Fake::LoginNo if cmd.starts_with("LOGIN") => {
+                                format!("{tag} NO [AUTHENTICATIONFAILED] invalid\r\n")
+                            }
+                            Fake::LocalPartOnly
+                                if cmd.starts_with("LOGIN") && cmd.contains('@') =>
+                            {
                                 format!("{tag} NO [AUTHENTICATIONFAILED] invalid\r\n")
                             }
                             Fake::DropOnList if cmd.starts_with("LIST") => return,
@@ -1355,6 +1390,51 @@ Ihre Nachricht wurde am 10.11.2026 gelesen.
         let err = m.connect().await.unwrap_err();
         assert!(format!("{err:#}").contains("failed to login"), "{err:#}");
         assert_eq!(count(&conns), 1);
+    }
+
+    #[test]
+    fn icloud_login_fallback_decision() {
+        let cfg = |provider: &str, server: &str, email: &str| InboxConfig {
+            provider: provider.into(),
+            server: server.into(),
+            email: email.into(),
+            ..Default::default()
+        };
+        let icloud = cfg("icloud", "imap.mail.me.com", "jane@icloud.com");
+        assert_eq!(
+            icloud_login_fallback(&icloud, true).as_deref(),
+            Some("jane")
+        );
+        assert_eq!(icloud_login_fallback(&icloud, false), None, "only after NO");
+        let by_server = cfg("custom", "IMAP.mail.me.com", "jane@me.com");
+        assert_eq!(
+            icloud_login_fallback(&by_server, true).as_deref(),
+            Some("jane")
+        );
+        assert_eq!(
+            icloud_login_fallback(&cfg("icloud", "", "jane"), true),
+            None
+        );
+        assert_eq!(icloud_login_fallback(&cfg("icloud", "", "@x"), true), None);
+        let gmail = cfg("gmail", "imap.gmail.com", "jane@gmail.com");
+        assert_eq!(icloud_login_fallback(&gmail, true), None);
+    }
+
+    #[tokio::test]
+    async fn icloud_login_retries_with_local_part() {
+        let (port, conns) = fake_imap(vec![Fake::LocalPartOnly]).await;
+        let mut m = fake_monitor(port);
+        m.config.provider = "icloud".into();
+        m.connect().await.unwrap();
+        assert_eq!(count(&conns), 1, "same connection");
+        m.disconnect().await.unwrap();
+
+        let (port, _) = fake_imap(vec![Fake::LocalPartOnly]).await;
+        let err = fake_monitor(port).connect().await.unwrap_err();
+        assert!(
+            format!("{err:#}").contains("failed to login"),
+            "not iCloud: no fallback"
+        );
     }
 
     #[tokio::test]

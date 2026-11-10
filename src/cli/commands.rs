@@ -49,7 +49,7 @@ impl Ctx {
 
 pub async fn dispatch(ctx: &Ctx, cmd: Cmd) -> Result<()> {
     match cmd {
-        Cmd::Init => run_init(ctx),
+        Cmd::Init => run_init(ctx).await,
         Cmd::Send { dry_run } => run_send(ctx, dry_run).await,
         Cmd::Serve {
             port,
@@ -135,7 +135,7 @@ pub fn open_store(what: &str) -> Result<Store> {
     Store::new(history::default_db_path()).with_context(|| format!("failed to {what} history"))
 }
 
-fn run_init(ctx: &Ctx) -> Result<()> {
+async fn run_init(ctx: &Ctx) -> Result<()> {
     let stdin = std::io::stdin();
     let mut input = stdin.lock();
 
@@ -160,28 +160,46 @@ fn run_init(ctx: &Ctx) -> Result<()> {
     p.phone = prompt(&mut input, "Phone number (optional): ");
 
     println!();
-    println!("📧 Email Settings");
+    println!("📧 Mail Account (sends the requests and reads the replies)");
     println!();
 
-    cfg.email.provider = "smtp".into();
-
-    println!();
-    println!("iCloud Mail SMTP Configuration:");
-    println!(
-        "  (Create an app-specific password at https://account.apple.com → Sign-In and Security)"
+    let mut provider = prompt(
+        &mut input,
+        "Provider (icloud/gmail/outlook/custom) [icloud]: ",
     );
-    println!();
-    let smtp = &mut cfg.email.smtp;
-    smtp.host = "smtp.mail.me.com".into();
-    smtp.port = 587;
-    smtp.use_tls = true;
-    smtp.username = prompt(&mut input, "  iCloud email address (e.g. you@icloud.com): ");
-    smtp.password = prompt(
+    if provider.is_empty() {
+        provider = "icloud".into();
+    }
+    if !config::PROVIDERS.contains(&provider.as_str()) {
+        anyhow::bail!(
+            "unknown provider {provider:?} (available: {})",
+            config::PROVIDERS.join(", ")
+        );
+    }
+    let a = &mut cfg.account;
+    a.provider = provider;
+    if a.provider == "custom" {
+        a.smtp_host = prompt(&mut input, "  SMTP server: ");
+        a.smtp_port = prompt(&mut input, "  SMTP port (587 = STARTTLS) [587]: ")
+            .parse()
+            .unwrap_or(587);
+        a.imap_host = prompt(&mut input, "  IMAP server: ");
+        a.imap_port = prompt(&mut input, "  IMAP port [993]: ")
+            .parse()
+            .unwrap_or(993);
+    }
+    if a.provider == "icloud" {
+        println!(
+            "  (Create an app-specific password at https://account.apple.com → Sign-In and Security)"
+        );
+    }
+    a.email = prompt(&mut input, "  Email address (e.g. you@icloud.com): ");
+    a.password = prompt(
         &mut input,
         "  App-specific password (xxxx-xxxx-xxxx-xxxx): ",
     );
-    // iCloud rejects mail whose From isn't one of your iCloud addresses
-    cfg.email.from = cfg.email.smtp.username.clone();
+    cfg.apply_account();
+    let test = prompt(&mut input, "  Test connection now? [y/N]: ");
 
     println!();
     println!("⚙️  Options");
@@ -212,6 +230,10 @@ fn run_init(ctx: &Ctx) -> Result<()> {
 
     println!();
     println!("✅ Configuration saved to: {}", config_path.display());
+    if test.eq_ignore_ascii_case("y") {
+        println!();
+        test_connection(&cfg).await;
+    }
     println!();
     println!("Next steps:");
     println!("  1. Review and edit the config file if needed");
@@ -219,6 +241,21 @@ fn run_init(ctx: &Ctx) -> Result<()> {
     println!("  3. Run 'eraser send --dry-run' to preview emails");
     println!("  4. Run 'eraser send' to send removal requests");
     Ok(())
+}
+
+/// SMTP login and IMAP login + logout; prints ✓/✗ per protocol.
+async fn test_connection(cfg: &config::Config) {
+    let smtp = email::SmtpSender::new(cfg.email.smtp.clone());
+    let (smtp, imap) = tokio::join!(
+        smtp.test_connection(),
+        eraser::inbox::monitor::test_login(cfg.inbox.clone())
+    );
+    let line = |name: &str, r: std::result::Result<(), String>| match r {
+        Ok(()) => println!("  ✓ {name}: login OK"),
+        Err(e) => println!("  ✗ {name}: {e}"),
+    };
+    line("Sending (SMTP)", smtp);
+    line("Reading replies (IMAP)", imap.map_err(|e| format!("{e:#}")));
 }
 
 async fn run_send(ctx: &Ctx, dry_run: bool) -> Result<()> {

@@ -291,34 +291,31 @@ async fn setup_wizard_full_flow() {
     assert!(!session_cookie.contains("Secure"));
 
     let r = h.get("/setup/email").await;
-    assert!(r.body.contains("smtp.mail.me.com"), "iCloud defaults");
+    assert!(
+        r.body.contains(r#"<option value="icloud" selected>"#),
+        "iCloud default"
+    );
     let t = token_from(&r.body);
     let r = h
         .post_form(
             "/setup/email",
             &t,
             &[
-                ("smtp_host", "smtp.mail.me.com"),
-                ("smtp_port", "587"),
-                ("smtp_username", "ada@icloud.com"),
-                ("smtp_password", ""),
+                ("provider", "icloud"),
+                ("account_email", "ada@icloud.com"),
+                ("account_password", ""),
             ],
         )
         .await;
-    assert!(
-        r.body.contains("App password is required")
-            && r.body.contains("TLS is required for iCloud")
-    );
+    assert!(r.body.contains("App password is required"), "{}", r.body);
     let r = h
         .post_form(
             "/setup/email",
             &t,
             &[
-                ("smtp_host", "smtp.mail.me.com"),
-                ("smtp_port", "587"),
-                ("smtp_username", "ada@icloud.com"),
-                ("smtp_password", "app-pw"),
-                ("smtp_tls", "on"),
+                ("provider", "icloud"),
+                ("account_email", "ada@icloud.com"),
+                ("account_password", "app-pw"),
             ],
         )
         .await;
@@ -342,7 +339,13 @@ async fn setup_wizard_full_flow() {
     assert!(!h.cookies.contains_key("eraser_session"), "session cleared");
     let cfg = config::load(h.dir.path().join(".eraser/config.yaml")).unwrap();
     assert_eq!(cfg.profile.first_name, "Ada");
+    assert_eq!(cfg.account.password, "app-pw");
     assert_eq!(cfg.email.smtp.password, "app-pw");
+    assert_eq!(
+        cfg.inbox.password, "app-pw",
+        "one account for sending and reading"
+    );
+    assert_eq!(cfg.email.from, "ada@icloud.com");
     assert_eq!(cfg.options.template, "auto");
 
     let r = h.get("/").await;
@@ -421,35 +424,68 @@ async fn history_page_filters() {
 }
 
 #[tokio::test]
-async fn settings_inbox_save() {
+async fn settings_account_and_inbox_options() {
     let mut h = harness(Some(configured()), None);
+    let path = h.dir.path().join(".eraser/config.yaml");
     let t = h.token("/settings").await;
     let r = h
         .post_form(
-            "/settings/inbox",
+            "/settings/account",
             &t,
-            &[("inbox_email", ""), ("inbox_password", "x")],
+            &[("provider", "icloud"), ("account_email", "ada@icloud.com")],
         )
         .await;
-    assert!(r.body.contains("Email and password are required"));
+    assert!(r.body.contains("App password is required"), "{}", r.body);
+    // custom servers on closed local ports: saved, and both checks fail fast
+    let account = [
+        ("provider", "custom"),
+        ("account_email", "ada@icloud.com"),
+        ("smtp_host", "127.0.0.1"),
+        ("smtp_port", "1"),
+        ("imap_host", "127.0.0.1"),
+        ("imap_port", "1"),
+        ("tracking", "on"),
+    ];
+    let mut with_pw = account.to_vec();
+    with_pw.push(("account_password", "app-pw"));
+    let r = h.post_form("/settings/account", &t, &with_pw).await;
+    assert!(r.body.contains("Account saved."), "{}", r.body);
+    assert!(r.body.contains("✗ Sending (SMTP)") && r.body.contains("✗ Reading replies (IMAP)"));
+    let cfg = config::load(&path).unwrap();
+    assert_eq!(cfg.account.password, "app-pw");
+    assert!(cfg.email.tracking);
+    assert_eq!(
+        (cfg.inbox.server.as_str(), cfg.inbox.port),
+        ("127.0.0.1", 1)
+    );
+
+    // empty password keeps the saved one; the inbox form never touches it
+    let r = h.post_form("/settings/account", &t, &account).await;
+    assert!(r.body.contains("Account saved."));
     let r = h
         .post_form(
             "/settings/inbox",
             &t,
-            &[("inbox_email", "ada@icloud.com"), ("inbox_password", "pw")],
+            &[
+                ("enabled", "on"),
+                ("folder", "INBOX"),
+                ("auto_archive", "on"),
+            ],
         )
         .await;
-    assert!(r.body.contains("Inbox monitoring enabled successfully!"));
-    let cfg = config::load(h.dir.path().join(".eraser/config.yaml")).unwrap();
-    assert!(cfg.inbox.enabled);
-    assert_eq!(
-        (cfg.inbox.provider.as_str(), cfg.inbox.email.as_str()),
-        ("icloud", "ada@icloud.com")
-    );
-    assert_eq!(
-        cfg.inbox.server, "imap.mail.me.com",
-        "load fills provider defaults"
-    );
+    assert!(r.body.contains("Inbox options saved."));
+    let cfg = config::load(&path).unwrap();
+    assert_eq!(cfg.account.password, "app-pw", "secret kept");
+    assert!(cfg.inbox.enabled && cfg.inbox.auto_archive);
+    assert_eq!(cfg.inbox.password, "app-pw", "inbox reads with the account");
+    let raw = std::fs::read_to_string(&path).unwrap();
+    assert_eq!(raw.matches("app-pw").count(), 1, "stored once: {raw}");
+
+    let r = h.post_htmx("/settings/account/test", &t, "").await;
+    assert!(r.body.contains("✗ Sending (SMTP)"), "{}", r.body);
+    let r = h.get("/settings").await;
+    assert!(!r.body.contains("app-pw"), "password never rendered");
+    assert!(r.body.contains("leave empty to keep"));
 }
 
 #[tokio::test]
@@ -1352,7 +1388,7 @@ async fn status_views_funnel_chips_filters_and_detail() {
         "activity chart"
     );
     assert!(b.contains("2 errors"), "round errors in the status card");
-    assert!(b.contains("Inbox login failed") && b.contains(r#"href="/settings""#));
+    assert!(b.contains("Inbox login failed") && b.contains("settings#account"));
     assert!(b.contains("550 5.1.1 Mailbox does not exist"));
     assert!(
         b.contains("2 errors: inbox: IMAP login failed"),

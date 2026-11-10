@@ -1,7 +1,7 @@
 //! Server-side wizard sessions. The cookie only carries an
 //! opaque 256-bit id; profile and credentials stay in memory on the server.
 
-use crate::config::{EmailConfig, Profile};
+use crate::config::{AccountConfig, Config, Profile};
 use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
@@ -11,11 +11,22 @@ pub struct Session {
     pub id: String,
     pub step: String,
     pub profile: Profile,
-    pub email: EmailConfig,
+    pub account: AccountConfig,
     expires_at: Option<Instant>,
 }
 
 impl Session {
+    /// The wizard's profile and account as a config (sending/inbox fields derived).
+    pub fn config(&self) -> Config {
+        let mut cfg = Config {
+            profile: self.profile.clone(),
+            account: self.account.clone(),
+            ..Default::default()
+        };
+        cfg.apply_account();
+        cfg
+    }
+
     fn expired(&self, now: Instant) -> bool {
         self.expires_at.is_some_and(|t| now > t)
     }

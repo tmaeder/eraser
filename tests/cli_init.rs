@@ -6,7 +6,7 @@ use std::process::{Command, Stdio};
 #[test]
 fn init_writes_icloud_config() {
     let home = tempfile::tempdir().unwrap();
-    let answers = "Jane\nDoe\njane@example.com\n1 Main St\nZurich\nZH\n8000\nSwitzerland\n+41 44 000 00 00\njane@icloud.com\nabcd-efgh-ijkl-mnop\nccpa\n";
+    let answers = "Jane\nDoe\njane@example.com\n1 Main St\nZurich\nZH\n8000\nSwitzerland\n+41 44 000 00 00\nicloud\njane@icloud.com\nabcd-efgh-ijkl-mnop\nn\nccpa\n";
     let mut child = Command::new(env!("CARGO_BIN_EXE_eraser"))
         .arg("init")
         .env("HOME", home.path())
@@ -45,6 +45,13 @@ fn init_writes_icloud_config() {
     assert_eq!(cfg.profile.last_name, "Doe");
     assert_eq!(cfg.profile.city, "Zurich");
     assert_eq!(cfg.profile.phone, "+41 44 000 00 00");
+    assert_eq!(cfg.account.provider, "icloud");
+    assert_eq!(cfg.account.email, "jane@icloud.com");
+    assert_eq!(
+        cfg.inbox.server, "imap.mail.me.com",
+        "inbox uses the same account"
+    );
+    assert_eq!(cfg.inbox.password, "abcd-efgh-ijkl-mnop");
     assert_eq!(cfg.email.provider, "smtp");
     assert_eq!(cfg.email.smtp.host, "smtp.mail.me.com");
     assert_eq!(cfg.email.smtp.port, 587);
@@ -90,7 +97,7 @@ fn init_rejects_unknown_template() {
         .stderr(Stdio::piped())
         .spawn()
         .unwrap();
-    let answers = "J\nD\nj@x.com\n\n\n\n\n\n\nj@icloud.com\npw\nnosuch\n";
+    let answers = "J\nD\nj@x.com\n\n\n\n\n\n\n\nj@icloud.com\npw\n\nnosuch\n";
     child
         .stdin
         .take()
@@ -101,6 +108,28 @@ fn init_rejects_unknown_template() {
     assert_eq!(out.status.code(), Some(1));
     assert!(String::from_utf8_lossy(&out.stderr).contains("unknown template \"nosuch\""));
     assert!(!home.path().join(".eraser/config.yaml").exists());
+}
+
+#[test]
+fn init_rejects_unknown_provider() {
+    let home = tempfile::tempdir().unwrap();
+    let mut child = Command::new(env!("CARGO_BIN_EXE_eraser"))
+        .arg("init")
+        .env("HOME", home.path())
+        .stdin(Stdio::piped())
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all("J\nD\nj@x.com\n\n\n\n\n\n\nyahoo\n".as_bytes())
+        .unwrap();
+    let out = child.wait_with_output().unwrap();
+    assert_eq!(out.status.code(), Some(1));
+    assert!(String::from_utf8_lossy(&out.stderr).contains("unknown provider \"yahoo\""));
 }
 
 #[test]

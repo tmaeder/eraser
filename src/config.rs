@@ -24,6 +24,9 @@ where
 pub struct Config {
     #[serde(deserialize_with = "nullable")]
     pub profile: Profile,
+    /// The one mail account: sending (SMTP) and reading replies (IMAP) derive from it.
+    #[serde(skip_serializing_if = "is_default", deserialize_with = "nullable")]
+    pub account: AccountConfig,
     #[serde(deserialize_with = "nullable")]
     pub email: EmailConfig,
     #[serde(deserialize_with = "nullable")]
@@ -79,21 +82,85 @@ impl Default for AutopilotConfig {
     }
 }
 
-/// IMAP settings for monitoring broker responses.
+pub const PROVIDERS: &[&str] = &["icloud", "gmail", "outlook", "custom"];
+
+/// (SMTP host, port, IMAP host, port) of a known provider.
+pub fn provider_preset(provider: &str) -> Option<(&'static str, i64, &'static str, i64)> {
+    match provider {
+        "icloud" => Some(("smtp.mail.me.com", 587, "imap.mail.me.com", 993)),
+        "gmail" => Some(("smtp.gmail.com", 465, "imap.gmail.com", 993)),
+        "outlook" => Some(("smtp.office365.com", 587, "outlook.office365.com", 993)),
+        _ => None,
+    }
+}
+
+/// The user's mail account. Port 587 = STARTTLS, other SMTP ports implicit TLS; IMAP is
+/// implicit TLS. The host/port overrides only apply to `custom`.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct AccountConfig {
+    /// icloud, gmail, outlook, custom
+    #[serde(deserialize_with = "nullable")]
+    pub provider: String,
+    #[serde(deserialize_with = "nullable")]
+    pub email: String,
+    /// App-specific password (never the account password); encrypted at rest with a key.
+    #[serde(deserialize_with = "nullable")]
+    pub password: String,
+    #[serde(
+        skip_serializing_if = "String::is_empty",
+        deserialize_with = "nullable"
+    )]
+    pub smtp_host: String,
+    #[serde(skip_serializing_if = "is_default")]
+    pub smtp_port: i64,
+    /// Custom only: SMTP without TLS (local relays; never with a password).
+    #[serde(skip_serializing_if = "is_default")]
+    pub smtp_insecure: bool,
+    #[serde(
+        skip_serializing_if = "String::is_empty",
+        deserialize_with = "nullable"
+    )]
+    pub imap_host: String,
+    #[serde(skip_serializing_if = "is_default")]
+    pub imap_port: i64,
+}
+
+impl AccountConfig {
+    pub fn smtp_server(&self) -> (String, i64) {
+        match provider_preset(&self.provider) {
+            Some((h, p, _, _)) => (h.into(), p),
+            None => (self.smtp_host.clone(), self.smtp_port),
+        }
+    }
+
+    pub fn imap_server(&self) -> (String, i64) {
+        match provider_preset(&self.provider) {
+            Some((_, _, h, p)) => (h.into(), p),
+            None => (self.imap_host.clone(), self.imap_port),
+        }
+    }
+}
+
+/// Inbox reading options. Credentials and server come from [`AccountConfig`]; the fields
+/// marked "derived" are filled from it at load and never written.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct InboxConfig {
     pub enabled: bool,
-    /// "icloud", "gmail", "outlook", "imap"
-    #[serde(deserialize_with = "nullable")]
+    /// Derived: account provider.
+    #[serde(skip_serializing, deserialize_with = "nullable")]
     pub provider: String,
-    #[serde(deserialize_with = "nullable")]
+    /// Derived: IMAP host.
+    #[serde(skip_serializing, deserialize_with = "nullable")]
     pub server: String,
+    #[serde(skip_serializing)]
     pub port: i64,
-    #[serde(deserialize_with = "nullable")]
+    /// Derived: account email.
+    #[serde(skip_serializing, deserialize_with = "nullable")]
     pub email: String,
-    /// App password (not main password)
-    #[serde(deserialize_with = "nullable")]
+    /// Derived: account password.
+    #[serde(skip_serializing, deserialize_with = "nullable")]
     pub password: String,
     #[serde(deserialize_with = "nullable")]
     pub folder: String,
@@ -170,11 +237,14 @@ impl Profile {
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct EmailConfig {
-    #[serde(deserialize_with = "nullable")]
+    /// Derived from the account ("smtp"); old configs are migrated from these fields.
+    #[serde(skip_serializing, deserialize_with = "nullable")]
     pub provider: String,
-    #[serde(deserialize_with = "nullable")]
+    /// Derived: account email (iCloud rejects any other From).
+    #[serde(skip_serializing, deserialize_with = "nullable")]
     pub from: String,
-    #[serde(skip_serializing_if = "is_default", deserialize_with = "nullable")]
+    /// Derived: account SMTP server and credentials.
+    #[serde(skip_serializing, deserialize_with = "nullable")]
     pub smtp: SmtpConfig,
     /// Open tracking (own Message-ID, read-receipt headers, pixel). Off: plain text as before.
     #[serde(skip_serializing_if = "is_default")]
@@ -308,8 +378,11 @@ fn load_with_key(path: &Path, key: Option<&[u8; 32]>) -> Result<Config> {
     } else {
         yaml_serde::from_str(&data).context("failed to parse config file")?
     };
+    cfg.account.password = open(key, &cfg.account.password, "account.password")?;
     cfg.email.smtp.password = open(key, &cfg.email.smtp.password, "email.smtp.password")?;
     cfg.inbox.password = open(key, &cfg.inbox.password, "inbox.password")?;
+    migrate_legacy_account(&mut cfg);
+    cfg.apply_account();
 
     if cfg.options.template.is_empty() {
         cfg.options.template = "generic".into();
@@ -332,6 +405,61 @@ fn load_with_key(path: &Path, key: Option<&[u8; 32]>) -> Result<Config> {
     cfg.pipeline.browser_headless = true; // always headless, whatever the file says
 
     Ok(cfg)
+}
+
+/// Builds `account` from a pre-account config (`email.smtp.*`, `email.from`, `inbox.*`
+/// credentials). SMTP credentials win; differing inbox credentials are dropped with a warning.
+fn migrate_legacy_account(cfg: &mut Config) {
+    if cfg.account != AccountConfig::default() {
+        return;
+    }
+    let (smtp, inbox) = (&cfg.email.smtp, &cfg.inbox);
+    let email = [&smtp.username, &cfg.email.from, &inbox.email]
+        .into_iter()
+        .find(|v| !v.is_empty())
+        .cloned()
+        .unwrap_or_default();
+    if email.is_empty() && smtp.host.is_empty() {
+        return;
+    }
+    let password = if smtp.password.is_empty() {
+        inbox.password.clone()
+    } else {
+        smtp.password.clone()
+    };
+    let inbox_differs = !inbox.email.is_empty() && !inbox.email.eq_ignore_ascii_case(&email)
+        || !inbox.password.is_empty() && inbox.password != password;
+    if inbox_differs {
+        tracing::warn!(
+            "config: inbox credentials differ from the SMTP ones; using the SMTP account for both"
+        );
+    }
+    let mut imap = inbox.clone();
+    apply_inbox_defaults(&mut imap);
+    let known = PROVIDERS.iter().copied().find(|p| {
+        provider_preset(p).is_some_and(|(sh, sp, ih, ip)| {
+            (smtp.host.is_empty() || (smtp.host == sh && smtp.port == sp))
+                && (imap.server.is_empty() || (imap.server == ih && imap.port == ip))
+        })
+    });
+    cfg.account = match known {
+        Some(p) => AccountConfig {
+            provider: p.into(),
+            email,
+            password,
+            ..Default::default()
+        },
+        None => AccountConfig {
+            provider: "custom".into(),
+            email,
+            password,
+            smtp_host: smtp.host.clone(),
+            smtp_port: smtp.port,
+            smtp_insecure: !smtp.host.is_empty() && !smtp.use_tls,
+            imap_host: imap.server,
+            imap_port: imap.port,
+        },
+    };
 }
 
 /// Fills folder names and the provider's IMAP server/port when unset.
@@ -365,10 +493,8 @@ fn save_with_key(path: &Path, cfg: &Config, key: Option<&[u8; 32]>) -> Result<()
     let cfg = match key {
         Some(key) => {
             let mut c = cfg.clone();
-            for secret in [&mut c.email.smtp.password, &mut c.inbox.password] {
-                if !secret.is_empty() {
-                    *secret = seal(key, secret);
-                }
+            if !c.account.password.is_empty() {
+                c.account.password = seal(key, &c.account.password);
             }
             sealed = c;
             &sealed
@@ -408,6 +534,31 @@ pub(crate) fn write_with_mode(path: &Path, data: &[u8], _mode: u32) -> std::io::
 }
 
 impl Config {
+    /// Fills the derived sending and inbox fields from `account` (no-op without an account).
+    pub fn apply_account(&mut self) {
+        let a = &self.account;
+        if *a == AccountConfig::default() {
+            return;
+        }
+        let (smtp_host, smtp_port) = a.smtp_server();
+        let (imap_host, imap_port) = a.imap_server();
+        self.email.provider = "smtp".into();
+        self.email.from.clone_from(&a.email);
+        self.email.smtp = SmtpConfig {
+            host: smtp_host,
+            port: smtp_port,
+            username: a.email.clone(),
+            password: a.password.clone(),
+            use_tls: !(a.provider == "custom" && a.smtp_insecure),
+        };
+        let inbox = &mut self.inbox;
+        inbox.provider.clone_from(&a.provider);
+        inbox.server = imap_host;
+        inbox.port = imap_port;
+        inbox.email.clone_from(&a.email);
+        inbox.password.clone_from(&a.password);
+    }
+
     pub fn validate(&self) -> Result<()> {
         if self.profile.first_name.is_empty() || self.profile.last_name.is_empty() {
             bail!("profile: first_name and last_name are required");
@@ -471,10 +622,19 @@ mod tests {
         let cfg = load(example_path()).unwrap();
         assert_eq!(cfg.profile.full_name(), "John Doe");
         assert_eq!(cfg.profile.date_of_birth, "1990-01-15");
+        assert_eq!(cfg.account.provider, "icloud");
         assert_eq!(cfg.email.provider, "smtp");
+        assert_eq!(cfg.email.from, "john.doe@icloud.com");
         assert_eq!(cfg.email.smtp.host, "smtp.mail.me.com");
         assert_eq!(cfg.email.smtp.port, 587);
+        assert_eq!(cfg.email.smtp.username, "john.doe@icloud.com");
         assert!(cfg.email.smtp.use_tls);
+        assert!(!cfg.email.tracking);
+        assert_eq!(
+            (cfg.inbox.server.as_str(), cfg.inbox.port),
+            ("imap.mail.me.com", 993)
+        );
+        assert_eq!(cfg.inbox.password, "your-app-password");
         assert_eq!(cfg.options.template, "generic");
         assert_eq!(cfg.options.rate_limit_ms, 2000);
         assert_eq!(cfg.options.regions, Vec::<String>::new());
@@ -483,7 +643,7 @@ mod tests {
         assert_eq!(cfg.pipeline.browser_timeout_sec, 30);
         assert!(cfg.pipeline.browser_headless);
         cfg.validate().unwrap();
-        assert!(cfg.validate_inbox().is_err());
+        assert!(cfg.validate_inbox().is_err(), "inbox not enabled");
     }
 
     #[test]
@@ -575,9 +735,102 @@ mod tests {
 
     fn secret_config() -> Config {
         let mut cfg = load(example_path()).unwrap();
-        cfg.email.smtp.password = "smtp-secret".into();
-        cfg.inbox.password = "imap-secret".into();
+        cfg.account.password = "app-secret".into();
+        cfg.apply_account();
         cfg
+    }
+
+    const LEGACY: &str = "profile:\n  first_name: A\n  last_name: B\n  email: a@b.c\n\
+        email:\n  provider: smtp\n  from: me@icloud.com\n  smtp:\n    host: smtp.mail.me.com\n\
+        \x20   port: 587\n    username: me@icloud.com\n    password: SMTPPW\n    use_tls: true\n\
+        inbox:\n  enabled: true\n  provider: icloud\n  email: me@icloud.com\n  password: IMAPPW\n\
+        \x20 auto_archive: true\n";
+
+    #[test]
+    fn legacy_plaintext_config_migrates_to_account() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("c.yaml");
+        std::fs::write(
+            &path,
+            LEGACY
+                .replace("SMTPPW", "smtp-pw")
+                .replace("IMAPPW", "imap-pw"),
+        )
+        .unwrap();
+        let cfg = load(&path).unwrap();
+        assert_eq!(
+            cfg.account,
+            AccountConfig {
+                provider: "icloud".into(),
+                email: "me@icloud.com".into(),
+                password: "smtp-pw".into(),
+                ..Default::default()
+            },
+            "SMTP credentials win"
+        );
+        assert_eq!(
+            cfg.inbox.password, "smtp-pw",
+            "inbox reads with the same account"
+        );
+        assert!(
+            cfg.inbox.enabled && cfg.inbox.auto_archive,
+            "inbox options kept"
+        );
+        cfg.validate().unwrap();
+        cfg.validate_inbox().unwrap();
+
+        save(&path, &cfg).unwrap();
+        let raw = std::fs::read_to_string(&path).unwrap();
+        assert!(
+            raw.contains("account:") && raw.contains("provider: icloud"),
+            "{raw}"
+        );
+        assert!(!raw.contains("smtp:") && !raw.contains("imap-pw") && !raw.contains("from:"));
+        assert_eq!(raw.matches("smtp-pw").count(), 1, "{raw}");
+        assert_eq!(load(&path).unwrap(), cfg, "new format round-trips");
+    }
+
+    #[test]
+    fn legacy_encrypted_config_migrates_to_account() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("c.yaml");
+        let key = [9u8; 32];
+        let yaml = LEGACY
+            .replace("SMTPPW", &seal(&key, "smtp-pw"))
+            .replace("IMAPPW", &seal(&key, "smtp-pw"));
+        std::fs::write(&path, yaml).unwrap();
+        let cfg = load_with_key(&path, Some(&key)).unwrap();
+        assert_eq!(cfg.account.password, "smtp-pw");
+        save_with_key(&path, &cfg, Some(&key)).unwrap();
+        let raw = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(raw.matches(ENC_PREFIX).count(), 1, "{raw}");
+        assert!(!raw.contains("smtp-pw"));
+        assert_eq!(load_with_key(&path, Some(&key)).unwrap(), cfg);
+    }
+
+    #[test]
+    fn legacy_custom_and_gmail_servers() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("c.yaml");
+        std::fs::write(
+            &path,
+            "email:\n  provider: smtp\n  from: me@x.org\n  smtp:\n    host: 127.0.0.1\n    port: 2525\n    use_tls: false\n",
+        )
+        .unwrap();
+        let cfg = load(&path).unwrap();
+        assert_eq!(cfg.account.provider, "custom");
+        assert_eq!(cfg.email.smtp.host, "127.0.0.1");
+        assert_eq!(cfg.email.smtp.port, 2525);
+        assert!(!cfg.email.smtp.use_tls, "plain relay kept");
+        std::fs::write(
+            &path,
+            "email:\n  smtp:\n    host: smtp.gmail.com\n    port: 465\n    username: me@gmail.com\n    password: pw\n    use_tls: true\ninbox:\n  provider: gmail\n",
+        )
+        .unwrap();
+        let cfg = load(&path).unwrap();
+        assert_eq!(cfg.account.provider, "gmail");
+        assert_eq!(cfg.inbox.server, "imap.gmail.com");
+        assert_eq!(cfg.email.from, "me@gmail.com");
     }
 
     #[test]
@@ -588,8 +841,8 @@ mod tests {
         let cfg = secret_config();
         save_with_key(&path, &cfg, Some(&key)).unwrap();
         let raw = std::fs::read_to_string(&path).unwrap();
-        assert!(!raw.contains("smtp-secret") && !raw.contains("imap-secret"));
-        assert_eq!(raw.matches(ENC_PREFIX).count(), 2);
+        assert!(!raw.contains("app-secret"));
+        assert_eq!(raw.matches(ENC_PREFIX).count(), 1);
         assert_eq!(load_with_key(&path, Some(&key)).unwrap(), cfg);
     }
 
@@ -603,7 +856,7 @@ mod tests {
         assert!(
             std::fs::read_to_string(&path)
                 .unwrap()
-                .contains("smtp-secret")
+                .contains("app-secret")
         );
         let loaded = load_with_key(&path, Some(&key)).unwrap();
         assert_eq!(loaded, cfg);
@@ -611,7 +864,7 @@ mod tests {
         assert!(
             !std::fs::read_to_string(&path)
                 .unwrap()
-                .contains("smtp-secret")
+                .contains("app-secret")
         );
     }
 

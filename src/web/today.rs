@@ -168,7 +168,7 @@ fn round_view(r: &AutopilotRound, now: DateTime<Utc>) -> RoundView {
 
 const ERRORS_SHOWN: usize = 3;
 pub(super) const INBOX_LOGIN_HINT: &str =
-    "Inbox login failed — re-enter your iCloud app-specific password under Settings → Inbox";
+    "Inbox login failed — re-enter your iCloud app-specific password under Settings → Account";
 
 #[derive(Serialize, Debug, PartialEq)]
 struct RoundError {
@@ -197,7 +197,7 @@ fn latest_round_errors(rounds: &[AutopilotRound]) -> Option<(String, Vec<RoundEr
             if lower.starts_with("inbox") && lower.contains("login") {
                 RoundError {
                     text: INBOX_LOGIN_HINT.into(),
-                    href: Some("/settings"),
+                    href: Some("/settings#account"),
                 }
             } else {
                 RoundError {
@@ -486,7 +486,7 @@ mod tests {
         let (_, list, total) = latest_round_errors(&[r]).unwrap();
         assert_eq!((list.len(), total), (3, 4));
         assert_eq!(list[0].text, INBOX_LOGIN_HINT);
-        assert_eq!(list[0].href, Some("/settings"));
+        assert_eq!(list[0].href, Some("/settings#account"));
         assert!(list[1].text.contains("550 5.1.1") && list[1].href.is_none());
         // a running round is skipped; a clean latest round shows nothing
         let running = round(&["inbox: login"], false);

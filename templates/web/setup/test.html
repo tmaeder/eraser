@@ -40,8 +40,8 @@
                     <span class="text-primary">{{ profile.first_name }} {{ profile.last_name }}</span>
                     <span class="text-muted">Email:</span>
                     <span class="text-primary">{{ profile.email }}</span>
-                    <span class="text-muted">Provider:</span>
-                    <span class="text-primary">iCloud SMTP</span>
+                    <span class="text-muted">Account:</span>
+                    <span class="text-primary">{{ account.email }} ({{ account.provider }})</span>
                 </div>
             </div>
 
@@ -56,6 +56,17 @@
                 <p class="text-secondary">
                     We'll send a test email to <strong class="text-primary">{{ profile.email }}</strong> to verify your setup.
                 </p>
+
+                <div id="connection-result" aria-live="polite"></div>
+                <button
+                    hx-post="/setup/test/connection"
+                    hx-target="#connection-result"
+                    hx-swap="innerHTML"
+                    hx-indicator="#connection-spinner"
+                    class="btn btn-secondary">
+                    <span id="connection-spinner" class="htmx-indicator"><span class="spinner"></span></span>
+                    Test connection
+                </button>
 
                 <div id="test-result"></div>
 

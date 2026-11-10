@@ -46,35 +46,50 @@ fn configured() -> Config {
 }
 
 #[tokio::test]
-async fn settings_inbox_sets_provider_defaults_in_memory() {
+async fn inbox_options_use_the_account_and_keep_its_secret() {
     let dir = tempfile::tempdir().unwrap();
-    let st = state(configured(), dir.path(), MockSender::default());
+    let mut cfg = configured();
+    cfg.account = crate::config::AccountConfig {
+        provider: "icloud".into(),
+        email: "ada@icloud.com".into(),
+        password: "app-pw".into(),
+        ..Default::default()
+    };
+    cfg.apply_account();
+    let st = state(cfg, dir.path(), MockSender::default());
     let mut headers = HeaderMap::new();
     headers.insert(
         header::CONTENT_TYPE,
         "application/x-www-form-urlencoded".parse().unwrap(),
     );
-    handlers::settings_inbox(
+    super::account::settings_inbox(
         State(st.clone()),
         axum::Extension(csrf::CsrfToken("t".into())),
         Method::POST,
         headers,
         Uri::from_static("/settings/inbox"),
-        Bytes::from_static(b"inbox_email=ada%40icloud.com&inbox_password=pw"),
+        Bytes::from_static(b"enabled=on&folder=&archive_folder=Done&scan_folders=INBOX%2C+News"),
     )
     .await;
-    let inbox = st.config().unwrap().inbox;
+    let cfg = st.config().unwrap();
+    let inbox = &cfg.inbox;
     assert_eq!(
         (inbox.server.as_str(), inbox.port),
         ("imap.mail.me.com", 993)
     );
-    assert_eq!(inbox.folder, "INBOX");
-    assert!(
-        st.config().unwrap().validate_inbox().is_ok(),
-        "scan works without restart"
+    assert_eq!(
+        (inbox.email.as_str(), inbox.password.as_str()),
+        ("ada@icloud.com", "app-pw")
     );
-    let saved = std::fs::read_to_string(dir.path().join("config.yaml")).unwrap();
-    assert!(saved.contains("imap.mail.me.com"));
+    assert_eq!(
+        (inbox.folder.as_str(), inbox.archive_folder.as_str()),
+        ("INBOX", "Done")
+    );
+    assert_eq!(inbox.scan_folders, ["INBOX", "News"]);
+    assert!(cfg.validate_inbox().is_ok(), "scan works without restart");
+    let saved = crate::config::load(dir.path().join("config.yaml")).unwrap();
+    assert_eq!(saved.account.password, "app-pw", "secret kept");
+    assert!(saved.inbox.enabled);
 }
 
 #[tokio::test]

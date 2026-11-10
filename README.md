@@ -73,7 +73,7 @@ Use your `@icloud.com` / `@me.com` address plus that password in the setup wizar
 
 **Daily sending limits:** iCloud allows ~1,000 emails per day. Eraser chunks large sends across multiple days (250/day) so you stay well under the limit.
 
-**Still want Gmail?** Set `host: smtp.gmail.com`, `port: 465` in `~/.eraser/config.yaml` with a Google App Password.
+**Still want Gmail or Outlook?** Pick it as provider in the setup wizard (or set `account.provider: gmail` in `~/.eraser/config.yaml`) and use an app password. Older configs with `email.smtp` / `inbox` credentials are migrated to `account` automatically on the next save. Settings → Account has a **Test connection** button (SMTP and IMAP login, nothing is sent).
 
 ### Autopilot
 
@@ -91,7 +91,7 @@ Anything it can't do (web forms, ID requests, captchas, plain unsubscribe links)
 
 The **Today** page shows funnels (sent → opened → replied → deleted), a 30-day deadline bar per request, sending progress, a breakdown by region and the recent autopilot rounds. Each broker has a detail page with a timeline.
 
-Every mail asks for a read receipt. On the hosted version, mails also contain a tracking pixel; opens via Apple's or Google's image proxies are shown separately because they don't prove the mail was read. Legally, the 30-day deadline runs from receipt, not from opening.
+With `email.tracking: true` (Settings → Account, off by default because iCloud rejected tracked mail), every mail asks for a read receipt and, on the hosted version, contains a tracking pixel; opens via Apple's or Google's image proxies are shown separately because they don't prove the mail was read. Legally, the 30-day deadline runs from receipt, not from opening.
 
 ### Inbox company scanner
 
@@ -228,16 +228,21 @@ profile:
   phone: "+1-555-123-4567"
   date_of_birth: "1990-01-15"
 
-email:
-  provider: smtp
-  from: jane@icloud.com  # must be one of your iCloud addresses
+# One account sends the requests (SMTP) and reads the replies (IMAP)
+account:
+  provider: icloud  # icloud | gmail | outlook | custom
+  email: jane@icloud.com  # also the From address
+  password: xxxx-xxxx-xxxx-xxxx  # app-specific password (encrypted at rest with ERASER_CONFIG_KEY)
+  # custom only: smtp_host, smtp_port (587 = STARTTLS), imap_host, imap_port
 
-  smtp:
-    host: smtp.mail.me.com
-    port: 587  # STARTTLS
-    username: jane@icloud.com
-    password: xxxx-xxxx-xxxx-xxxx  # Apple app-specific password
-    use_tls: true
+email:
+  tracking: false  # open tracking (own Message-ID, read receipt, pixel); may cause iCloud rejections
+
+inbox:  # optional, options only (credentials come from account)
+  enabled: true
+  folder: INBOX
+  auto_archive: false
+  archive_folder: Eraser
 
 options:
   template: generic  # or "gdpr", "ccpa", "fadp" (Swiss)

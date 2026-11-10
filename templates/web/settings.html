@@ -4,7 +4,7 @@
     <!-- Header -->
     <div class="mb-8">
         <h1 class="font-display text-3xl font-bold text-primary">Settings</h1>
-        <p class="text-secondary mt-1">Manage your profile and email configuration</p>
+        <p class="text-secondary mt-1">Manage your profile, mail account and autopilot</p>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -68,57 +68,77 @@
             </div>
         </div>
 
-        <!-- Email Configuration Section -->
-        <div class="card p-6">
+        <!-- Account -->
+        <div class="card p-6" id="account">
             <div class="flex items-center gap-3 mb-6">
                 <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background: var(--accent-muted);">
                     <svg class="w-5 h-5 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
                     </svg>
                 </div>
-                <h2 class="font-display text-lg font-semibold text-primary">Email Configuration</h2>
+                <div>
+                    <h2 class="font-display text-lg font-semibold text-primary">Account</h2>
+                    <p class="text-sm text-muted">Sends your requests and reads the replies</p>
+                </div>
             </div>
-
-            {% if config %}
-            <div class="space-y-4">
-                <div class="flex items-start justify-between py-3 border-b border-[var(--border-subtle)]">
-                    <div>
-                        <p class="text-sm text-muted">Provider</p>
-                        <p class="text-primary font-medium">iCloud SMTP</p>
-                    </div>
-                    <span class="badge badge-success">Active</span>
+            {% set a = config.account if config else none %}
+            <form method="POST" action="/settings/account" class="space-y-4">
+                {{ csrf_field }}
+                <div>
+                    <label for="provider" class="label">Provider</label>
+                    <select id="provider" name="provider" class="input" onchange="document.getElementById('custom-servers').classList.toggle('hidden', this.value !== 'custom')">
+                        {% for p in providers %}
+                        <option value="{{ p }}" {% if a and a.provider == p %}selected{% endif %}>{% if p == "icloud" %}iCloud{% elif p == "gmail" %}Gmail{% elif p == "outlook" %}Outlook / Microsoft 365{% else %}Other (custom servers){% endif %}</option>
+                        {% endfor %}
+                    </select>
                 </div>
-                <div class="flex items-start justify-between py-3 border-b border-[var(--border-subtle)]">
-                    <div>
-                        <p class="text-sm text-muted">From Address</p>
-                        <p class="text-secondary">{{ config.email.from }}</p>
-                    </div>
+                <div id="custom-servers" class="{% if not a or a.provider != "custom" %}hidden {% endif %}grid grid-cols-3 gap-3">
+                    <div class="col-span-2"><label for="smtp_host" class="label">SMTP server</label><input id="smtp_host" name="smtp_host" class="input" value="{% if a %}{{ a.smtp_host }}{% endif %}"></div>
+                    <div><label for="smtp_port" class="label">Port</label><input id="smtp_port" name="smtp_port" type="number" class="input" value="{% if a and a.smtp_port %}{{ a.smtp_port }}{% endif %}" placeholder="587"></div>
+                    <div class="col-span-2"><label for="imap_host" class="label">IMAP server</label><input id="imap_host" name="imap_host" class="input" value="{% if a %}{{ a.imap_host }}{% endif %}"></div>
+                    <div><label for="imap_port" class="label">Port</label><input id="imap_port" name="imap_port" type="number" class="input" value="{% if a and a.imap_port %}{{ a.imap_port }}{% endif %}" placeholder="993"></div>
                 </div>
-                {% if config.email.provider == "smtp" %}
-                <div class="flex items-start justify-between py-3">
-                    <div>
-                        <p class="text-sm text-muted">SMTP Server</p>
-                        <p class="text-secondary">{{ config.email.smtp.host }}:{{ config.email.smtp.port }}</p>
-                    </div>
+                <div>
+                    <label for="account_email" class="label">Email address</label>
+                    <input type="email" id="account_email" name="account_email" class="input" value="{% if a %}{{ a.email }}{% endif %}" placeholder="you@icloud.com" autocomplete="username">
+                    <p class="text-xs text-muted mt-1">Also the From address of every request.</p>
                 </div>
-                {% endif %}
+                <div>
+                    <label for="account_password" class="label">App-specific password</label>
+                    <input type="password" id="account_password" name="account_password" class="input" placeholder="{% if a and a.has_password %}leave empty to keep{% else %}xxxx-xxxx-xxxx-xxxx{% endif %}" autocomplete="new-password">
+                    <p class="text-xs text-muted mt-1">iCloud: <a href="https://account.apple.com" target="_blank" class="text-accent hover:underline">account.apple.com</a> → Sign-In and Security → App-Specific Passwords (not your Apple Account password).</p>
+                </div>
+                <label class="flex items-start gap-2 text-sm">
+                    <input type="checkbox" name="tracking" class="mt-1" {% if config and config.email.tracking %}checked{% endif %}>
+                    <span>Track opens (experimental — may cause iCloud to reject mail)</span>
+                </label>
+                {% if a and a.email %}<p class="text-xs text-muted">SMTP {{ a.smtp_host }}:{{ a.smtp_port }} · IMAP {{ a.imap_host }}:{{ a.imap_port }}</p>{% endif %}
+                <div class="flex flex-wrap items-center gap-3 pt-2">
+                    <button type="submit" class="btn btn-primary">Save and test</button>
+                    <button type="button" class="btn btn-secondary" hx-post="/settings/account/test" hx-target="#account-checks" hx-swap="innerHTML" hx-indicator="#account-spinner">
+                        <span id="account-spinner" class="htmx-indicator"><span class="spinner"></span></span>
+                        Test connection
+                    </button>
+                </div>
+            </form>
+            {% if account_message %}
+            <div class="mt-4 p-3 rounded-lg {% if account_success %}bg-green-500/10 text-green-400{% else %}bg-red-500/10 text-red-400{% endif %}">
+                {{ account_message }}
             </div>
-            {% else %}
-            <p class="text-muted">No email configured.</p>
             {% endif %}
-
-            <div class="mt-6">
-                <a href="/setup/email" class="btn btn-secondary">
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
-                    </svg>
-                    Edit Email Settings
-                </a>
+            <div id="account-checks" class="mt-3" aria-live="polite">
+                {% if account_checks %}
+                <ul class="space-y-1 text-sm">
+                    {% for c in account_checks %}
+                    <li class="{% if c.ok %}text-success{% else %}text-error{% endif %}">{% if c.ok %}✓{% else %}✗{% endif %} {{ c.name }}: {{ c.detail }}</li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
             </div>
         </div>
 
-        <!-- Inbox Monitoring Section -->
-        <div class="card p-6">
+        <!-- Inbox options -->
+        <div class="card p-6" id="inbox">
             <div class="flex items-center gap-3 mb-6">
                 <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background: var(--accent-muted);">
                     <svg class="w-5 h-5 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -126,91 +146,31 @@
                     </svg>
                 </div>
                 <div>
-                    <h2 class="font-display text-lg font-semibold text-primary">Inbox Monitoring</h2>
-                    <p class="text-sm text-muted">Monitor your inbox for broker responses</p>
+                    <h2 class="font-display text-lg font-semibold text-primary">Inbox options</h2>
+                    <p class="text-sm text-muted">Replies are read with the account above</p>
                 </div>
             </div>
-
-            {% if config and config.inbox and config.inbox.enabled %}
-            <div class="space-y-4 mb-6">
-                <div class="flex items-center justify-between py-3 border-b border-[var(--border-subtle)]">
-                    <div>
-                        <p class="text-sm text-muted">Status</p>
-                        <p class="text-primary font-medium">Enabled</p>
-                    </div>
-                    <span class="badge badge-success">Active</span>
-                </div>
-                <div class="flex items-start justify-between py-3 border-b border-[var(--border-subtle)]">
-                    <div>
-                        <p class="text-sm text-muted">Email</p>
-                        <p class="text-secondary">{{ config.inbox.email }}</p>
-                    </div>
-                </div>
-                <div class="flex items-start justify-between py-3">
-                    <div>
-                        <p class="text-sm text-muted">Provider</p>
-                        <p class="text-secondary">{% if config.inbox.provider == "icloud" %}iCloud IMAP{% elif config.inbox.provider == "gmail" %}Gmail IMAP{% else %}{{ config.inbox.provider }}{% endif %}</p>
-                    </div>
-                </div>
-            </div>
-            <button type="button" onclick="document.getElementById('inbox-form').classList.toggle('hidden')" class="btn btn-secondary w-full">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
-                </svg>
-                Edit Settings
-            </button>
-            {% else %}
-            <div class="p-4 rounded-xl mb-6" style="background: var(--bg-elevated);">
-                <p class="text-secondary text-sm">
-                    Enable inbox monitoring to automatically detect broker responses like confirmation links and form requirements.
-                </p>
-            </div>
-            {% endif %}
-
-            <form id="inbox-form" method="POST" action="/settings/inbox" class="{% if config and config.inbox and config.inbox.enabled %}hidden {% endif %}space-y-4 mt-4">
+            {% set i = config.inbox if config else none %}
+            <form method="POST" action="/settings/inbox" class="space-y-4">
                 {{ csrf_field }}
-
-                <div class="p-4 rounded-xl" style="background: rgba(245, 158, 11, 0.1);">
-                    <h3 class="font-medium text-warning mb-2">iCloud Setup Instructions</h3>
-                    <ol class="text-sm text-secondary space-y-1 list-decimal list-inside">
-                        <li>Make sure two-factor authentication is on for your Apple Account</li>
-                        <li>Go to <a href="https://account.apple.com" target="_blank" class="text-accent hover:underline">account.apple.com</a> → Sign-In and Security → App-Specific Passwords</li>
-                        <li>Generate a new password (you can reuse the one from setup)</li>
-                                            </ol>
+                <label class="flex items-center gap-3">
+                    <input type="checkbox" name="enabled" {% if i and i.enabled %}checked{% endif %}>
+                    <span class="text-primary font-medium">Read replies from the inbox</span>
+                </label>
+                <div class="grid grid-cols-2 gap-3">
+                    <div><label for="folder" class="label">Folder</label><input id="folder" name="folder" class="input" value="{% if i %}{{ i.folder }}{% endif %}" placeholder="INBOX"></div>
+                    <div><label for="archive_folder" class="label">Archive folder</label><input id="archive_folder" name="archive_folder" class="input" value="{% if i %}{{ i.archive_folder }}{% endif %}" placeholder="Eraser"></div>
                 </div>
-
+                <label class="flex items-center gap-2 text-sm">
+                    <input type="checkbox" name="auto_archive" {% if i and i.auto_archive %}checked{% endif %}>
+                    Move processed broker replies to the archive folder
+                </label>
                 <div>
-                    <label for="inbox_email" class="label">iCloud Email Address</label>
-                    <input type="email" name="inbox_email" id="inbox_email"
-                        value="{% if config and config.inbox %}{{ config.inbox.email }}{% elif config %}{{ config.profile.email }}{% endif %}"
-                        class="input"
-                        placeholder="you@icloud.com">
+                    <label for="scan_folders" class="label">Folders for the company scan (comma-separated)</label>
+                    <input id="scan_folders" name="scan_folders" class="input" value="{% if i %}{{ i.scan_folders|join(", ") }}{% endif %}" placeholder="empty: INBOX, archive and common folders">
                 </div>
-
-                <div>
-                    <label for="inbox_password" class="label">App Password</label>
-                    <input type="password" name="inbox_password" id="inbox_password"
-                        value="{% if config and config.inbox %}{{ config.inbox.password }}{% endif %}"
-                        class="input"
-                        placeholder="xxxx xxxx xxxx xxxx">
-                    <p class="text-xs text-muted mt-1">Your app-specific password (not your Apple Account password)</p>
-                </div>
-
-                <div class="flex items-center gap-3 pt-2">
-                    <button type="submit" class="btn btn-primary flex-1">
-                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                        </svg>
-                        Enable Inbox Monitoring
-                    </button>
-                    {% if config and config.inbox and config.inbox.enabled %}
-                    <button type="button" onclick="document.getElementById('inbox-form').classList.add('hidden')" class="btn btn-ghost">
-                        Cancel
-                    </button>
-                    {% endif %}
-                </div>
+                <button type="submit" class="btn btn-primary">Save inbox options</button>
             </form>
-
             {% if inbox_message %}
             <div class="mt-4 p-3 rounded-lg {% if inbox_success %}bg-green-500/10 text-green-400{% else %}bg-red-500/10 text-red-400{% endif %}">
                 {{ inbox_message }}

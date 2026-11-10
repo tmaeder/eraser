@@ -1,5 +1,6 @@
 //! The browser UI (`eraser serve`).
 
+mod account;
 mod companies;
 mod csrf;
 mod handlers;
@@ -204,7 +205,12 @@ pub fn app(opts: AppOptions) -> Result<(Router, Arc<AppState>)> {
         .route("/brokers/{broker_id}", get(h::broker_detail))
         .route("/history", get(h::history))
         .route("/settings", get(h::settings))
-        .route("/settings/inbox", post(h::settings_inbox))
+        .route("/settings/account", post(account::settings_account))
+        .route(
+            "/settings/account/test",
+            post(account::settings_account_test),
+        )
+        .route("/settings/inbox", post(account::settings_inbox))
         .route("/settings/autopilot", post(today::settings_autopilot))
         .route("/pipeline", get(h::pipeline))
         .route("/tasks", get(h::tasks))
@@ -237,7 +243,14 @@ pub fn app(opts: AppOptions) -> Result<(Router, Arc<AppState>)> {
             "/setup/profile",
             get(h::setup_profile).post(h::setup_profile),
         )
-        .route("/setup/email", get(h::setup_email).post(h::setup_email))
+        .route(
+            "/setup/email",
+            get(account::setup_email).post(account::setup_email),
+        )
+        .route(
+            "/setup/test/connection",
+            post(account::setup_test_connection),
+        )
         .route("/setup/test", get(h::setup_test))
         .route("/setup/test/send", post(h::setup_test_send))
         .route("/setup/complete", get(h::setup_complete))

@@ -6,7 +6,7 @@ use super::job::{Job, JobKind, JobStatus, PersistentJobState, json_time};
 use super::status;
 use super::views::STATIC_FILES;
 use crate::broker::Broker;
-use crate::config::{Config, EmailConfig, InboxConfig, Options, Profile};
+use crate::config::{Config, InboxConfig, Options, Profile};
 use crate::email::{Message, SendResult, Sender};
 use crate::history::{Chip, PipelineStatus, Record, Status, TaskType};
 use crate::inbox::classifier::{ResponseType, classify_by_subject_only, classify_response};
@@ -199,17 +199,14 @@ fn render_partial(st: &AppState, name: &str, data: serde_json::Value) -> Respons
     render_value(st, name, Value::from(Serde(data)))
 }
 
-fn email_view(e: &EmailConfig) -> serde_json::Value {
-    json!({ "provider": e.provider, "from": e.from, "smtp": e.smtp })
-}
-
 /// Config as the templates see it: every section present, none skipped.
 fn config_view(cfg: Option<&Config>) -> serde_json::Value {
     match cfg {
         None => serde_json::Value::Null,
         Some(c) => json!({
             "profile": c.profile,
-            "email": email_view(&c.email),
+            "account": super::account::account_view(&c.account),
+            "email": { "from": c.email.from, "tracking": c.email.tracking },
             "options": c.options,
             "inbox": c.inbox,
             "pipeline": c.pipeline,
@@ -390,7 +387,7 @@ impl AppState {
         .unwrap()
     }
 
-    fn session(&self, headers: &HeaderMap) -> Option<super::session::Session> {
+    pub(super) fn session(&self, headers: &HeaderMap) -> Option<super::session::Session> {
         let id = CookieJar::from_headers(headers)
             .get(SESSION_COOKIE)?
             .value()
@@ -623,78 +620,37 @@ fn history_rows(st: &AppState, records: Vec<Record>) -> Vec<serde_json::Value> {
         .collect()
 }
 
-fn settings_page(st: &AppState, t: &CsrfToken, message: Option<(&str, bool)>) -> Response {
-    settings_with(st, t, "inbox", message)
+/// Settings page plus `extra` keys (section messages, connection checks).
+pub(super) fn settings_render(st: &AppState, t: &CsrfToken, extra: serde_json::Value) -> Response {
+    let mut data = json!({
+        "title": "Settings",
+        "config": config_view(st.config().as_ref()),
+        "providers": crate::config::PROVIDERS,
+        "keep_builtin": crate::autopilot::keep::summary(),
+    });
+    if let (Some(d), serde_json::Value::Object(e)) = (data.as_object_mut(), extra) {
+        d.extend(e);
+    }
+    render(st, t, "settings.html", data)
 }
 
-/// Settings page with a message for one section ("inbox", "autopilot").
+/// Settings page with a message for one section ("account", "inbox", "autopilot").
 pub(super) fn settings_with(
     st: &AppState,
     t: &CsrfToken,
     section: &str,
     message: Option<(&str, bool)>,
 ) -> Response {
-    let mut data = json!({
-        "title": "Settings",
-        "config": config_view(st.config().as_ref()),
-        "keep_builtin": crate::autopilot::keep::summary(),
-    });
+    let mut extra = json!({});
     if let Some((msg, ok)) = message {
-        data[format!("{section}_message")] = json!(msg);
-        data[format!("{section}_success")] = json!(ok);
+        extra[format!("{section}_message")] = json!(msg);
+        extra[format!("{section}_success")] = json!(ok);
     }
-    render(st, t, "settings.html", data)
+    settings_render(st, t, extra)
 }
 
 pub async fn settings(State(st): St, Extension(t): Extension<CsrfToken>) -> Response {
-    settings_page(&st, &t, None)
-}
-
-pub async fn settings_inbox(
-    State(st): St,
-    Extension(t): Extension<CsrfToken>,
-    method: Method,
-    headers: HeaderMap,
-    uri: Uri,
-    body: Bytes,
-) -> Response {
-    let form = FormValues::new(&method, &headers, &uri, &body);
-    let (email, password) = (form.get("inbox_email"), form.get("inbox_password"));
-    if email.is_empty() || password.is_empty() {
-        return settings_page(&st, &t, Some(("Email and password are required", false)));
-    }
-    let saved = {
-        let mut guard = st.config.write().unwrap();
-        let cfg = guard.get_or_insert_with(Config::default);
-        // Keep the user's folder settings; fill server/port from the provider so scans work
-        // without a restart (the in-memory config is what the handlers use).
-        let previous = std::mem::take(&mut cfg.inbox);
-        cfg.inbox = InboxConfig {
-            enabled: true,
-            provider: "icloud".into(),
-            email,
-            password,
-            folder: previous.folder,
-            archive_folder: previous.archive_folder,
-            auto_archive: previous.auto_archive,
-            scan_folders: previous.scan_folders,
-            ..Default::default()
-        };
-        crate::config::apply_inbox_defaults(&mut cfg.inbox);
-        crate::config::save(&st.config_path, cfg)
-    };
-    match saved {
-        Err(e) => settings_page(
-            &st,
-            &t,
-            Some((&format!("Failed to save configuration: {e:#}"), false)),
-        ),
-        Ok(()) => settings_page(
-            &st,
-            &t,
-            Some(("Inbox monitoring enabled successfully!", true)),
-        ),
-    }
+    settings_with(&st, &t, "account", None)
 }
 
 pub async fn pipeline(
@@ -997,86 +953,6 @@ pub async fn setup_profile(
     resp
 }
 
-pub async fn setup_email(
-    State(st): St,
-    Extension(t): Extension<CsrfToken>,
-    method: Method,
-    headers: HeaderMap,
-    uri: Uri,
-    body: Bytes,
-) -> Response {
-    let Some(session) = st
-        .session(&headers)
-        .filter(|s| !s.profile.first_name.is_empty())
-    else {
-        return redirect(&method, "/setup/profile");
-    };
-
-    if method == Method::POST {
-        let f = FormValues::new(&method, &headers, &uri, &body);
-        let mut e = EmailConfig {
-            provider: "smtp".into(),
-            ..Default::default()
-        };
-        e.smtp.host = f.get("smtp_host").trim().to_string();
-        e.smtp.port = parse_id(&f.get("smtp_port"));
-        e.smtp.username = f.get("smtp_username").trim().to_string();
-        e.smtp.password = f.get("smtp_password").trim().to_string();
-        e.smtp.use_tls = f.get("smtp_tls") == "on";
-        // iCloud rejects mail whose From isn't one of your iCloud addresses
-        e.from.clone_from(&e.smtp.username);
-
-        let mut errors = HashMap::new();
-        if e.smtp.host.is_empty() {
-            errors.insert("smtp_host", "SMTP host is required");
-        }
-        if e.smtp.port == 0 {
-            errors.insert("smtp_port", "SMTP port is required");
-        }
-        if e.smtp.username.is_empty() {
-            errors.insert("smtp_username", "iCloud email address is required");
-        }
-        if e.smtp.password.is_empty() {
-            errors.insert("smtp_password", "App password is required");
-        }
-        if !e.smtp.use_tls && !e.smtp.username.is_empty() {
-            errors.insert("smtp_tls", "TLS is required for iCloud");
-        }
-        if !errors.is_empty() {
-            return render(
-                &st,
-                &t,
-                "setup/email.html",
-                json!({
-                    "title": "Setup - iCloud", "step": "email", "profile": session.profile,
-                    "email": email_view(&e), "errors": errors,
-                }),
-            );
-        }
-        st.sessions.update(&session.id, |s| {
-            s.email = e;
-            s.step = "test".into();
-        });
-        return redirect(&method, "/setup/test");
-    }
-
-    // iCloud defaults for new setups
-    let mut e = session.email.clone();
-    if e.smtp.host.is_empty() {
-        e.smtp.host = "smtp.mail.me.com".into();
-        e.smtp.port = 587;
-        e.smtp.use_tls = true;
-    }
-    render(
-        &st,
-        &t,
-        "setup/email.html",
-        json!({
-            "title": "Setup - iCloud", "step": "email", "profile": session.profile, "email": email_view(&e),
-        }),
-    )
-}
-
 pub async fn setup_test(
     State(st): St,
     Extension(t): Extension<CsrfToken>,
@@ -1089,7 +965,7 @@ pub async fn setup_test(
     else {
         return redirect(&method, "/setup/profile");
     };
-    if session.email.provider.is_empty() {
+    if session.account.email.is_empty() {
         return redirect(&method, "/setup/email");
     }
     render(
@@ -1097,7 +973,8 @@ pub async fn setup_test(
         &t,
         "setup/test.html",
         json!({
-            "title": "Setup - Test", "step": "test", "profile": session.profile, "email": email_view(&session.email),
+            "title": "Setup - Test", "step": "test", "profile": session.profile,
+            "account": super::account::account_view(&session.account),
         }),
     )
 }
@@ -1114,16 +991,14 @@ async fn send_with_timeout(sender: &dyn Sender, msg: &Message) -> SendResult {
 }
 
 pub async fn setup_test_send(State(st): St, headers: HeaderMap) -> Response {
-    let Some(session) = st
-        .session(&headers)
-        .filter(|s| !s.email.provider.is_empty())
-    else {
+    let Some(session) = st.session(&headers).filter(|s| !s.account.email.is_empty()) else {
         return fragment(
             StatusCode::BAD_REQUEST,
             r#"<div class="text-red-600">Email not configured. Please go back to the email step.</div>"#,
         );
     };
-    let sender = match (st.sender_factory)(&session.email) {
+    let email = session.config().email;
+    let sender = match (st.sender_factory)(&email) {
         Ok(s) => s,
         Err(e) => {
             return fragment(
@@ -1137,7 +1012,7 @@ pub async fn setup_test_send(State(st): St, headers: HeaderMap) -> Response {
     };
     let msg = Message {
         to: session.profile.email.clone(),
-        from: session.email.from.clone(),
+        from: email.from.clone(),
         subject: "Eraser Test Email".into(),
         body: format!(
             "Hello {},\n\nThis is a test email from Eraser to verify your email configuration is working correctly.\n\nIf you received this email, your setup is complete and you're ready to start sending data removal requests!\n\nBest,\nEraser",
@@ -1169,20 +1044,22 @@ pub async fn setup_complete(
 ) -> Response {
     let Some(session) = st
         .session(&headers)
-        .filter(|s| !s.profile.first_name.is_empty() && !s.email.provider.is_empty())
+        .filter(|s| !s.profile.first_name.is_empty() && !s.account.email.is_empty())
     else {
         return redirect(&method, "/setup");
     };
-    let cfg = Config {
-        profile: session.profile.clone(),
-        email: session.email.clone(),
+    // Re-running the wizard keeps everything else (inbox, autopilot, options, tracking).
+    let mut cfg = st.config().unwrap_or_else(|| Config {
         options: Options {
             template: "auto".into(),
             rate_limit_ms: 2000,
             ..Default::default()
         },
         ..Default::default()
-    };
+    });
+    cfg.profile = session.profile.clone();
+    cfg.account = session.account.clone();
+    cfg.apply_account();
     if let Err(e) = crate::config::save(&st.config_path, &cfg) {
         return render(
             &st,

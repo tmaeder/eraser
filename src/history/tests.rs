@@ -547,7 +547,7 @@ fn reminders_todos_and_progress() {
     let a = add("a", Status::Sent);
     add("b", Status::Sent);
     add("c", Status::Failed);
-    add("company:shop.test", Status::Sent);
+    let shop = add("company:shop.test", Status::Sent);
     let mut resp = BrokerResponse {
         broker_id: "b".into(),
         broker_name: "b".into(),
@@ -576,6 +576,12 @@ fn reminders_todos_and_progress() {
         1,
         "one reminder per request"
     );
+    assert!(!store.claim_reminder(a.id).unwrap(), "already sent");
+    assert!(store.claim_reminder(shop.id).unwrap());
+    assert!(!store.claim_reminder(shop.id).unwrap(), "claimed once");
+    assert_eq!(store.reminder_candidates().unwrap(), []);
+    store.release_reminder(shop.id).unwrap();
+    assert_eq!(store.reminder_candidates().unwrap().len(), 1, "released");
 
     store
         .update_pipeline_status("b", PipelineStatus::Confirmed)

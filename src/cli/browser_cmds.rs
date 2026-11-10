@@ -172,7 +172,7 @@ async fn fill_forms(
         if result.captcha_found {
             println!("       🤖 CAPTCHA detected: {}", result.captcha_type);
             let p = &cfg.profile;
-            // Profile data for the CAPTCHA helper page (serde_json sorts keys like Go).
+            // Profile data for the CAPTCHA helper page.
             let profile_json = serde_json::json!({
                 "email": p.email,
                 "firstName": p.first_name,

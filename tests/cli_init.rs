@@ -102,3 +102,26 @@ fn init_rejects_unknown_template() {
     assert!(String::from_utf8_lossy(&out.stderr).contains("unknown template \"nosuch\""));
     assert!(!home.path().join(".eraser/config.yaml").exists());
 }
+
+#[test]
+fn parse_errors_print_once_and_reject_stray_args() {
+    let home = tempfile::tempdir().unwrap();
+    let run = |args: &[&str]| {
+        Command::new(env!("CARGO_BIN_EXE_eraser"))
+            .args(args)
+            .env("HOME", home.path())
+            .output()
+            .unwrap()
+    };
+    let out = run(&["pipeline", "typo"]);
+    assert_eq!(out.status.code(), Some(1));
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        err.starts_with("Error: unexpected argument 'typo'"),
+        "{err}"
+    );
+    assert!(err.contains("Usage:\n  eraser pipeline [flags]"), "{err}");
+    let out = run(&["bogus"]);
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert_eq!(err.matches("bogus").count(), 1, "{err}");
+}

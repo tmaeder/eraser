@@ -120,7 +120,7 @@ pub async fn dispatch(ctx: &Ctx, cmd: Cmd) -> Result<()> {
     }
 }
 
-/// Go's prompt(): print, read a line, trim. EOF or a read error (even mid-line) yields "".
+/// Prints `message`, reads a line, trims it. EOF or a read error (even mid-line) yields "".
 pub fn prompt(input: &mut impl BufRead, message: &str) -> String {
     print!("{message}");
     let _ = std::io::stdout().flush();
@@ -194,7 +194,7 @@ fn run_init(ctx: &Ctx) -> Result<()> {
     if template_choice.is_empty() {
         template_choice = "auto".into();
     }
-    // Not in Go (which saves any string): reject names the engine can't render.
+    // Reject names the engine can't render.
     let available = template::Engine::new()
         .context("failed to initialize templates")?
         .available_templates();
@@ -376,8 +376,7 @@ fn run_status(limit: i64) -> Result<()> {
             };
             let at = r
                 .sent_at
-                .map(|t| t.format("%Y-%m-%d %H:%M").to_string())
-                .unwrap_or_else(|| "0001-01-01 00:00".into());
+                .map_or_else(|| "-".into(), |t| t.format("%Y-%m-%d %H:%M").to_string());
             println!("{icon} {at} - {} ({})", r.broker_name, r.template);
             if !r.error.is_empty() {
                 println!("   Error: {}", r.error);
@@ -407,7 +406,7 @@ fn run_add_broker(ctx: &Ctx) -> Result<()> {
         "Category (people-search/marketing/background-check): ",
     );
 
-    // Unlike the other commands, add-broker has no next-to-binary fallback (as in Go).
+    // Writes to the given or the working-directory broker file (no next-to-binary fallback).
     let path = ctx
         .brokers
         .clone()
@@ -481,7 +480,6 @@ fn run_pipeline_status() -> Result<()> {
         Ok(resp) if !resp.is_empty() => {
             println!();
             println!("📬 Response Classification:");
-            // Go iterates a map (random order); sorted here for stable output.
             let mut resp: Vec<_> = resp.into_iter().collect();
             resp.sort();
             for (kind, count) in resp {
@@ -515,7 +513,7 @@ fn run_pipeline_status() -> Result<()> {
     Ok(())
 }
 
-/// Truncates to `max_len` bytes with "..." (Go slices bytes; we back off to a char boundary).
+/// Truncates to at most `max_len` bytes with "..." (backs off to a char boundary).
 pub fn truncate(s: &str, max_len: usize) -> String {
     if s.len() <= max_len {
         return s.to_string();

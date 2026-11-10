@@ -255,7 +255,7 @@ pub async fn run_unsubscribe(
                 runnable.push(c);
             }
             Unsubscribe::Manual(u) => {
-                println!("   {} → open this link yourself: {u}", c.agg.domain)
+                println!("   {} → open this link yourself: {u}", c.agg.domain);
             }
             Unsubscribe::None => println!("   {} → no List-Unsubscribe header", c.agg.domain),
         }

@@ -1,5 +1,5 @@
-//! clap definitions mirroring the cobra command tree. Help text is rendered by `help.rs`.
-//! Bool flags accept `--flag`, `--flag=true` and `--flag=false` like pflag.
+//! clap command tree. Help text is rendered by `help.rs`.
+//! Bool flags accept `--flag`, `--flag=true` and `--flag=false`.
 
 use clap::builder::BoolishValueParser;
 use clap::{ArgAction, Parser, Subcommand};

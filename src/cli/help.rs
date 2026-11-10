@@ -1,5 +1,4 @@
-//! Cobra-style help/usage rendering from the clap command tree, so `--help` and
-//! error output match the Go binary byte for byte.
+//! Help/usage rendering from the clap command tree (cobra-style layout).
 
 use clap::{Arg, Command};
 
@@ -20,7 +19,7 @@ fn flag_line(arg: &Arg) -> FlagLine {
     let kind = arg
         .get_value_names()
         .and_then(|v| v.first())
-        .map(|v| v.to_string())
+        .map(ToString::to_string)
         .unwrap_or_default();
     // Bool flags are the ones with an optional value (`--flag[=false]`).
     let is_bool = arg.get_num_args().is_some_and(|n| n.min_values() == 0);
@@ -28,7 +27,7 @@ fn flag_line(arg: &Arg) -> FlagLine {
         left.push(' ');
         left.push_str(&kind);
     }
-    let mut usage = arg.get_help().map(|h| h.to_string()).unwrap_or_default();
+    let mut usage = arg.get_help().map(ToString::to_string).unwrap_or_default();
     if let Some(def) = arg.get_default_values().first() {
         let def = def.to_string_lossy();
         match (is_bool, kind.as_str()) {
@@ -49,7 +48,7 @@ fn help_flag(cmd_name: &str) -> FlagLine {
     }
 }
 
-/// pflag's FlagUsages: sorted by name, usage column aligned three spaces past the widest flag.
+/// Flag list: sorted by name, usage column aligned three spaces past the widest flag.
 fn render_flags(mut lines: Vec<FlagLine>) -> String {
     lines.sort_by(|a, b| a.name.cmp(&b.name));
     let width = lines.iter().map(|l| l.left.len()).max().unwrap_or(0);
@@ -71,7 +70,7 @@ fn global_flags(root: &Command) -> Vec<FlagLine> {
         .collect()
 }
 
-/// Cobra's UsageString for the root (`sub = None`) or a subcommand.
+/// Usage for the root (`sub = None`) or a subcommand.
 pub fn usage(root: &Command, sub: Option<&Command>) -> String {
     let mut out = String::from("Usage:\n");
     match sub {
@@ -80,7 +79,7 @@ pub fn usage(root: &Command, sub: Option<&Command>) -> String {
             let mut cmds: Vec<(String, String)> = root
                 .get_subcommands()
                 .map(|c| {
-                    let about = c.get_about().map(|a| a.to_string()).unwrap_or_default();
+                    let about = c.get_about().map(ToString::to_string).unwrap_or_default();
                     (c.get_name().to_string(), about)
                 })
                 .collect();
@@ -116,13 +115,13 @@ pub fn usage(root: &Command, sub: Option<&Command>) -> String {
     out
 }
 
-/// Cobra's help output: Long (or Short), blank line, usage.
+/// Help output: Long (or Short), blank line, usage.
 pub fn help(root: &Command, sub: Option<&Command>) -> String {
     let cmd = sub.unwrap_or(root);
     let text = cmd
         .get_long_about()
         .or(cmd.get_about())
-        .map(|t| t.to_string())
+        .map(ToString::to_string)
         .unwrap_or_default();
     format!("{}\n\n{}", text.trim_end(), usage(root, sub))
 }

@@ -73,7 +73,7 @@ fn print_classified_response(r: &ClassifiedResponse) {
     }
 }
 
-/// Like Go's signal.Notify(SIGINT, SIGTERM): the first signal prints a notice and
+/// SIGINT / SIGTERM: the first signal prints a notice and
 /// flips the returned flag instead of killing the process.
 fn shutdown_signal() -> watch::Receiver<bool> {
     let (tx, rx) = watch::channel(false);
@@ -154,7 +154,7 @@ async fn monitor_session(
         if let Err(e) = store.add_broker_response(&mut resp) {
             println!("⚠️  Failed to store response: {e:#}");
         }
-        // Ignore errors (no matching record), as in Go.
+        // Errors only mean there is no matching record.
         let _ =
             store.update_pipeline_status(&email.broker_id, pipeline_status_for(classified.r#type));
         print_classified_response(&classified);

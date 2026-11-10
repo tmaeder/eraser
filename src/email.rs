@@ -215,10 +215,11 @@ impl SmtpSender {
         }
 
         // One Message-ID for all retries, so a duplicate delivery is recognizable as such.
-        let Ok((email, message_id)) = build_email(msg, &new_token(), self.public_origin.as_deref())
-        else {
-            return SendResult::failed("SMTP error: check your configuration");
-        };
+        let (email, message_id) =
+            match build_email(msg, &new_token(), self.public_origin.as_deref()) {
+                Ok(built) => built,
+                Err(e) => return SendResult::failed(format!("could not build email: {e}")),
+            };
         let delivered = crate::retry::run(
             SMTP_RETRY,
             || self.deliver(&email),
@@ -331,13 +332,52 @@ fn sanitize_message(text: &str, auth_code: bool) -> String {
     } else if s.contains("certificate") {
         "TLS certificate error".into()
     } else {
-        "SMTP error: check your configuration".into()
+        // Server replies carry no credentials; show them so rejections are diagnosable.
+        let detail: String = text.split_whitespace().collect::<Vec<_>>().join(" ");
+        let detail: String = detail.chars().take(200).collect();
+        format!("SMTP error: {detail}")
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn every_template_builds_a_valid_email() {
+        let engine = crate::template::Engine::new().unwrap();
+        let profile = crate::config::Profile {
+            first_name: "Jürg".into(),
+            last_name: "Müller".into(),
+            email: "juerg@me.com".into(),
+            city: "Zürich".into(),
+            country: "Schweiz".into(),
+            ..Default::default()
+        };
+        let broker = crate::broker::Broker {
+            id: "ch-test".into(),
+            name: "KünzlerBachmann Directmarketing AG (incl. Schober Schweiz)".into(),
+            email: "datenschutz@kbdirect.ch".into(),
+            region: "ch".into(),
+            ..Default::default()
+        };
+        for name in ["gdpr", "ccpa", "fadp", "generic", "auto"] {
+            let rendered = engine.render(name, &profile, &broker).unwrap();
+            let m = Message {
+                to: broker.email.clone(),
+                from: profile.email.clone(),
+                subject: rendered.subject.clone(),
+                body: rendered.body.clone(),
+            };
+            for origin in [None, Some("https://erase.kampa.app")] {
+                let (email, _) = build_email(&m, &new_token(), origin)
+                    .unwrap_or_else(|e| panic!("{name} {origin:?}: {e}"));
+                let raw = String::from_utf8(email.formatted()).unwrap();
+                let longest = raw.split("\r\n").map(str::len).max().unwrap();
+                assert!(longest <= 998, "{name} {origin:?}: line of {longest} bytes");
+            }
+        }
+    }
     use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 
     fn msg() -> Message {
@@ -405,7 +445,14 @@ mod tests {
         );
         assert_eq!(
             sanitize_message("Connection error: refused", false),
-            "SMTP error: check your configuration"
+            "SMTP error: Connection error: refused"
+        );
+        assert_eq!(
+            sanitize_message(
+                "permanent error (554): 5.7.1 [CS01] Message rejected due to local policy",
+                false
+            ),
+            "SMTP error: permanent error (554): 5.7.1 [CS01] Message rejected due to local policy"
         );
     }
 
@@ -462,10 +509,8 @@ mod tests {
         }; // closed now
         let r = smtp(i64::from(port), false, "").send(&msg(), Some(1)).await;
         assert!(!r.success);
-        assert_eq!(
-            r.error.as_deref(),
-            Some("SMTP error: check your configuration")
-        );
+        let err = r.error.unwrap();
+        assert!(err.starts_with("SMTP error: "), "{err}");
     }
 
     /// Minimal fake SMTP server (no TLS, no auth). `mail_from[i]` is the reply to MAIL FROM on
@@ -634,9 +679,10 @@ mod tests {
     async fn never_retries_permanent_5xx() {
         let (port, server) = fake_smtp(vec!["550 5.7.1 rejected", "250 ok"]).await;
         let r = smtp(i64::from(port), false, "").send(&msg(), Some(1)).await;
-        assert_eq!(
-            r.error.as_deref(),
-            Some("SMTP error: check your configuration")
+        let err = r.error.unwrap();
+        assert!(
+            err.contains("550") && err.contains("5.7.1 rejected"),
+            "{err}"
         );
         let (data, conns) = server.await.unwrap();
         assert_eq!((data.as_str(), conns), ("", 1));

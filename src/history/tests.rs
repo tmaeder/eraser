@@ -431,3 +431,62 @@ fn write_db_for_go() {
     store.add_pending_task(&mut t).unwrap();
     store.mark_task_opened(t.id).unwrap();
 }
+
+#[test]
+fn autopilot_task_kinds_and_skip_column() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = Store::new(dir.path().join("h.db")).unwrap();
+    let mut resp = BrokerResponse {
+        broker_id: "f".into(),
+        broker_name: "F".into(),
+        response_type: "form_required".into(),
+        form_url: "https://f.test/form".into(),
+        ..Default::default()
+    };
+    store.add_broker_response(&mut resp).unwrap();
+    let mut form = PendingTask {
+        broker_id: "f".into(),
+        broker_name: "F".into(),
+        task_type: TaskType::ManualForm,
+        form_url: "https://f.test/form".into(),
+        ..Default::default()
+    };
+    store.add_pending_task(&mut form).unwrap();
+    assert_eq!(
+        store.get_forms_with_status().unwrap()[0].status,
+        "pending",
+        "a web-form to-do is not a captcha"
+    );
+
+    let mut id = PendingTask {
+        broker_id: "g".into(),
+        broker_name: "G".into(),
+        task_type: TaskType::IdRequired,
+        ..Default::default()
+    };
+    store.add_pending_task(&mut id).unwrap();
+    let back = store.get_pending_task_by_id(id.id).unwrap().unwrap();
+    assert_eq!(
+        (back.task_type, back.skipped_until),
+        (TaskType::IdRequired, None)
+    );
+    assert_eq!(
+        "unsubscribe_link".parse::<TaskType>().unwrap(),
+        TaskType::UnsubscribeLink
+    );
+
+    store.complete_pending_task(form.id, "completed").unwrap();
+    assert_eq!(store.get_forms_with_status().unwrap()[0].status, "filled");
+}
+
+#[test]
+fn go_database_gains_autopilot_columns() {
+    let (_dir, store) = open_go_db();
+    let tasks = store.get_pending_tasks(None, None).unwrap();
+    assert!(!tasks.is_empty() && tasks.iter().all(|t| t.skipped_until.is_none()));
+    assert_eq!(
+        store.get_forms_with_status().unwrap()[0].status,
+        "captcha",
+        "Go captcha task unchanged"
+    );
+}

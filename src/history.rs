@@ -82,6 +82,10 @@ str_enum!(
         ManualForm = "manual_form",
         Review = "review",
         Confirm = "confirm",
+        // The broker asks for an identity document (never sent automatically).
+        IdRequired = "id_required",
+        // A plain (non RFC 8058) unsubscribe link the user opens.
+        UnsubscribeLink = "unsubscribe_link",
     }
 );
 
@@ -158,6 +162,8 @@ pub struct PendingTask {
     /// When user first opened the helper page
     pub opened_at: Option<DateTime<Local>>,
     pub completed_at: Option<DateTime<Local>>,
+    /// Hidden from the Today to-do list until then ("Skip"); the task stays pending.
+    pub skipped_until: Option<DateTime<Local>>,
 }
 
 impl Default for PendingTask {
@@ -175,6 +181,7 @@ impl Default for PendingTask {
             created_at: None,
             opened_at: None,
             completed_at: None,
+            skipped_until: None,
         }
     }
 }
@@ -324,7 +331,7 @@ fn now_str() -> String {
 
 const RECORD_COLUMNS: &str = "id, broker_id, broker_name, email, template, status, message_id, error, sent_at, created_at, pipeline_status";
 const RESPONSE_COLUMNS: &str = "id, broker_id, broker_name, response_type, email_from, email_subject, email_body, form_url, confirm_url, confidence, needs_review, received_at, processed_at, created_at";
-const TASK_COLUMNS: &str = "id, broker_id, broker_name, task_type, form_url, screenshot_path, browser_state, notes, status, created_at, opened_at, completed_at";
+const TASK_COLUMNS: &str = "id, broker_id, broker_name, task_type, form_url, screenshot_path, browser_state, notes, status, created_at, opened_at, completed_at, skipped_until";
 
 fn scan_record(row: &Row) -> rusqlite::Result<Record> {
     Ok(Record {
@@ -375,6 +382,7 @@ fn scan_task(row: &Row) -> rusqlite::Result<PendingTask> {
         created_at: time_col(row, 9)?,
         opened_at: time_col(row, 10)?,
         completed_at: time_col(row, 11)?,
+        skipped_until: time_col(row, 12)?,
     })
 }
 
@@ -484,6 +492,15 @@ impl Store {
         // The Go schema never created email_body although AddBrokerResponse writes it.
         let _ = db.execute(
             "ALTER TABLE broker_responses ADD COLUMN email_body TEXT",
+            [],
+        );
+        // Autopilot columns (NULL for existing rows; errors = already present).
+        let _ = db.execute(
+            "ALTER TABLE pending_tasks ADD COLUMN skipped_until DATETIME",
+            [],
+        );
+        let _ = db.execute(
+            "ALTER TABLE removal_requests ADD COLUMN reminder_sent_at DATETIME",
             [],
         );
         Ok(())
@@ -768,7 +785,8 @@ impl Store {
                     br.created_at as detected_at,
                     COALESCE(pt.id, 0) as task_id,
                     COALESCE(pt.status, '') as task_status,
-                    COALESCE(rr.pipeline_status, '') as pipeline_status
+                    COALESCE(rr.pipeline_status, '') as pipeline_status,
+                    COALESCE(pt.task_type, '') as task_type
                 FROM broker_responses br
                 LEFT JOIN pending_tasks pt ON br.broker_id = pt.broker_id AND pt.task_type IN ('captcha', 'manual_form')
                 LEFT JOIN (
@@ -795,6 +813,7 @@ impl Store {
                     },
                     str_col(r, 6)?,
                     str_col(r, 7)?,
+                    str_col(r, 8)?,
                 ))
             })
             .context("failed to query forms")?;
@@ -802,7 +821,8 @@ impl Store {
         let mut forms = Vec::new();
         let mut seen = HashSet::new(); // Dedupe by broker_id, keep first (most recent)
         for row in rows {
-            let (mut f, task_status, pipeline_status) = row.context("failed to scan form")?;
+            let (mut f, task_status, pipeline_status, task_type) =
+                row.context("failed to scan form")?;
             if !seen.insert(f.broker_id.clone()) {
                 continue;
             }
@@ -810,7 +830,8 @@ impl Store {
             f.status = match (task_status.as_str(), f.pipeline_status) {
                 ("completed", _) => "filled",
                 ("skipped", _) => "skipped",
-                ("pending", _) if f.task_id > 0 => "captcha",
+                // A pending manual_form to-do leaves the form "pending".
+                ("pending", _) if f.task_id > 0 && task_type == "captcha" => "captcha",
                 (_, Some(PipelineStatus::FormFilled | PipelineStatus::Confirmed)) => "filled",
                 (_, Some(PipelineStatus::Failed)) => "failed",
                 (_, Some(PipelineStatus::Rejected)) => "skipped",

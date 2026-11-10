@@ -1,10 +1,12 @@
 import { Container, getContainer } from "@cloudflare/containers";
 export { ContainerProxy } from "@cloudflare/containers";
+import { isInternalPath } from "./guard";
 
 interface Env {
   ERASER: DurableObjectNamespace<EraserContainer>;
   STATE: R2Bucket;
   ERASER_PASSWORD: string;
+  ERASER_AUTOPILOT_TOKEN: string;
 }
 
 const STATE_KEY = "eraser-home.tar.gz";
@@ -14,6 +16,8 @@ export class EraserContainer extends Container<Env> {
   // Bulk sends run in-process for hours; sleeping would pause them.
   sleepAfter = "2h";
   enableInternet = true; // SMTP/IMAP to iCloud
+  // The container's tick endpoint compares X-Autopilot-Token against this.
+  envVars = { ERASER_AUTOPILOT_TOKEN: this.env.ERASER_AUTOPILOT_TOKEN ?? "" };
 }
 
 // The container reads/writes its ~/.eraser snapshot via http://state.internal/
@@ -98,6 +102,8 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const password = env.ERASER_PASSWORD;
     const url = new URL(request.url);
+    // Only the cron trigger (scheduled handler) talks to /internal/*.
+    if (isInternalPath(url.pathname)) return new Response("Not found", { status: 404 });
     if (!password) return new Response("Not configured", { status: 503 });
 
     if (url.pathname === "/__login" && request.method === "POST") {
@@ -129,5 +135,21 @@ export default {
     }
     // Single-user app: one container instance holds all state.
     return getContainer(env.ERASER, "main").fetch(request);
+  },
+
+  // Cron trigger (wrangler.jsonc): one autopilot round every 6 hours. The container answers
+  // 202 (started), 200 (autopilot switched off) or 409 (a round is still running).
+  async scheduled(_controller: ScheduledController, env: Env): Promise<void> {
+    if (!env.ERASER_AUTOPILOT_TOKEN) {
+      console.warn("autopilot: ERASER_AUTOPILOT_TOKEN is not set, skipping");
+      return;
+    }
+    const res = await getContainer(env.ERASER, "main").fetch(
+      new Request("http://container/internal/autopilot/tick", {
+        method: "POST",
+        headers: { "X-Autopilot-Token": env.ERASER_AUTOPILOT_TOKEN },
+      }),
+    );
+    console.log(`autopilot tick: ${res.status} ${await res.text()}`);
   },
 };

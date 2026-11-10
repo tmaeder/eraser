@@ -5,6 +5,7 @@
   "compatibility_date": "2026-11-01",
   "observability": { "enabled": true },
   "routes": [{ "pattern": "erase.kampa.app", "custom_domain": true }],
+  "triggers": { "crons": ["0 */6 * * *"] },
   "containers": [
     {
       "class_name": "EraserContainer",

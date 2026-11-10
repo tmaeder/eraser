@@ -277,30 +277,32 @@ async fn run_send(ctx: &Ctx, dry_run: bool) -> Result<()> {
             subject: msg.subject,
             body: msg.body,
         };
-        let result = sender.send(&message, Some(i)).await;
-
+        // Crash-safe: recorded as `pending` before sending and finalized after, so an
+        // interrupted run is flagged instead of resent.
         let mut record = Record {
             broker_id: b.id.clone(),
             broker_name: b.name.clone(),
             email: b.email.clone(),
             template: msg.template.clone(),
+            status: Status::Pending,
             sent_at: Some(chrono::Local::now()),
             ..Default::default()
         };
+        if let Err(e) = store.add(&mut record) {
+            println!("  ❌ Not sent, failed to record history: {e:#}");
+            failed += 1;
+            continue;
+        }
+        let result = sender.send(&message, Some(i)).await;
+        if let Err(e) = store.finish_send(record.id, &result) {
+            println!("  ⚠️  Failed to record history: {e:#}");
+        }
         if result.success {
-            record.status = Status::Sent;
-            record.message_id = result.message_id;
             println!("  ✅ Sent successfully");
             success += 1;
         } else {
-            let err = result.error.unwrap_or_default();
-            record.status = Status::Failed;
-            record.error = err.clone();
-            println!("  ❌ Failed: {err}");
+            println!("  ❌ Failed: {}", result.error.unwrap_or_default());
             failed += 1;
-        }
-        if let Err(e) = store.add(&mut record) {
-            println!("  ⚠️  Failed to record history: {e:#}");
         }
 
         if i < brokers.len() - 1 {

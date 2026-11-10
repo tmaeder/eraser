@@ -1036,8 +1036,13 @@ impl Store {
 
 mod companies;
 mod rounds;
+mod stats;
 pub use companies::{Company, CompanyAction, CompanyAggregate, ScannedMessage};
 pub use rounds::{AutopilotRound, INTERRUPTED, Progress, STALE_ROUND, TODO_TYPES};
+pub use stats::{
+    Chip, ChipKind, DEADLINE_DAYS, Funnel, INTERRUPTED_LABEL, RequestState, STAGES, TimelineEvent,
+    stage_label,
+};
 
 #[cfg(test)]
 mod tests;

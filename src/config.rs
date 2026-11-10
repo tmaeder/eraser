@@ -32,6 +32,51 @@ pub struct Config {
     pub inbox: InboxConfig,
     #[serde(skip_serializing_if = "is_default", deserialize_with = "nullable")]
     pub pipeline: Pipeline,
+    #[serde(skip_serializing_if = "is_default", deserialize_with = "nullable")]
+    pub autopilot: AutopilotConfig,
+}
+
+pub const DEFAULT_REMINDER_DAYS: i64 = 30;
+pub const DEFAULT_INACTIVE_MONTHS: i64 = 12;
+
+/// Unattended rounds (`eraser autopilot`, hosted cron). The scheduled rounds only run when
+/// `enabled`; every step can be switched off on its own.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct AutopilotConfig {
+    pub enabled: bool,
+    pub check_inbox: bool,
+    pub confirm_links: bool,
+    /// New broker requests plus the one reminder.
+    pub broker_requests: bool,
+    pub scan_inbox: bool,
+    /// RFC 8058 one-click unsubscribes.
+    pub unsubscribe: bool,
+    pub company_requests: bool,
+    /// Days without any reply before the single reminder.
+    pub reminder_days: i64,
+    /// Months without mail before an inbox company counts as inactive.
+    pub inactive_months: i64,
+    /// Domains never contacted, on top of the built-in keep rules.
+    #[serde(skip_serializing_if = "Vec::is_empty", deserialize_with = "nullable")]
+    pub keep_domains: Vec<String>,
+}
+
+impl Default for AutopilotConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            check_inbox: true,
+            confirm_links: true,
+            broker_requests: true,
+            scan_inbox: true,
+            unsubscribe: true,
+            company_requests: true,
+            reminder_days: DEFAULT_REMINDER_DAYS,
+            inactive_months: DEFAULT_INACTIVE_MONTHS,
+            keep_domains: Vec::new(),
+        }
+    }
 }
 
 /// IMAP settings for monitoring broker responses.
@@ -212,6 +257,12 @@ pub fn load(path: impl AsRef<Path>) -> Result<Config> {
 
     if cfg.pipeline.browser_timeout_sec == 0 {
         cfg.pipeline.browser_timeout_sec = 30;
+    }
+    if cfg.autopilot.reminder_days <= 0 {
+        cfg.autopilot.reminder_days = DEFAULT_REMINDER_DAYS;
+    }
+    if cfg.autopilot.inactive_months <= 0 {
+        cfg.autopilot.inactive_months = DEFAULT_INACTIVE_MONTHS;
     }
     cfg.pipeline.browser_headless = true; // Default to headless (Go overrides unconditionally)
 
@@ -410,5 +461,33 @@ mod tests {
             cfg.validate().unwrap_err().to_string(),
             "email: unknown provider \"sendgrid\" (only smtp is supported)"
         );
+    }
+
+    #[test]
+    fn autopilot_defaults_and_partial_section() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("c.yaml");
+        std::fs::write(
+            &path,
+            "autopilot:\n  enabled: true\n  unsubscribe: false\n  reminder_days: 0\n  keep_domains:\n    - Example.ORG\n",
+        )
+        .unwrap();
+        let cfg = load(&path).unwrap();
+        let a = &cfg.autopilot;
+        assert!(a.enabled && !a.unsubscribe);
+        assert!(a.check_inbox && a.confirm_links && a.broker_requests);
+        assert!(a.scan_inbox && a.company_requests);
+        assert_eq!(
+            (a.reminder_days, a.inactive_months),
+            (30, 12),
+            "0 falls back to the default"
+        );
+        assert_eq!(a.keep_domains, ["Example.ORG"]);
+
+        let d = Config::default();
+        assert!(!d.autopilot.enabled, "off by default");
+        assert!(d.autopilot.check_inbox, "steps default on");
+        let yaml = serde_yaml_ng::to_string(&d).unwrap();
+        assert!(!yaml.contains("autopilot"), "default section is omitted");
     }
 }

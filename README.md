@@ -71,7 +71,18 @@ Enter your **primary iCloud Mail address** (iPhone: Settings → [your name] →
 
 **Send as (optional):** to send from an alias (e.g. `@me.com`), enter it under *Send as*; requests then go out with that address as *From* while Eraser still signs in with the primary one. It must be one of your iCloud Mail aliases.
 
-**Daily sending limits:** iCloud allows ~1,000 emails per day. Eraser chunks large sends across multiple days (250/day) so you stay well under the limit.
+**Sending limits:** providers lock accounts that send in bursts (an iCloud account was blocked after 81 mails in four minutes: SMTP `550 5.1.1 Mailbox does not exist`, IMAP `AUTHENTICATIONFAILED`, even with a fresh app password). Every send path (single sends, Send all, autopilot, CLI) therefore keeps a provider pace:
+
+| Provider | Gap between mails | Per hour | Per day |
+|---|---|---|---|
+| iCloud | 45 s | 25 | 100 |
+| Gmail | 20 s | 60 | 400 |
+| Outlook | 30 s | 30 | 250 |
+| Custom | `options.rate_limit_ms` (2 s) | — | 250 |
+
+The hourly cap counts every attempt, failed ones too. Send all waits for the next free slot, a single send says when to try again, an autopilot round stops and the next round continues. `rate_limit_ms` can slow a provider down, never speed it up.
+
+**When the provider rejects the account** (SMTP auth failure 530/534/535, iCloud's `550 5.1.1`, IMAP `AUTHENTICATIONFAILED`), Eraser stops at the first such error, pauses the autopilot and shows a red banner on Today and Settings. Create a new app-specific password, enter it under Settings → Account and click *Test connection*; when both checks pass sending is unblocked (turn the autopilot on again yourself).
 
 **Still want Gmail or Outlook?** Pick it as provider in the setup wizard (or set `account.provider: gmail` in `~/.eraser/config.yaml`) and use an app password. Older configs with `email.smtp` / `inbox` credentials are migrated to `account` automatically on the next save. Settings → Account has a **Test connection** button (SMTP and IMAP login, nothing is sent).
 
@@ -247,7 +258,7 @@ inbox:  # optional, options only (credentials come from account)
 
 options:
   template: generic  # or "gdpr", "ccpa", "fadp" (Swiss)
-  rate_limit_ms: 2000  # delay between emails
+  rate_limit_ms: 2000  # delay between emails (custom provider; can only slow presets down)
 
   # Optional: only target specific regions
   # regions:

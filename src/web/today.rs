@@ -10,7 +10,6 @@ use super::handlers::{
 use super::status;
 use crate::autopilot::{self, Deps, RoundReport};
 use crate::config::{self, Config};
-use crate::email;
 use crate::history::{AutopilotRound, Funnel, PendingTask, STALE_ROUND, TaskType};
 use crate::scanner::{self, actions, discovery::Discoverer};
 use axum::Extension;
@@ -55,6 +54,7 @@ pub(super) fn start_round(
             discoverer: &discoverer,
         };
         autopilot::run_round(&deps, monitor, dry_run, id).await;
+        st.pause_autopilot_if_blocked();
         st.job_tasks.fetch_sub(1, Ordering::SeqCst);
     });
     Ok(Some(id))
@@ -297,7 +297,8 @@ pub async fn today(
             "broker_total": st.brokers.brokers.len(),
             "broker_funnel": status::funnel(&broker_funnel, |k| format!("/brokers?status={k}")),
             "company_funnel": status::funnel(&company_funnel, |k| format!("/companies?filter=all&stage={k}")),
-            "sending": status::sending(sent_today, email::daily_limit(&cfg.email.provider), remaining, local_now),
+            "sending": status::sending(sent_today, cfg.pacing().per_day, remaining, local_now),
+            "account_blocked": super::handlers::account_blocked_view(&st),
             "regions": status::regions(&st.brokers.brokers, &states),
             "activity": status::activity(&recent),
             "rounds": rounds,

@@ -1,7 +1,7 @@
 use super::*;
 use crate::history::{BrokerResponse, ScannedMessage, Status};
 use crate::scanner::actions;
-use crate::scanner::tests::MockSender;
+use crate::scanner::tests::{FailingSender, MockSender};
 use std::sync::{Arc, Mutex};
 
 fn cfg() -> Config {
@@ -742,4 +742,51 @@ fn long_errors_are_shortened() {
     shorten_errors(&mut r);
     assert_eq!(r.errors[0].chars().count(), MAX_ERROR_LEN + 1);
     assert_eq!(r.errors[1], "short");
+}
+
+#[tokio::test]
+async fn breaker_trips_on_the_first_rejection_and_stops_the_round() {
+    let brokers = (0..3).map(|i| broker(&format!("b{i}"), "")).collect();
+    let f = fixture(cfg(), brokers);
+    let failing = FailingSender::new("SMTP authentication failed");
+    let mut deps = f.deps();
+    deps.sender = &failing;
+    let id = f.store.begin_round(false).unwrap().unwrap();
+    let r = run_round(&deps, None, false, id).await;
+    assert_eq!(failing.calls(), 1, "no further attempts");
+    assert!(
+        r.auth_failed && r.summary().contains("sending paused"),
+        "{}",
+        r.summary()
+    );
+    assert!(f.store.account_blocked().unwrap().is_some());
+    // the next round sends nothing while blocked
+    let id = f.store.begin_round(false).unwrap().unwrap();
+    let r = run_round(&deps, None, false, id).await;
+    assert_eq!(failing.calls(), 1);
+    assert!(r.auth_failed);
+}
+
+#[tokio::test]
+async fn round_stops_at_the_hourly_cap() {
+    let brokers = (0..3).map(|i| broker(&format!("b{i}"), "")).collect();
+    let mut c = cfg();
+    c.account.provider = "icloud".into();
+    let f = fixture(c, brokers);
+    for i in 0..25 {
+        let mut r = Record {
+            broker_id: format!("old{i}"),
+            broker_name: "Old".into(),
+            email: "p@old.test".into(),
+            template: "gdpr".into(),
+            status: Status::Failed,
+            sent_at: Some(Local::now() - TimeDelta::minutes(30)),
+            ..Default::default()
+        };
+        f.store.add(&mut r).unwrap();
+    }
+    let r = f.round(false, None).await;
+    assert_eq!(r.requests_sent, 0);
+    assert!(r.hourly_limit_reached && !r.daily_limit_reached, "{r:?}");
+    assert!(f.sent().is_empty());
 }

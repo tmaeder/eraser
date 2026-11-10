@@ -63,6 +63,7 @@
                 const what = j.kind === 'company_unsubscribe' ? 'Unsubscribing' : 'Sending deletion requests';
                 let text = `${what}: ${j.sent + j.failed} of ${j.total} (${j.sent} ok, ${j.failed} failed)`;
                 if (j.current_broker) text += ` – ${j.current_broker}`;
+                if (j.waiting) text += ` – ${j.waiting}`;
                 if (j.error) text += ` – ${j.error}`;
                 document.getElementById('job-text').textContent = text;
                 if (j.status === 'running') setTimeout(poll, 1000);

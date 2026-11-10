@@ -19,7 +19,14 @@ CREATE TABLE IF NOT EXISTS autopilot_rounds (
     dry_run INTEGER NOT NULL DEFAULT 0,
     report TEXT NOT NULL DEFAULT ''
 );
+CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
 ";
+
+const BLOCKED_AT: &str = "account_blocked_at";
+const BLOCKED_REASON: &str = "account_blocked_reason";
 
 /// An unfinished round older than this was interrupted (container killed) and no longer blocks.
 pub const STALE_ROUND: TimeDelta = TimeDelta::hours(2);
@@ -232,6 +239,72 @@ impl Store {
                 |r| r.get(0),
             )
             .context("failed to count sent emails")
+    }
+
+    /// Send attempts (requests of any status, reminders) since `since`, oldest first.
+    pub fn send_times_since(&self, since: DateTime<Local>) -> Result<Vec<DateTime<Local>>> {
+        // String bound with slack for zone abbreviations and DST; exact filter below.
+        let bound = format_time(&(since - TimeDelta::hours(2)));
+        let db = self.db();
+        let mut stmt = db
+            .prepare(
+                "SELECT sent_at FROM removal_requests WHERE sent_at >= ?1
+                 UNION ALL SELECT reminder_sent_at FROM removal_requests WHERE reminder_sent_at >= ?1",
+            )
+            .context("failed to query send times")?;
+        let rows = stmt
+            .query_map([bound], |r| r.get::<_, String>(0))
+            .context("failed to query send times")?;
+        let mut times: Vec<DateTime<Local>> = rows
+            .filter_map(|r| r.ok().as_deref().and_then(super::parse_time))
+            .filter(|t| *t >= since)
+            .collect();
+        times.sort();
+        Ok(times)
+    }
+
+    /// Circuit breaker: the provider rejected our account; every send path refuses until cleared.
+    pub fn block_account(&self, reason: &str) -> Result<()> {
+        let db = self.db();
+        for (k, v) in [
+            (BLOCKED_AT, now_str()),
+            (BLOCKED_REASON, reason.to_string()),
+        ] {
+            db.execute(
+                "INSERT INTO settings (key, value) VALUES (?, ?)
+                 ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                params![k, v],
+            )
+            .context("failed to store account block")?;
+        }
+        Ok(())
+    }
+
+    /// (since, reason) while sending is blocked.
+    pub fn account_blocked(&self) -> Result<Option<(DateTime<Local>, String)>> {
+        let db = self.db();
+        let get = |k: &str| {
+            db.query_row("SELECT value FROM settings WHERE key = ?", [k], |r| {
+                r.get::<_, String>(0)
+            })
+            .optional()
+            .context("failed to read account block")
+        };
+        let Some(at) = get(BLOCKED_AT)? else {
+            return Ok(None);
+        };
+        let at = super::parse_time(&at).unwrap_or_else(Local::now);
+        Ok(Some((at, get(BLOCKED_REASON)?.unwrap_or_default())))
+    }
+
+    pub fn clear_account_block(&self) -> Result<()> {
+        self.db()
+            .execute(
+                "DELETE FROM settings WHERE key IN (?, ?)",
+                params![BLOCKED_AT, BLOCKED_REASON],
+            )
+            .context("failed to clear account block")?;
+        Ok(())
     }
 
     /// Any task (any status) of this type for this URL: links are handled at most once.

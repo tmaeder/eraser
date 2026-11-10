@@ -58,6 +58,10 @@ Required fields in `data/brokers.yaml`: `id`, `name`, `email`, `region` (`us`, `
 
 `deploy/` runs the binary in a Cloudflare Container behind a Worker at https://erase.kampa.app: login page with signed cookie (+ basic auth for scripts, rate-limited), `/internal/*` blocked publicly, `/p/<token>.gif` tracking pixel public, cron every 6 h calls `/internal/autopilot/tick`. `~/.eraser` is restored from and synced to the R2 bucket `eraser-state` every 60 s (only on change) and on SIGTERM. Worker secrets: `ERASER_PASSWORD`, `ERASER_AUTOPILOT_TOKEN`, `ERASER_CONFIG_KEY` (encrypts app passwords in the config); copies live in the macOS Keychain (`security find-generic-password -s erase.kampa.app -a <eraser|autopilot|config-key> -w`). Deploy with `cd deploy && npx wrangler deploy` (Docker must be running).
 
+## Sending Safety
+
+`email::pacing` (per account provider: min interval, per-hour, per-day) is enforced in every send path via `email::wait_turn` (counts `removal_requests` attempts incl. pending/failed). `email::trip_on_rejection` is the circuit breaker: the first account-level rejection (auth failure, iCloud 550 5.1.1, IMAP AUTHENTICATIONFAILED) stores `account_blocked_*` in the `settings` table, stops the job/round and pauses the autopilot; all sends refuse until a connection test passes. Never retry account-level errors.
+
 ## Security Notes
 
 - Never commit user configs (personal data, app passwords); the config file is 0600

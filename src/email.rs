@@ -164,12 +164,177 @@ pub trait Sender: Send + Sync {
     fn name(&self) -> &'static str;
 }
 
-/// Emails per day per provider (iCloud allows ~1000/day, Gmail ~500/day; stay well under both).
-pub fn daily_limit(provider: &str) -> i64 {
-    match provider {
-        "sendgrid" | "resend" => 500,
-        _ => 250,
+/// Sending pace for a provider. Bursts get accounts blocked: iCloud locked an account after 81
+/// mails in four minutes (SMTP "550 5.1.1 Mailbox does not exist", IMAP AUTHENTICATIONFAILED).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Pacing {
+    /// Between two consecutive sends, across all send paths.
+    pub min_interval: Duration,
+    /// Attempts (any outcome) in any 60 minutes; `i64::MAX` = no cap.
+    pub per_hour: i64,
+    pub per_day: i64,
+}
+
+/// Provider presets (account.provider). `rate_limit_ms` (options) sets the custom interval and
+/// can only slow a known provider down, never speed it up.
+pub fn pacing(provider: &str, rate_limit_ms: i64) -> Pacing {
+    let configured = Duration::from_millis(u64::try_from(rate_limit_ms).unwrap_or(0));
+    let (secs, per_hour, per_day) = match provider {
+        "icloud" => (45, 25, 100),
+        "gmail" => (20, 60, 400),
+        "outlook" => (30, 30, 250),
+        _ => {
+            let interval = if rate_limit_ms > 0 {
+                configured
+            } else {
+                Duration::from_millis(2000)
+            };
+            return Pacing {
+                min_interval: interval,
+                per_hour: i64::MAX,
+                per_day: 250,
+            };
+        }
+    };
+    Pacing {
+        min_interval: Duration::from_secs(secs).max(configured),
+        per_hour,
+        per_day,
     }
+}
+
+/// Display name of a provider for limit messages.
+pub fn provider_name(provider: &str) -> &str {
+    match provider {
+        "icloud" => "iCloud",
+        "gmail" => "Gmail",
+        "outlook" => "Outlook",
+        _ => "your provider",
+    }
+}
+
+pub fn is_apple_address(addr: &str) -> bool {
+    let a = addr.trim().to_lowercase();
+    ["@icloud.com", "@me.com", "@mac.com"]
+        .iter()
+        .any(|d| a.ends_with(d))
+}
+
+/// Whether a send/login error means the provider rejected our account (not one recipient):
+/// SMTP 530/534/535 and other auth failures, IMAP AUTHENTICATIONFAILED, and for iCloud any
+/// 550 5.1.1. iCloud's submission server does not verify outside recipients while sending, so
+/// "Mailbox does not exist" there refers to the sender's own (blocked) mailbox.
+pub fn is_account_rejection(cfg: &crate::config::Config, err: &str) -> bool {
+    let e = err.to_lowercase();
+    let apple = cfg.account.provider == "icloud"
+        || is_apple_address(&cfg.email.smtp.username)
+        || is_apple_address(&cfg.email.from);
+    e.contains("auth") || (apple && e.contains("5.1.1"))
+}
+
+/// Why sending must not happen now.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Hold {
+    /// Circuit breaker tripped (reason).
+    Blocked(String),
+    /// Hourly cap full until this time.
+    Hourly {
+        until: chrono::DateTime<chrono::Local>,
+        per_hour: i64,
+        provider: String,
+    },
+    Daily(i64),
+    Error(String),
+}
+
+impl std::fmt::Display for Hold {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Hold::Blocked(reason) => write!(
+                f,
+                "Sending is paused: your mail provider rejected Eraser's login ({reason}). Create a new app-specific password under Settings → Account and click Test connection."
+            ),
+            Hold::Hourly {
+                until,
+                per_hour,
+                provider,
+            } => write!(
+                f,
+                "Hourly limit reached ({per_hour}/h for {}) — try again at {}",
+                provider_name(provider),
+                until.format("%H:%M")
+            ),
+            Hold::Daily(n) => write!(f, "Daily limit of {n} emails reached"),
+            Hold::Error(e) => write!(f, "not sent: {e}"),
+        }
+    }
+}
+
+/// Sends allowed right now: Ok(wait before sending) or the reason to hold.
+pub fn check_turn(
+    store: &crate::history::Store,
+    cfg: &crate::config::Config,
+) -> Result<Duration, Hold> {
+    let err = |e: anyhow::Error| Hold::Error(format!("{e:#}"));
+    if let Some((_, reason)) = store.account_blocked().map_err(err)? {
+        return Err(Hold::Blocked(reason));
+    }
+    let p = cfg.pacing();
+    let now = chrono::Local::now();
+    let midnight = now
+        .date_naive()
+        .and_hms_opt(0, 0, 0)
+        .and_then(|m| m.and_local_timezone(chrono::Local).earliest())
+        .unwrap_or(now);
+    if store.emails_sent_since(midnight).map_err(err)? >= p.per_day {
+        return Err(Hold::Daily(p.per_day));
+    }
+    let hour = chrono::TimeDelta::hours(1);
+    let times = store.send_times_since(now - hour).map_err(err)?;
+    let n = times.len() as i64;
+    if n >= p.per_hour {
+        // Free again once the oldest attempts beyond the cap leave the 60-minute window.
+        let until = times[(n - p.per_hour) as usize] + hour;
+        return Err(Hold::Hourly {
+            until,
+            per_hour: p.per_hour,
+            provider: cfg.account.provider.clone(),
+        });
+    }
+    let since_last = times
+        .last()
+        .and_then(|t| (now - *t).to_std().ok())
+        .unwrap_or(p.min_interval);
+    Ok(p.min_interval.saturating_sub(since_last))
+}
+
+/// Waits out the minimum interval since the last send; Err = must not send now.
+pub async fn wait_turn(
+    store: &crate::history::Store,
+    cfg: &crate::config::Config,
+) -> Result<(), Hold> {
+    let wait = check_turn(store, cfg)?;
+    if !wait.is_zero() {
+        tokio::time::sleep(wait).await;
+    }
+    Ok(())
+}
+
+/// Trips the circuit breaker when `err` is an account-level rejection: records the block (all
+/// send paths refuse until a successful connection test). True = stop sending now.
+pub fn trip_on_rejection(
+    store: &crate::history::Store,
+    cfg: &crate::config::Config,
+    err: &str,
+) -> bool {
+    if !is_account_rejection(cfg, err) {
+        return false;
+    }
+    tracing::warn!("mail provider rejected the account ({err}); sending paused");
+    if let Err(e) = store.block_account(err) {
+        tracing::error!("failed to record account block: {e:#}");
+    }
+    true
 }
 
 pub fn new_sender(cfg: &EmailConfig) -> Result<Box<dyn Sender>> {
@@ -831,9 +996,138 @@ mod tests {
     }
 
     #[test]
-    fn daily_limits() {
-        assert_eq!(daily_limit("smtp"), 250);
-        assert_eq!(daily_limit(""), 250);
-        assert_eq!(daily_limit("sendgrid"), 500);
+    fn pacing_per_provider() {
+        let p = |prov, ms| pacing(prov, ms);
+        let s = Duration::from_secs;
+        assert_eq!(
+            p("icloud", 2000),
+            Pacing {
+                min_interval: s(45),
+                per_hour: 25,
+                per_day: 100
+            }
+        );
+        assert_eq!(
+            p("gmail", 2000),
+            Pacing {
+                min_interval: s(20),
+                per_hour: 60,
+                per_day: 400
+            }
+        );
+        assert_eq!(
+            p("outlook", 0),
+            Pacing {
+                min_interval: s(30),
+                per_hour: 30,
+                per_day: 250
+            }
+        );
+        let custom = p("custom", 2000);
+        assert_eq!(
+            (custom.min_interval, custom.per_hour, custom.per_day),
+            (s(2), i64::MAX, 250)
+        );
+        assert_eq!(p("", 0).min_interval, s(2));
+        assert_eq!(p("custom", 5).min_interval, Duration::from_millis(5));
+        // options.rate_limit_ms only slows a preset down
+        assert_eq!(p("icloud", 1).min_interval, s(45));
+        assert_eq!(p("icloud", 60_000).min_interval, s(60));
+    }
+
+    #[test]
+    fn account_rejections() {
+        let mut cfg = crate::config::Config::default();
+        cfg.email.smtp.username = "me@example.org".into();
+        let rejected = |cfg: &crate::config::Config, e: &str| is_account_rejection(cfg, e);
+        assert!(rejected(&cfg, AUTH_FAILED));
+        assert!(rejected(
+            &cfg,
+            "inbox: failed to login: No response: [AUTHENTICATIONFAILED] x"
+        ));
+        let gone = "Rejected by mail server: 550 5.1.1 Mailbox does not exist";
+        assert!(!rejected(&cfg, gone), "a recipient error elsewhere");
+        assert!(!rejected(&cfg, "Rejected by mail server: 554 5.7.1 spam"));
+        cfg.email.smtp.username = "me@icloud.com".into();
+        assert!(rejected(&cfg, gone), "iCloud: the sender's own mailbox");
+        // 535 is classified as an auth failure by the sanitizer
+        assert_eq!(
+            sanitize_message("permanent error (535): x", true),
+            AUTH_FAILED
+        );
+    }
+
+    #[tokio::test]
+    async fn never_retries_auth_failures() {
+        let (port, server) = fake_smtp(vec!["535 5.7.8 bad credentials", "250 ok"]).await;
+        let r = smtp(i64::from(port), false, "").send(&msg(), Some(1)).await;
+        assert_eq!(r.error.as_deref(), Some(AUTH_FAILED));
+        let (_, conns) = server.await.unwrap();
+        assert_eq!(conns, 1, "not retried");
+    }
+
+    #[test]
+    fn turn_respects_block_hourly_cap_and_interval() {
+        use crate::history::{Record, Status, Store};
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path().join("h.db")).unwrap();
+        let mut cfg = crate::config::Config::default();
+        cfg.account.provider = "icloud".into();
+        assert_eq!(check_turn(&store, &cfg), Ok(Duration::ZERO));
+        let add = |minutes_ago: i64, status: Status| {
+            let mut r = Record {
+                broker_id: "b".into(),
+                broker_name: "B".into(),
+                email: "p@b.test".into(),
+                template: "gdpr".into(),
+                status,
+                sent_at: Some(chrono::Local::now() - chrono::TimeDelta::minutes(minutes_ago)),
+                ..Default::default()
+            };
+            store.add(&mut r).unwrap();
+        };
+        add(90, Status::Sent); // outside the hour
+        add(0, Status::Pending);
+        let wait = check_turn(&store, &cfg).unwrap();
+        assert!(wait > Duration::from_secs(40), "min interval: {wait:?}");
+        // pending and failed attempts count towards the hourly cap
+        for i in 1..25 {
+            add(
+                i,
+                if i % 2 == 0 {
+                    Status::Failed
+                } else {
+                    Status::Sent
+                },
+            );
+        }
+        let Err(Hold::Hourly {
+            until, per_hour, ..
+        }) = check_turn(&store, &cfg)
+        else {
+            panic!("hourly cap");
+        };
+        assert_eq!(per_hour, 25);
+        // the oldest attempt in the window (24 min ago) leaves it in 36 minutes
+        let left = (until - chrono::Local::now()).num_minutes();
+        assert!((34..=36).contains(&left), "{left}");
+        let msg = Hold::Hourly {
+            until,
+            per_hour,
+            provider: "icloud".into(),
+        }
+        .to_string();
+        assert!(
+            msg.starts_with("Hourly limit reached (25/h for iCloud) — try again at "),
+            "{msg}"
+        );
+
+        store.block_account("SMTP authentication failed").unwrap();
+        assert_eq!(
+            check_turn(&store, &cfg),
+            Err(Hold::Blocked("SMTP authentication failed".into()))
+        );
+        store.clear_account_block().unwrap();
+        assert!(store.account_blocked().unwrap().is_none());
     }
 }

@@ -50,7 +50,8 @@ pub struct JobData {
     pub error_type: String,
     pub daily_limit: i64,
     pub day_sent: i64,
-    consecutive_auth_fails: u32,
+    /// Shown while the job waits for the hourly limit ("" otherwise).
+    pub waiting: String,
 }
 
 pub struct Job {
@@ -100,17 +101,6 @@ impl Job {
         j.current_broker.clear();
     }
 
-    /// Returns true if the job should stop (3 consecutive auth failures).
-    pub fn record_auth_failure(&self) -> bool {
-        let mut j = self.data.lock().unwrap();
-        j.consecutive_auth_fails += 1;
-        j.consecutive_auth_fails >= 3
-    }
-
-    pub fn reset_auth_failures(&self) {
-        self.data.lock().unwrap().consecutive_auth_fails = 0;
-    }
-
     pub fn cancel(&self) {
         let mut j = self.data.lock().unwrap();
         if j.status == JobStatus::Running {
@@ -147,6 +137,7 @@ impl Job {
             "error_type": j.error_type,
             "daily_limit": j.daily_limit,
             "day_sent": j.day_sent,
+            "waiting": j.waiting,
         })
     }
 }
@@ -289,8 +280,6 @@ mod tests {
         assert!(jm.get_active().is_some());
         job.update(1, 1, "b");
         assert_eq!(job.to_json()["progress"], 50);
-        assert!(!job.record_auth_failure() && !job.record_auth_failure());
-        assert!(job.record_auth_failure());
         job.cancel();
         assert!(job.is_cancelled() && jm.get_active().is_none());
         assert_eq!(job.to_json()["status"], "cancelled");

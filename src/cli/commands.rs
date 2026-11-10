@@ -45,6 +45,43 @@ impl Ctx {
     pub fn load_brokers(&self) -> Result<broker::BrokerDatabase> {
         broker::load_from_file(self.broker_path()).context("failed to load brokers")
     }
+
+    /// After the circuit breaker tripped: switches the autopilot off in the saved config.
+    pub fn pause_autopilot_if_blocked(&self, store: &Store) {
+        if !matches!(store.account_blocked(), Ok(Some(_))) {
+            return;
+        }
+        if let Ok(mut cfg) = self.load_config()
+            && cfg.autopilot.enabled
+        {
+            cfg.autopilot.enabled = false;
+            match config::save(self.config_path(), &cfg) {
+                Ok(()) => println!("⏸️  Autopilot paused."),
+                Err(e) => println!("⚠️  Failed to pause the autopilot: {e:#}"),
+            }
+        }
+    }
+}
+
+/// Waits for the provider's pace (minimum interval, and the hourly cap if reached).
+/// Err = stop sending (daily limit, blocked account).
+pub async fn wait_turn(
+    store: &Store,
+    cfg: &config::Config,
+) -> std::result::Result<(), email::Hold> {
+    loop {
+        match email::wait_turn(store, cfg).await {
+            Err(email::Hold::Hourly { until, .. }) => {
+                println!(
+                    "  ⏳ waiting for hourly limit until {}",
+                    until.format("%H:%M")
+                );
+                let wait = (until - chrono::Local::now()).to_std().unwrap_or_default();
+                tokio::time::sleep(wait + Duration::from_secs(1)).await;
+            }
+            r => return r,
+        }
+    }
 }
 
 pub async fn dispatch(ctx: &Ctx, cmd: Cmd) -> Result<()> {
@@ -336,6 +373,10 @@ async fn run_send(ctx: &Ctx, dry_run: bool) -> Result<()> {
             subject: msg.subject,
             body: msg.body,
         };
+        if let Err(hold) = wait_turn(&store, &cfg).await {
+            println!("  ⛔ {hold}");
+            break;
+        }
         // Crash-safe: recorded as `pending` before sending and finalized after, so an
         // interrupted run is flagged instead of resent.
         let mut record = Record {
@@ -360,13 +401,14 @@ async fn run_send(ctx: &Ctx, dry_run: bool) -> Result<()> {
             println!("  ✅ Sent successfully");
             success += 1;
         } else {
-            println!("  ❌ Failed: {}", result.error.unwrap_or_default());
+            let err = result.error.unwrap_or_default();
+            println!("  ❌ Failed: {err}");
             failed += 1;
-        }
-
-        if i < brokers.len() - 1 {
-            let ms = u64::try_from(cfg.options.rate_limit_ms).unwrap_or(0);
-            tokio::time::sleep(Duration::from_millis(ms)).await;
+            if email::trip_on_rejection(&store, &cfg, &err) {
+                println!("  ⛔ {}", email::Hold::Blocked(err));
+                ctx.pause_autopilot_if_blocked(&store);
+                break;
+            }
         }
     }
 
@@ -617,6 +659,7 @@ async fn run_autopilot(ctx: &Ctx, dry_run: bool) -> Result<()> {
         discoverer: &discoverer,
     };
     let report = eraser::autopilot::run_round(&deps, monitor, dry_run, id).await;
+    ctx.pause_autopilot_if_blocked(&store);
     println!("✅ {}", report.summary());
     for e in &report.errors {
         println!("   ⚠️  {e}");

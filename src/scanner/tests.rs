@@ -176,6 +176,35 @@ impl Sender for MockSender {
     }
 }
 
+/// Fails every send with `.0` and counts the attempts.
+#[derive(Clone, Default)]
+pub(crate) struct FailingSender(pub String, pub Arc<Mutex<usize>>);
+
+impl FailingSender {
+    pub(crate) fn new(error: &str) -> Self {
+        Self(error.into(), Arc::default())
+    }
+    pub(crate) fn calls(&self) -> usize {
+        *self.1.lock().unwrap()
+    }
+}
+
+impl Sender for FailingSender {
+    fn send<'a>(&'a self, _: &'a Message, _: Option<usize>) -> BoxFuture<'a, SendResult> {
+        *self.1.lock().unwrap() += 1;
+        Box::pin(async {
+            SendResult {
+                success: false,
+                message_id: String::new(),
+                error: Some(self.0.clone()),
+            }
+        })
+    }
+    fn name(&self) -> &'static str {
+        "failing"
+    }
+}
+
 /// Serves `router` on 127.0.0.1:random and returns the origin.
 async fn serve(router: Router) -> String {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();

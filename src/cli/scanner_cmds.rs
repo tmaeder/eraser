@@ -1,6 +1,6 @@
 //! `scan`, `companies`, `unsubscribe`, `request` (inbox company scanner).
 
-use super::commands::{Ctx, RULE, open_store, prompt, truncate};
+use super::commands::{Ctx, RULE, open_store, prompt, truncate, wait_turn};
 use anyhow::{Result, bail};
 use eraser::config::Config;
 use eraser::email::{self, Sender};
@@ -9,7 +9,6 @@ use eraser::inbox::monitor::Monitor;
 use eraser::scanner::actions::{self, Unsubscribe, request_target};
 use eraser::scanner::discovery::Discoverer;
 use eraser::scanner::{self, Identity};
-use std::time::Duration;
 
 fn load_inbox_config(ctx: &Ctx) -> Result<Config> {
     let cfg = ctx.load_config()?;
@@ -177,10 +176,7 @@ fn confirm(yes: bool, dry_run: bool, n: usize) -> bool {
 
 async fn pause(cfg: &Config, i: usize, n: usize) {
     if i + 1 < n {
-        tokio::time::sleep(Duration::from_millis(
-            cfg.options.rate_limit_ms.max(0) as u64
-        ))
-        .await;
+        tokio::time::sleep(cfg.pacing().min_interval).await;
     }
 }
 
@@ -213,7 +209,20 @@ pub async fn run_request(ctx: &Ctx, domains: Vec<String>, dry_run: bool, yes: bo
     let engine = eraser::template::Engine::new()?;
     let (mut ok, mut failed) = (0, 0);
     for (i, c) in runnable.iter().enumerate() {
+        if !dry_run && let Err(hold) = wait_turn(&store, &cfg).await {
+            println!("   ⛔ {hold}");
+            break;
+        }
         let r = actions::send_request(&store, &engine, sender.as_ref(), &cfg, c, dry_run).await;
+        if !r.success && email::trip_on_rejection(&store, &cfg, r.error.as_deref().unwrap_or("")) {
+            failed += 1;
+            println!(
+                "   ⛔ {}",
+                email::Hold::Blocked(r.error.unwrap_or_default())
+            );
+            ctx.pause_autopilot_if_blocked(&store);
+            break;
+        }
         if r.success {
             ok += 1;
             println!(
@@ -276,7 +285,23 @@ pub async fn run_unsubscribe(
     let sender = email::new_sender(&cfg.email)?;
     let http = actions::http_client();
     for (i, c) in runnable.iter().enumerate() {
+        let emails = Unsubscribe::for_company(c).sends_email();
+        if emails
+            && !dry_run
+            && let Err(hold) = wait_turn(&store, &cfg).await
+        {
+            println!("   ⛔ {hold}");
+            break;
+        }
         let r = actions::unsubscribe(&store, &http, sender.as_ref(), &cfg, c, dry_run).await;
+        if emails && email::trip_on_rejection(&store, &cfg, r.error.as_deref().unwrap_or("")) {
+            println!(
+                "   ⛔ {}",
+                email::Hold::Blocked(r.error.unwrap_or_default())
+            );
+            ctx.pause_autopilot_if_blocked(&store);
+            break;
+        }
         match r.error {
             None => println!(
                 "   ✅ {}{}",

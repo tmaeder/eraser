@@ -25,7 +25,6 @@ use chrono::{DateTime, Datelike, Local, TimeDelta, TimeZone, Timelike, Utc};
 use futures::FutureExt;
 use serde::{Deserialize, Serialize};
 use std::panic::AssertUnwindSafe;
-use std::time::Duration;
 
 /// Hours between hosted rounds (Worker cron `0 */6 * * *`, UTC).
 pub const ROUND_HOURS: u32 = 6;
@@ -69,7 +68,12 @@ pub struct RoundReport {
     /// Companies skipped because of the keep list.
     pub kept: usize,
     pub daily_limit_reached: bool,
+    pub hourly_limit_reached: bool,
+    /// The provider rejected the account: sending stopped and paused (circuit breaker).
     pub auth_failed: bool,
+    /// No more sends this round (any limit, the breaker or a history error).
+    #[serde(skip)]
+    pub stop_sending: bool,
     pub errors: Vec<String>,
 }
 
@@ -99,8 +103,11 @@ impl RoundReport {
         if self.daily_limit_reached {
             s.push_str("; daily limit reached");
         }
+        if self.hourly_limit_reached {
+            s.push_str("; hourly limit reached, the next round continues");
+        }
         if self.auth_failed {
-            s.push_str("; SMTP authentication failed");
+            s.push_str("; mail provider rejected the account, sending paused");
         }
         if !self.errors.is_empty() {
             let _ = write!(s, "; {} errors", self.errors.len());
@@ -182,30 +189,40 @@ async fn send(d: &Deps<'_>, msg: &Message) -> SendResult {
 }
 
 async fn pause(cfg: &Config) {
-    tokio::time::sleep(Duration::from_millis(
-        cfg.options.rate_limit_ms.max(0) as u64
-    ))
-    .await;
+    tokio::time::sleep(cfg.pacing().min_interval).await;
 }
 
-/// Takes one email from today's budget; false when sending must stop for this round.
-fn take_budget(budget: &mut i64, r: &mut RoundReport) -> bool {
-    if r.auth_failed {
+/// Takes one email from today's budget and waits for the provider's pace; false when sending
+/// must stop for this round (daily or hourly cap, blocked account). A dry run only counts.
+async fn take_budget(d: &Deps<'_>, dry_run: bool, budget: &mut i64, r: &mut RoundReport) -> bool {
+    if r.stop_sending {
         return false;
     }
     if *budget <= 0 {
         r.daily_limit_reached = true;
+        r.stop_sending = true;
+        return false;
+    }
+    if !dry_run && let Err(hold) = email::wait_turn(d.store, d.cfg).await {
+        r.stop_sending = true;
+        match hold {
+            email::Hold::Blocked(_) => r.auth_failed = true,
+            email::Hold::Hourly { .. } => r.hourly_limit_reached = true,
+            email::Hold::Daily(_) => r.daily_limit_reached = true,
+            email::Hold::Error(_) => r.errors.push(hold.to_string()),
+        }
         return false;
     }
     *budget -= 1;
     true
 }
 
-/// Logs a failed send; an authentication error stops all sending for this round.
-fn record_failure(r: &mut RoundReport, what: &str, err: &str) {
+/// Logs a failed send; an account-level rejection trips the breaker and stops all sending.
+fn record_failure(d: &Deps<'_>, r: &mut RoundReport, what: &str, err: &str) {
     r.errors.push(format!("{what}: {err}"));
-    if err.to_lowercase().contains("auth") {
+    if email::trip_on_rejection(d.store, d.cfg, err) {
         r.auth_failed = true;
+        r.stop_sending = true;
     }
 }
 
@@ -239,7 +256,7 @@ async fn reminders(d: &Deps<'_>, dry_run: bool, budget: &mut i64, r: &mut RoundR
         let Some(broker) = find_broker(d, &rec.broker_id) else {
             continue;
         };
-        if !take_budget(budget, r) {
+        if !take_budget(d, dry_run, budget, r).await {
             return;
         }
         if dry_run {
@@ -285,7 +302,7 @@ async fn reminders(d: &Deps<'_>, dry_run: bool, budget: &mut i64, r: &mut RoundR
         } else {
             let _ = d.store.release_reminder(rec.id);
             let what = format!("reminder {}", rec.broker_id);
-            record_failure(r, &what, res.error.as_deref().unwrap_or(""));
+            record_failure(d, r, &what, res.error.as_deref().unwrap_or(""));
         }
         pause(d.cfg).await;
     }
@@ -307,7 +324,7 @@ async fn broker_requests(d: &Deps<'_>, dry_run: bool, budget: &mut i64, r: &mut 
         .filter(|b| !b.email.is_empty() && !contacted.contains_key(&b.id))
         .collect();
     for b in &pending {
-        if !take_budget(budget, r) {
+        if !take_budget(d, dry_run, budget, r).await {
             return;
         }
         if dry_run {
@@ -345,7 +362,7 @@ async fn broker_requests(d: &Deps<'_>, dry_run: bool, budget: &mut i64, r: &mut 
         if res.success {
             r.requests_sent += 1;
         } else {
-            record_failure(r, &b.id, res.error.as_deref().unwrap_or(""));
+            record_failure(d, r, &b.id, res.error.as_deref().unwrap_or(""));
         }
         pause(d.cfg).await;
     }
@@ -683,14 +700,14 @@ async fn company_requests(
             && actions::request_target(c).is_ok()
     };
     for c in cands.iter().filter(verified) {
-        if !take_budget(budget, r) {
+        if !take_budget(d, dry_run, budget, r).await {
             return;
         }
         let res = actions::send_request(d.store, d.engine, d.sender, d.cfg, c, dry_run).await;
         if res.success {
             r.company_requests += 1;
         } else {
-            record_failure(r, &c.agg.domain, res.error.as_deref().unwrap_or(""));
+            record_failure(d, r, &c.agg.domain, res.error.as_deref().unwrap_or(""));
         }
         if !dry_run {
             pause(d.cfg).await;
@@ -795,20 +812,31 @@ pub async fn run_round(
     };
     let steps = &d.cfg.autopilot;
     let mut budget = match d.store.emails_sent_since(start_of_today()) {
-        Ok(n) => email::daily_limit(&d.cfg.email.provider) - n,
+        Ok(n) => d.cfg.pacing().per_day - n,
         Err(e) => {
             r.errors.push(format!("daily limit: {e:#}; nothing sent"));
             0
         }
     };
     flag_interrupted(d.store, &mut r);
+    // Blocked account: no logins at all (more failed logins make a provider lock worse).
+    let blocked = !dry_run && matches!(d.store.account_blocked(), Ok(Some(_)));
+    if blocked {
+        r.auth_failed = true;
+        r.stop_sending = true;
+    }
 
     let mut monitor = monitor;
     let connected = match monitor.as_mut() {
-        Some(m) if steps.check_inbox || steps.scan_inbox => match m.connect().await {
+        Some(m) if !blocked && (steps.check_inbox || steps.scan_inbox) => match m.connect().await {
             Ok(()) => true,
             Err(e) => {
-                r.errors.push(format!("inbox: {e:#}"));
+                let err = format!("inbox: {e:#}");
+                if email::trip_on_rejection(d.store, d.cfg, &err) {
+                    r.auth_failed = true;
+                    r.stop_sending = true;
+                }
+                r.errors.push(err);
                 false
             }
         },

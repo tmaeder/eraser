@@ -76,9 +76,9 @@ pub(super) fn account_view(a: &AccountConfig) -> serde_json::Value {
 
 #[derive(Serialize, Debug)]
 pub(super) struct Check {
-    name: &'static str,
-    ok: bool,
-    detail: String,
+    pub(super) name: &'static str,
+    pub(super) ok: bool,
+    pub(super) detail: String,
 }
 
 /// SMTP login and IMAP login + logout, in parallel, each bounded by `email::TEST_TIMEOUT`.
@@ -110,9 +110,7 @@ pub(super) async fn connection_checks(cfg: &Config) -> Vec<Check> {
 /// iCloud logs in with the primary address only; an alias fails with these errors.
 fn alias_hint(login: &str, detail: String) -> String {
     let d = detail.to_lowercase();
-    let apple = ["@icloud.com", "@me.com", "@mac.com"]
-        .iter()
-        .any(|s| login.to_lowercase().ends_with(s));
+    let apple = crate::email::is_apple_address(login);
     let alias_error = d.contains("5.1.1")
         || d.contains("mailbox does not exist")
         || d.contains("authenticationfailed")
@@ -140,6 +138,24 @@ fn checks_html(checks: &[Check]) -> String {
         })
         .collect();
     format!(r#"<ul class="space-y-1 text-sm">{rows}</ul>"#)
+}
+
+/// Both logins work again: clears the circuit breaker. Returns the note to show when it was
+/// set (the autopilot stays paused until the user turns it on).
+pub(super) fn unblock_if_ok(st: &super::AppState, checks: &[Check]) -> Option<&'static str> {
+    if !checks.iter().all(|c| c.ok) || !matches!(st.history.account_blocked(), Ok(Some(_))) {
+        return None;
+    }
+    if let Err(e) = st.history.clear_account_block() {
+        tracing::error!("failed to clear the account block: {e:#}");
+        return None;
+    }
+    let paused = st.config().is_some_and(|c| !c.autopilot.enabled);
+    Some(if paused {
+        r#"Sending is unblocked. Autopilot is paused — <a href="/" class="text-accent hover:underline">turn it on again</a>."#
+    } else {
+        "Sending is unblocked."
+    })
 }
 
 /// POST /settings/account — saves the account and email.tracking, then tests the connection.
@@ -178,10 +194,11 @@ pub async fn settings_account(
         );
     }
     let checks = connection_checks(&cfg).await;
+    let unblocked = unblock_if_ok(&st, &checks);
     settings_render(
         &st,
         &t,
-        json!({ "account_message": "Account saved.", "account_success": true, "account_checks": checks }),
+        json!({ "account_message": "Account saved.", "account_success": true, "account_checks": checks, "account_unblocked": unblocked }),
     )
 }
 
@@ -190,7 +207,14 @@ pub async fn settings_account_test(State(st): St) -> Response {
     let Some(cfg) = st.config() else {
         return fragment(StatusCode::OK, "No account configured.");
     };
-    fragment(StatusCode::OK, checks_html(&connection_checks(&cfg).await))
+    let checks = connection_checks(&cfg).await;
+    let mut html = checks_html(&checks);
+    if let Some(note) = unblock_if_ok(&st, &checks) {
+        html.push_str(&format!(
+            r#"<p class="text-sm text-success mt-2" id="account-unblocked">{note}</p>"#
+        ));
+    }
+    fragment(StatusCode::OK, html)
 }
 
 /// POST /settings/inbox — inbox options only; never touches the account.

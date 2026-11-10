@@ -18,7 +18,7 @@ const TEMPLATES: &[(&str, &str)] = embed!("templates/web":
     "setup/test.html", "setup/complete.html", "partials/broker-list.html",
     "partials/history-list.html", "partials/response-list.html", "partials/task-list.html",
     "companies.html", "company-detail.html", "companies-confirm.html", "today.html",
-    "partials/status.html", "broker-detail.html", "config-locked.html",
+    "partials/status.html", "partials/account-blocked.html", "broker-detail.html", "config-locked.html",
 );
 
 pub const STATIC_FILES: &[(&str, &[u8], &str)] = &[(

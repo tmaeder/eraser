@@ -607,6 +607,11 @@ impl Config {
     }
 
     /// Validates inbox configuration (only called when inbox monitoring is used).
+    /// Sending pace of the account's provider (see [`crate::email::pacing`]).
+    pub fn pacing(&self) -> crate::email::Pacing {
+        crate::email::pacing(&self.account.provider, self.options.rate_limit_ms)
+    }
+
     pub fn validate_inbox(&self) -> Result<()> {
         let inbox = &self.inbox;
         if !inbox.enabled {

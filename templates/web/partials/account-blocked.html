@@ -1,0 +1,7 @@
+{% if account_blocked %}
+<div class="p-4 rounded-lg text-sm" role="alert" id="account-blocked" style="background: rgba(244, 63, 94, 0.12); border: 1px solid rgba(244, 63, 94, 0.35);">
+    <p class="font-medium text-error">Your mail provider rejected Eraser's login ({{ account_blocked.reason }}). Sending is paused to protect your account.</p>
+    <p class="text-secondary mt-1">Create a new app-specific password, enter it under <a href="/settings#account" class="text-accent hover:underline">Settings → Account</a> and click Test connection.</p>
+    <p class="text-xs text-muted mt-1">Since {{ account_blocked.since }}</p>
+</div>
+{% endif %}

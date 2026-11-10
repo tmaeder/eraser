@@ -7,7 +7,7 @@ use super::status;
 use super::views::STATIC_FILES;
 use crate::broker::Broker;
 use crate::config::{Config, InboxConfig, Options, Profile};
-use crate::email::{Message, SendResult, Sender};
+use crate::email::{Hold, Message, SendResult, Sender};
 use crate::history::{Chip, PipelineStatus, Record, Status, TaskType};
 use crate::inbox::classifier::{ResponseType, classify_by_subject_only, classify_response};
 use crate::inbox::monitor::Monitor as Inbox;
@@ -621,9 +621,21 @@ fn history_rows(st: &AppState, records: Vec<Record>) -> Vec<serde_json::Value> {
 }
 
 /// Settings page plus `extra` keys (section messages, connection checks).
+/// The circuit-breaker banner's data (partials/account-blocked.html), null when not blocked.
+pub(super) fn account_blocked_view(st: &AppState) -> serde_json::Value {
+    match st.history.account_blocked() {
+        Ok(Some((since, reason))) => json!({
+            "reason": reason,
+            "since": since.format("%b %-d, %H:%M").to_string(),
+        }),
+        _ => serde_json::Value::Null,
+    }
+}
+
 pub(super) fn settings_render(st: &AppState, t: &CsrfToken, extra: serde_json::Value) -> Response {
     let mut data = json!({
         "title": "Settings",
+        "account_blocked": account_blocked_view(st),
         "config": config_view(st.config().as_ref()),
         "providers": crate::config::PROVIDERS,
         "keep_builtin": crate::autopilot::keep::summary(),
@@ -1197,7 +1209,21 @@ pub async fn api_send_one(State(st): St, Path(broker_id): Path<String>) -> Respo
         subject: rendered.subject,
         body: rendered.body,
     };
+    if let Err(hold) = crate::email::wait_turn(&st.history, &cfg).await {
+        return fragment(
+            StatusCode::OK,
+            format!(
+                r#"<span class="text-red-600">{}</span>"#,
+                html_escape(&hold.to_string())
+            ),
+        );
+    }
     let result = send_recorded(&st, &br, &rendered.template, sender.as_ref(), &msg).await;
+    if let Some(err) = &result.error
+        && crate::email::trip_on_rejection(&st.history, &cfg, err)
+    {
+        st.pause_autopilot_if_blocked();
+    }
 
     if result.success {
         let states = st.history.request_states().unwrap_or_default();
@@ -1405,6 +1431,56 @@ async fn run_job_item(
     })
 }
 
+/// Whether a job item sends an email (one-click unsubscribes are HTTP only).
+fn item_emails(st: &AppState, kind: JobKind, broker: &Broker) -> bool {
+    kind != JobKind::CompanyUnsubscribe
+        || broker
+            .id
+            .strip_prefix(scanner::BROKER_PREFIX)
+            .and_then(|d| st.history.get_company(d).ok().flatten())
+            .is_some_and(|c| actions::Unsubscribe::for_company(&c).sends_email())
+}
+
+/// Waits for the provider's pace: the minimum interval and, if needed, the hourly cap.
+/// False = do not send: cancelled, paused at the daily limit, or stopped (account blocked).
+async fn wait_for_turn(st: &AppState, job: &Job, cfg: &Config, remaining: usize) -> bool {
+    loop {
+        let hold = tokio::select! {
+            r = crate::email::wait_turn(&st.history, cfg) => match r {
+                Ok(()) => return true,
+                Err(h) => h,
+            },
+            () = job.cancelled() => return false,
+        };
+        match hold {
+            Hold::Hourly { until, .. } => {
+                job.data.lock().unwrap().waiting =
+                    format!("waiting for hourly limit until {}", until.format("%H:%M"));
+                let wait =
+                    (until - Local::now()).to_std().unwrap_or_default() + Duration::from_secs(1);
+                tokio::select! {
+                    () = tokio::time::sleep(wait) => {}
+                    () = job.cancelled() => return false,
+                }
+                job.data.lock().unwrap().waiting.clear();
+            }
+            Hold::Daily(limit) => {
+                let mut d = job.data.lock().unwrap();
+                d.status = JobStatus::Paused;
+                d.error = format!(
+                    "Daily limit of {limit} emails reached. Remaining {remaining} brokers will be sent when you restart tomorrow."
+                );
+                tracing::info!("Job paused: daily limit of {limit} reached, {remaining} remaining");
+                return false;
+            }
+            Hold::Blocked(_) | Hold::Error(_) => {
+                job.stop_with_error("account", &hold.to_string());
+                return false;
+            }
+        }
+    }
+}
+
 async fn process_send_job(
     st: &AppState,
     job: &Job,
@@ -1418,13 +1494,7 @@ async fn process_send_job(
         (d.kind, d.sent, d.failed)
     };
     let mut emails_this_run = 0i64;
-    let rate_limit_ms = if cfg.options.rate_limit_ms == 0 {
-        2000
-    } else {
-        cfg.options.rate_limit_ms
-    };
-    let daily_limit = crate::email::daily_limit(&cfg.email.provider);
-    job.data.lock().unwrap().daily_limit = daily_limit;
+    job.data.lock().unwrap().daily_limit = cfg.pacing().per_day;
     let ids: Vec<String> = to_send.iter().map(|b| b.broker.id.clone()).collect();
 
     for (i, b) in to_send.iter().enumerate() {
@@ -1436,29 +1506,22 @@ async fn process_send_job(
             return;
         }
         let remaining = &ids[i..];
-        if emails_this_run >= daily_limit {
-            {
-                let mut d = job.data.lock().unwrap();
-                d.day_sent = emails_this_run;
-                d.status = JobStatus::Paused;
-                d.error = format!(
-                    "Daily limit of {daily_limit} emails reached. Remaining {} brokers will be sent when you restart tomorrow.",
-                    remaining.len()
-                );
-            }
-            save_job_progress(st, job, sent, failed, remaining);
-            tracing::info!(
-                "Job paused: daily limit of {daily_limit} reached, {} remaining",
-                remaining.len()
-            );
-            return;
-        }
         let broker = &b.broker;
         job.update(sent, failed, &broker.name);
+        if item_emails(st, kind, broker) && !wait_for_turn(st, job, cfg, remaining.len()).await {
+            if job.is_cancelled() {
+                break;
+            }
+            save_job_progress(st, job, sent, failed, remaining);
+            if job.status() == JobStatus::Completed {
+                st.pause_autopilot_if_blocked();
+            }
+            return;
+        }
 
         let outcome = tokio::select! {
             r = run_job_item(st, kind, broker, sender, cfg) => r,
-            _ = job.cancelled() => Ok((SendResult { success: false, message_id: String::new(), error: Some("context canceled".into()) }, false)),
+            () = job.cancelled() => Ok((SendResult { success: false, message_id: String::new(), error: Some("context canceled".into()) }, false)),
         };
         let Ok((result, emailed)) = outcome else {
             failed += 1;
@@ -1472,27 +1535,23 @@ async fn process_send_job(
         }
         if result.success {
             sent += 1;
-            job.reset_auth_failures();
         } else {
             failed += 1;
             let err = result.error.clone().unwrap_or_default();
-            if err.to_lowercase().contains("auth") && job.record_auth_failure() {
+            if crate::email::trip_on_rejection(&st.history, cfg, &err) {
+                job.update(sent, failed, &broker.name);
                 save_job_progress(st, job, sent, failed, &ids[i + 1..]);
-                job.stop_with_error(
-                    "auth",
-                    "Stopped due to repeated authentication failures. Your email provider may have rate-limited or blocked your account. Please check your email settings and try again later.",
-                );
-                tracing::warn!(
-                    "Job stopped: repeated auth failures after {sent} sent, {failed} failed"
-                );
+                job.stop_with_error("account", &Hold::Blocked(err).to_string());
+                st.pause_autopilot_if_blocked();
+                tracing::warn!("Job stopped: account rejected after {sent} sent, {failed} failed");
                 return;
             }
         }
         job.update(sent, failed, &broker.name);
         save_job_progress(st, job, sent, failed, &ids[i + 1..]);
 
-        if i < to_send.len() - 1 && !job.is_cancelled() {
-            tokio::time::sleep(Duration::from_millis(rate_limit_ms.max(0) as u64)).await;
+        if emailed && i < to_send.len() - 1 && !job.is_cancelled() {
+            tokio::time::sleep(cfg.pacing().min_interval).await;
         }
     }
 

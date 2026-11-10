@@ -114,6 +114,21 @@ impl AppState {
     fn config(&self) -> Option<Config> {
         self.config.read().unwrap().clone()
     }
+
+    /// After the circuit breaker tripped: switches the autopilot off (saved) so no round runs
+    /// until the user turns it on again.
+    fn pause_autopilot_if_blocked(&self) {
+        if !matches!(self.history.account_blocked(), Ok(Some(_))) {
+            return;
+        }
+        let mut guard = self.config.write().unwrap();
+        if let Some(cfg) = guard.as_mut().filter(|c| c.autopilot.enabled) {
+            cfg.autopilot.enabled = false;
+            if let Err(e) = crate::config::save(&self.config_path, cfg) {
+                tracing::error!("failed to pause the autopilot: {e:#}");
+            }
+        }
+    }
 }
 
 fn origin_host(origin: &str) -> Result<String> {

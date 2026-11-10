@@ -7,6 +7,8 @@
         <p class="text-secondary mt-1">Manage your profile, mail account and autopilot</p>
     </div>
 
+    {% if account_blocked %}<div class="mb-6">{% include "partials/account-blocked.html" %}</div>{% endif %}
+
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- Profile Section -->
         <div class="card p-6">
@@ -139,6 +141,7 @@
                     <li class="{% if c.ok %}text-success{% else %}text-error{% endif %}">{% if c.ok %}✓{% else %}✗{% endif %} {{ c.name }}: {{ c.detail }}</li>
                     {% endfor %}
                 </ul>
+                {% if account_unblocked %}<p class="text-sm text-success mt-2" id="account-unblocked">{{ account_unblocked|safe }}</p>{% endif %}
                 {% endif %}
             </div>
         </div>

@@ -6,6 +6,7 @@ mod handlers;
 mod job;
 mod pixel;
 mod session;
+mod status;
 mod today;
 mod views;
 
@@ -44,6 +45,9 @@ pub type SenderFactory = Arc<dyn Fn(&EmailConfig) -> Result<Box<dyn Sender>> + S
 /// Everything needed to build the router; `serve` fills it from the real environment.
 pub struct AppOptions {
     pub config: Option<Config>,
+    /// Set when the config file exists but failed to load (e.g. wrong ERASER_CONFIG_KEY): the
+    /// UI then only shows a read-only "Config locked" page and never writes the config.
+    pub config_error: Option<String>,
     pub config_path: PathBuf,
     pub brokers: BrokerDatabase,
     pub history: Store,
@@ -102,6 +106,7 @@ pub struct AppState {
     /// No-cookie client for one-click unsubscribes.
     http: reqwest::Client,
     autopilot_token: Option<String>,
+    config_locked: Option<String>,
 }
 
 impl AppState {
@@ -132,6 +137,7 @@ pub fn app(opts: AppOptions) -> Result<(Router, Arc<AppState>)> {
         trusted.push(origin_host(origin)?);
     }
     let secure = opts.public_origin.is_some();
+    crate::email::set_public_origin(opts.public_origin.clone());
     let csrf = Arc::new(csrf::Csrf {
         trusted_origins: trusted,
         secure,
@@ -158,6 +164,7 @@ pub fn app(opts: AppOptions) -> Result<(Router, Arc<AppState>)> {
         job_tasks: AtomicUsize::new(0),
         http: crate::scanner::actions::http_client(),
         autopilot_token: opts.autopilot_token,
+        config_locked: opts.config_error,
     });
 
     use handlers as h;
@@ -194,6 +201,7 @@ pub fn app(opts: AppOptions) -> Result<(Router, Arc<AppState>)> {
         .route("/today/tasks/{task_id}/done", post(today::todo_done))
         .route("/today/tasks/{task_id}/skip", post(today::todo_skip))
         .route("/brokers", get(h::brokers))
+        .route("/brokers/{broker_id}", get(h::broker_detail))
         .route("/history", get(h::history))
         .route("/settings", get(h::settings))
         .route("/settings/inbox", post(h::settings_inbox))
@@ -235,9 +243,17 @@ pub fn app(opts: AppOptions) -> Result<(Router, Arc<AppState>)> {
         .route("/setup/complete", get(h::setup_complete))
         .nest("/api", api)
         .fallback(h::not_found)
+        .layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            h::setup_gate,
+        ))
         .with_state(state.clone())
         .layer(axum::middleware::from_fn_with_state(csrf, csrf::protect))
         .merge(internal)
+        .layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            h::locked_guard,
+        ))
         .layer(axum::middleware::from_fn(security_headers))
         .layer(tower_http::trace::TraceLayer::new_for_http());
 
@@ -331,17 +347,17 @@ fn autopilot_token_from_env() -> Option<String> {
 }
 
 pub async fn serve(opts: ServeOptions) -> Result<()> {
-    let cfg = if opts.config_path.exists() {
+    let (cfg, config_error) = if opts.config_path.exists() {
         match config::load(&opts.config_path) {
-            Ok(c) => Some(c),
+            Ok(c) => (Some(c), None),
             Err(e) => {
                 println!("⚠️  Config exists but failed to load: {e:#}");
-                println!("The setup wizard will help you reconfigure.");
-                None
+                println!("The web UI stays read-only until it loads (check ERASER_CONFIG_KEY).");
+                (None, Some(format!("{e:#}")))
             }
         }
     } else {
-        None
+        (None, None)
     };
     let brokers = broker::load_from_file(&opts.broker_path).context("failed to load brokers")?;
     let history = Store::new(history::default_db_path()).context("failed to initialize history")?;
@@ -349,6 +365,7 @@ pub async fn serve(opts: ServeOptions) -> Result<()> {
 
     let (router, state) = app(AppOptions {
         config: cfg,
+        config_error,
         config_path: opts.config_path,
         brokers,
         history,

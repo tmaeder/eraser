@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+{% from "partials/status.html" import chip %}
 {% block content %}
 <div class="fade-in-up">
     <!-- Header -->
@@ -73,6 +74,12 @@
     </script>
     {% endif %}
 
+    {% if stage %}
+    <div class="flex flex-wrap items-center gap-3 mb-4 text-sm">
+        <span class="text-secondary">Deletion requests: <span class="font-medium text-primary">{{ stage_label or stage }}</span></span>
+        <a href="/companies?filter={{ filter }}" class="underline underline-offset-2 text-secondary hover:text-primary">Clear</a>
+    </div>
+    {% endif %}
     <!-- Filters -->
     <div class="flex flex-wrap items-center gap-2 mb-4">
         {% for f in filters %}
@@ -83,6 +90,7 @@
         {% endfor %}
         <form method="GET" action="/companies" class="ml-auto flex gap-2">
             <input type="hidden" name="filter" value="{{ filter }}">
+            {% if stage %}<input type="hidden" name="stage" value="{{ stage }}">{% endif %}
             <input type="text" name="q" value="{{ search }}" placeholder="Search domain or name…" class="input" aria-label="Search companies">
         </form>
     </div>
@@ -135,7 +143,7 @@
                         <td class="text-sm">
                             {% if c.excluded_reason %}<span class="badge badge-neutral">excluded: {{ c.excluded_reason }}</span>{% endif %}
                             {% if c.decision == "ignored" %}<span class="badge badge-neutral">ignored</span>{% endif %}
-                            {% if c.requested_at %}<span class="badge badge-success">requested</span>{% endif %}
+                            {% if c.chip %}{{ chip(c.chip) }}{% elif c.requested_at %}<span class="badge badge-success">requested</span>{% endif %}
                             {% if c.unsubscribed_at %}<span class="badge badge-success">unsubscribed</span>{% endif %}
                         </td>
                     </tr>

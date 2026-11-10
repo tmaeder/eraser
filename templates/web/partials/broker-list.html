@@ -1,3 +1,4 @@
+{% from "partials/status.html" import chip, deadline %}
 <!-- Count header -->
 <div class="px-4 py-3 border-b border-[var(--border)] bg-elevated">
     <p class="text-sm text-secondary">Showing <span class="font-medium text-primary">{{ filtered }}</span> of <span class="font-medium text-primary">{{ total }}</span> brokers</p>
@@ -20,7 +21,7 @@
             <tr>
                 <td>
                     <div class="flex flex-col">
-                        <span class="font-medium text-primary">{{ it.name }}</span>
+                        <a href="/brokers/{{ it.id }}" class="font-medium text-primary hover:underline">{{ it.name }}</a>
                         <span class="text-sm text-muted">{{ it.email }}</span>
                     </div>
                 </td>
@@ -38,23 +39,9 @@
                     <span class="text-muted">—</span>
                     {% endif %}
                 </td>
-                <td id="status-{{ it.id }}">
-                    {% if it.status == "sent" %}
-                    <span class="badge badge-success">
-                        <span class="status-dot status-dot-success"></span>
-                        Sent
-                    </span>
-                    {% elif it.status == "failed" %}
-                    <span class="badge badge-error">
-                        <span class="status-dot status-dot-error"></span>
-                        Failed
-                    </span>
-                    {% else %}
-                    <span class="badge badge-neutral">
-                        <span class="status-dot" style="background: var(--text-muted);"></span>
-                        Never sent
-                    </span>
-                    {% endif %}
+                <td>
+                    <div id="status-{{ it.id }}">{{ chip(it.chip) }}</div>
+                    {% if it.deadline %}<div class="mt-2 max-w-[11rem]">{{ deadline(it.deadline) }}</div>{% endif %}
                 </td>
                 <td class="text-right">
                     <div class="flex items-center justify-end gap-2">
@@ -102,21 +89,14 @@
 <div class="md:hidden divide-y divide-[var(--border-subtle)]">
     {% for it in brokers %}
     <div class="p-4">
-        <div class="flex items-start justify-between mb-3">
-            <div>
-                <h3 class="font-medium text-primary">{{ it.name }}</h3>
-                <p class="text-sm text-muted">{{ it.email }}</p>
+        <div class="flex items-start justify-between gap-3 mb-3">
+            <div class="min-w-0">
+                <h3 class="font-medium text-primary"><a href="/brokers/{{ it.id }}" class="hover:underline">{{ it.name }}</a></h3>
+                <p class="text-sm text-muted truncate">{{ it.email }}</p>
             </div>
-            <div id="status-mobile-{{ it.id }}">
-                {% if it.status == "sent" %}
-                <span class="badge badge-success">Sent</span>
-                {% elif it.status == "failed" %}
-                <span class="badge badge-error">Failed</span>
-                {% else %}
-                <span class="badge badge-neutral">Pending</span>
-                {% endif %}
-            </div>
+            <div id="status-mobile-{{ it.id }}" class="shrink-0">{{ chip(it.chip) }}</div>
         </div>
+        {% if it.deadline %}<div class="mb-3">{{ deadline(it.deadline) }}</div>{% endif %}
         <div class="flex items-center gap-2 mb-3 text-sm">
             {% if it.category %}
             <span class="badge badge-neutral">{{ it.category }}</span>

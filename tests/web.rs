@@ -87,12 +87,21 @@ fn configured() -> Config {
 }
 
 fn harness(cfg: Option<Config>, public_origin: Option<&str>) -> Harness {
+    harness_with(cfg, None, public_origin)
+}
+
+fn harness_with(
+    cfg: Option<Config>,
+    config_error: Option<&str>,
+    public_origin: Option<&str>,
+) -> Harness {
     let dir = tempfile::tempdir().unwrap();
     let history = Store::new(dir.path().join("history.db")).unwrap();
     let mail = MockSender::default();
     let m = mail.clone();
     let (router, _) = app(AppOptions {
         config: cfg,
+        config_error: config_error.map(String::from),
         config_path: dir.path().join(".eraser/config.yaml"),
         brokers: BrokerDatabase {
             brokers: vec![
@@ -223,9 +232,21 @@ fn location(r: &Resp) -> &str {
 #[tokio::test]
 async fn setup_wizard_full_flow() {
     let mut h = harness(None, None);
+    // gated pages show the setup welcome with a banner instead of redirecting
     let r = h.get("/").await;
-    assert_eq!((r.status, location(&r)), (StatusCode::FOUND, "/setup"));
-    assert!(h.get("/setup").await.body.contains("Welcome"));
+    assert_eq!(r.status, StatusCode::OK);
+    assert!(r.body.contains("Welcome") && r.body.contains("Finish setup to see Today"));
+    let r = h
+        .call(
+            h.req("GET", "/companies")
+                .header("HX-Request", "true")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await;
+    assert_eq!(r.headers.get("HX-Redirect").unwrap(), "/setup");
+    let setup = h.get("/setup").await.body;
+    assert!(setup.contains("Welcome") && !setup.contains("Finish setup to see"));
 
     // email step without a session bounces back to profile
     let r = h.get("/setup/email").await;
@@ -568,7 +589,21 @@ async fn csrf_rejections() {
     // valid token passes the middleware (send goes to the mock)
     let r = h.post_htmx("/api/send/acme", &t, "").await;
     assert_eq!(r.status, StatusCode::OK);
-    assert!(r.body.contains("Sent"));
+    assert!(
+        r.body.contains("chip-waiting") && r.body.contains("Waiting · day 1"),
+        "{}",
+        r.body
+    );
+    // recorded crash-safe: pending first, then finalized
+    let rec = h
+        .history
+        .get_last_request_for_broker("acme")
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        (rec.status, rec.message_id.as_str()),
+        (Status::Sent, "mock")
+    );
     assert_eq!(
         r.headers.get(header::CONTENT_TYPE).unwrap(),
         "text/plain; charset=utf-8",
@@ -1214,4 +1249,204 @@ async fn settings_autopilot_saves_and_requires_setup() {
     assert!(a.check_inbox && !a.unsubscribe && !a.company_requests);
     assert_eq!((a.reminder_days, a.inactive_months), (45, 12));
     assert_eq!(a.keep_domains, ["club.example", "bank.example"]);
+}
+
+fn sent(store: &Store, id: &str, name: &str, days_ago: i64) -> Record {
+    let mut r = Record {
+        broker_id: id.into(),
+        broker_name: name.into(),
+        email: format!("privacy@{id}.example"),
+        status: Status::Sent,
+        sent_at: Some(chrono::Local::now() - chrono::TimeDelta::days(days_ago)),
+        ..Default::default()
+    };
+    store.add(&mut r).unwrap();
+    r
+}
+
+#[tokio::test]
+async fn status_views_funnel_chips_filters_and_detail() {
+    use eraser::history::{BrokerResponse, PipelineStatus};
+    let mut h = harness(Some(ready()), None);
+    let acme = sent(&h.history, "acme", "Acme People Search", 10);
+    let swiss = sent(&h.history, "swissdata", "Swiss Data AG", 20);
+    let tok = |c: char| c.to_string().repeat(22);
+    h.history
+        .track_message(acme.id, &format!("<{}@x.test>", tok('a')))
+        .unwrap();
+    h.history
+        .track_message(swiss.id, &format!("<{}@x.test>", tok('s')))
+        .unwrap();
+    h.history
+        .record_open(&tok('a'), eraser::history::CLIENT_OTHER, chrono::Utc::now())
+        .unwrap();
+    h.history
+        .record_open(&tok('s'), "apple-mpp", chrono::Utc::now())
+        .unwrap();
+    h.history
+        .add_broker_response(&mut BrokerResponse {
+            broker_id: "swissdata".into(),
+            broker_name: "Swiss Data AG".into(),
+            response_type: "success".into(),
+            email_subject: "Your data was deleted".into(),
+            received_at: Some(chrono::Local::now()),
+            ..Default::default()
+        })
+        .unwrap();
+    h.history
+        .update_pipeline_status("swissdata", PipelineStatus::Confirmed)
+        .unwrap();
+    // interrupted send: pending, flagged by the autopilot
+    let mut cut = Record {
+        broker_id: "eurolist".into(),
+        broker_name: "EuroList".into(),
+        status: Status::Pending,
+        sent_at: Some(chrono::Local::now() - chrono::TimeDelta::hours(5)),
+        ..Default::default()
+    };
+    h.history.add(&mut cut).unwrap();
+    h.history
+        .flag_interrupted_sends(chrono::Local::now() - chrono::TimeDelta::hours(1))
+        .unwrap();
+    h.history
+        .add_pending_task(&mut PendingTask {
+            broker_id: "eurolist".into(),
+            broker_name: "EuroList".into(),
+            task_type: TaskType::Review,
+            notes: "Sending to x was interrupted: check your Sent folder. It was not resent."
+                .into(),
+            ..Default::default()
+        })
+        .unwrap();
+    let report = eraser::autopilot::RoundReport {
+        requests_sent: 2,
+        todos_added: 1,
+        ..Default::default()
+    };
+    let id = h.history.begin_round(false).unwrap().unwrap();
+    h.history
+        .finish_round(id, &serde_json::to_string(&report).unwrap())
+        .unwrap();
+
+    let today = h.get("/").await;
+    assert_eq!(today.status, StatusCode::OK, "{}", today.body);
+    let b = &today.body;
+    assert!(b.contains("brokers?status=replied"), "funnel links");
+    assert!(b.contains("brokers?status=no_response"));
+    assert!(b.contains("No requests to inbox companies yet"));
+    assert!(
+        b.contains("Deleted: 1 (50% of sent)"),
+        "deleted stage of 2 sent"
+    );
+    assert!(b.contains("Opened: 1 (50% of sent)") && b.contains("+1 proxy-only"));
+    assert!(
+        b.contains("Interrupted send"),
+        "interrupted review to-do on Today"
+    );
+    assert!(b.contains("of 250 emails"), "daily limit");
+    assert!(b.contains("Switzerland") && b.contains("1 of 1 contacted"));
+    assert!(
+        b.contains("<title>") && b.contains("2 emails sent"),
+        "activity chart"
+    );
+
+    let r = h.get("/brokers?status=deleted").await;
+    assert!(r.body.contains("Swiss Data AG") && !r.body.contains("Acme People Search"));
+    assert!(r.body.contains("chip-deleted"));
+    let r = h.get("/brokers?status=opened").await;
+    assert!(r.body.contains("Acme People Search") && r.body.contains("chip-opened"));
+    assert!(r.body.contains("Day 10 of 30") && r.body.contains("deadline-marker"));
+    assert!(!r.body.contains("Swiss Data AG"));
+    let r = h.get("/api/brokers?status=interrupted").await;
+    assert!(r.body.contains("EuroList") && r.body.contains("check Sent folder"));
+
+    let t = h.token("/brokers").await;
+    let r = h.post_htmx("/api/send-all", &t, "status=deleted").await;
+    assert_eq!(
+        r.status,
+        StatusCode::BAD_REQUEST,
+        "send-all never resends by stage"
+    );
+
+    let r = h.get("/brokers/swissdata").await;
+    assert_eq!(r.status, StatusCode::OK);
+    assert!(
+        r.body.contains("Deletion request sent") && r.body.contains("Reply: deletion confirmed")
+    );
+    assert!(r.body.contains("chip-deleted") && !r.body.contains("Send deletion request"));
+    let r = h.get("/brokers/acme").await;
+    assert!(r.body.contains("Answer deadline") && r.body.contains("reminder on day 30"));
+    assert!(r.body.contains("timeline-opened") && r.body.contains("Opened once"));
+    assert!(
+        h.get("/brokers/swissdata")
+            .await
+            .body
+            .contains("Opened by an image proxy")
+    );
+    assert_eq!(h.get("/brokers/nope").await.status, StatusCode::NOT_FOUND);
+
+    let r = h.get("/history").await;
+    assert!(r.body.contains("chip-interrupted") && r.body.contains("chip-deleted"));
+    assert!(r.body.contains("Opened once, last") && r.body.contains("Image proxy only"));
+    assert!(r.body.contains(r#"href="/brokers/acme""#));
+}
+
+#[tokio::test]
+async fn companies_stage_filter_and_chips() {
+    let mut h = harness(Some(configured()), None);
+    seed_companies(&h.history);
+    sent(&h.history, "company:shop.de", "Shop", 3);
+    let r = h.get("/companies?filter=all&stage=sent").await;
+    assert_eq!(r.status, StatusCode::OK);
+    assert!(
+        r.body.contains("shop.de") && r.body.contains("Waiting · day 3"),
+        "{}",
+        r.body
+    );
+    assert!(!r.body.contains("nocontact.ch"), "{}", r.body);
+    assert!(
+        r.body
+            .contains("Deletion requests: <span class=\"font-medium text-primary\">Sent")
+    );
+    let r = h.get("/companies/shop.de").await;
+    assert!(r.body.contains("Deletion request timeline") && r.body.contains("Day 3 of 30"));
+}
+
+#[tokio::test]
+async fn config_locked_is_read_only() {
+    let mut h = harness_with(
+        None,
+        Some("wrong ERASER_CONFIG_KEY for enc:v1: value"),
+        None,
+    );
+    for page in ["/", "/setup", "/setup/profile", "/settings", "/brokers"] {
+        let r = h.get(page).await;
+        assert_eq!(r.status, StatusCode::SERVICE_UNAVAILABLE, "{page}");
+        assert!(
+            r.body.contains("Configuration locked") && !r.body.contains("<form"),
+            "{page}"
+        );
+    }
+    let r = h.get("/api/stats").await;
+    assert_eq!(r.status, StatusCode::SERVICE_UNAVAILABLE);
+    assert!(r.body.contains("configuration locked"));
+    let r = h.call(tick(Some(TOKEN))).await;
+    assert_eq!(r.status, StatusCode::SERVICE_UNAVAILABLE);
+    let r = h
+        .call(
+            h.req("POST", "/setup/profile")
+                .header(header::ORIGIN, h.origin)
+                .header(header::CONTENT_TYPE, "application/x-www-form-urlencoded")
+                .body(Body::from(
+                    "first_name=Eve&last_name=X&email=eve%40example.com",
+                ))
+                .unwrap(),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(h.get("/static/js/htmx.min.js").await.status, StatusCode::OK);
+    assert!(
+        !h.dir.path().join(".eraser/config.yaml").exists(),
+        "nothing written"
+    );
 }

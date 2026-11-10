@@ -1,0 +1,14 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="min-h-[60vh] flex items-center justify-center">
+    <section class="card p-8 max-w-xl w-full fade-in-up" aria-labelledby="locked-h">
+        <div class="w-14 h-14 rounded-2xl flex items-center justify-center mb-5" style="background: var(--chip-reminder-bg); color: var(--chip-reminder-fg);">
+            <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+        </div>
+        <h1 id="locked-h" class="font-display text-2xl font-bold text-primary mb-2">Configuration locked</h1>
+        <p class="text-secondary">Your configuration file exists, but Eraser could not read it, usually because its secrets are encrypted and <code class="text-primary">ERASER_CONFIG_KEY</code> is missing or wrong.</p>
+        <p class="text-secondary mt-3">Nothing is sent and nothing is saved until this is fixed, so the encrypted file stays untouched. Set the right key and restart Eraser.</p>
+        <pre class="mt-5 p-3 rounded-lg text-xs text-secondary whitespace-pre-wrap break-words" style="background: var(--bg-elevated);">{{ error }}</pre>
+    </section>
+</div>
+{% endblock %}

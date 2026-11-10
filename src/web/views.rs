@@ -19,6 +19,7 @@ const TEMPLATES: &[(&str, &str)] = embed!("templates/web":
     "setup/test.html", "setup/complete.html", "partials/broker-list.html",
     "partials/history-list.html", "partials/response-list.html", "partials/task-list.html",
     "companies.html", "company-detail.html", "companies-confirm.html", "today.html",
+    "partials/status.html", "broker-detail.html", "config-locked.html",
 );
 
 pub const STATIC_FILES: &[(&str, &[u8], &str)] = &[
@@ -131,5 +132,48 @@ mod tests {
             "https://x.com/a%20b?q=1"
         );
         assert_eq!(safe_url(Value::from("/rel/path")), "/rel/path");
+    }
+
+    #[test]
+    fn status_chip_macro_has_icon_and_text_for_every_kind() {
+        let env = environment();
+        let render = |kind: &str, label: &str| {
+            env.render_named_str(
+                "chip.html",
+                r#"{% from "partials/status.html" import chip %}{{ chip({"kind": k, "label": l}) }}"#,
+                minijinja::context! { k => kind, l => label },
+            )
+            .unwrap()
+        };
+        let mut paths = std::collections::HashSet::new();
+        for kind in [
+            "deleted",
+            "waiting",
+            "reminder",
+            "rejected",
+            "action",
+            "failed",
+            "interrupted",
+            "opened",
+            "receipt",
+            "none",
+        ] {
+            let html = render(kind, "Label <x>");
+            assert!(
+                html.starts_with(&format!(r#"<span class="chip chip-{kind}">"#)),
+                "{html}"
+            );
+            assert!(html.contains(r#"aria-hidden="true""#) && html.contains("Label &lt;x&gt;"));
+            let d = html
+                .split(" d=\"")
+                .nth(1)
+                .unwrap()
+                .split('"')
+                .next()
+                .unwrap()
+                .to_string();
+            paths.insert(d);
+        }
+        assert_eq!(paths.len(), 10, "one distinct icon per status");
     }
 }

@@ -7,9 +7,11 @@ use super::handlers::{
     FormValues, St, http_error, json_resp, needs_setup, parse_id, query, redirect, render,
     settings_with,
 };
+use super::status;
 use crate::autopilot::{self, Deps, RoundReport};
 use crate::config::{self, Config};
-use crate::history::{AutopilotRound, PendingTask, Progress, STALE_ROUND, TaskType};
+use crate::email;
+use crate::history::{AutopilotRound, Funnel, PendingTask, STALE_ROUND, TaskType};
 use crate::scanner::{self, actions, discovery::Discoverer};
 use axum::Extension;
 use axum::body::Bytes;
@@ -119,6 +121,9 @@ fn todo_item(t: &PendingTask, deadline_days: i64) -> TodoItem {
         TaskType::Confirm => ("Confirmation link", "Open link", link()),
         TaskType::IdRequired => ("ID requested", "Show request", page("")),
         TaskType::UnsubscribeLink => ("Unsubscribe link", "Open link", link()),
+        TaskType::Review if t.notes.contains("was interrupted") => {
+            ("Interrupted send", "Show", page(""))
+        }
         TaskType::Review => ("Review", "Show", page("")),
     };
     TodoItem {
@@ -161,21 +166,22 @@ fn round_view(r: &AutopilotRound, now: DateTime<Utc>) -> RoundView {
     RoundView { started, summary }
 }
 
-fn bar(p: Progress) -> serde_json::Value {
-    let pct = |n: i64| {
-        if p.contacted > 0 {
-            n * 100 / p.contacted
-        } else {
-            0
-        }
-    };
-    json!({
-        "p": p,
-        "confirmed_pct": pct(p.confirmed),
-        "rejected_pct": pct(p.rejected),
-        "no_response_pct": pct(p.no_response),
-        "waiting_pct": pct(p.waiting),
-    })
+fn start_of_today(now: DateTime<Local>) -> DateTime<Local> {
+    now.date_naive()
+        .and_hms_opt(0, 0, 0)
+        .and_then(|t| t.and_local_timezone(Local).earliest())
+        .unwrap_or(now)
+}
+
+/// Pending review to-dos the autopilot added for sends interrupted mid-way.
+fn interrupted_todos(st: &AppState, now: DateTime<Local>) -> Vec<PendingTask> {
+    st.history
+        .get_pending_tasks(Some(TaskType::Review), Some("pending"))
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|t| t.notes.contains("was interrupted"))
+        .filter(|t| t.skipped_until.is_none_or(|u| u <= now))
+        .collect()
 }
 
 /// GET / — the start page.
@@ -191,7 +197,10 @@ pub async fn today(
     }
     let cfg = cfg.unwrap();
     let all = query(&uri).get("all") == "1";
-    let tasks = st.history.todo_tasks(Local::now()).unwrap_or_default();
+    let local_now = Local::now();
+    let mut tasks = st.history.todo_tasks(local_now).unwrap_or_default();
+    tasks.extend(interrupted_todos(&st, local_now));
+    tasks.sort_by_key(|t| (t.created_at, t.id));
     let shown = if all { tasks.len() } else { TODO_SHOWN };
     let todos: Vec<TodoItem> = tasks
         .iter()
@@ -199,14 +208,8 @@ pub async fn today(
         .map(|x| todo_item(x, cfg.autopilot.reminder_days))
         .collect();
     let now = Utc::now();
-    let rounds: Vec<RoundView> = st
-        .history
-        .recent_rounds(5)
-        .unwrap_or_default()
-        .iter()
-        .map(|r| round_view(r, now))
-        .collect();
-    let companies = st.history.list_companies().unwrap_or_default();
+    let recent = st.history.recent_rounds(30).unwrap_or_default();
+    let rounds: Vec<RoundView> = recent.iter().take(5).map(|r| round_view(r, now)).collect();
     let next_round = if st.autopilot_token.is_some() {
         autopilot::next_round(now)
             .with_timezone(&Local)
@@ -215,6 +218,20 @@ pub async fn today(
     } else {
         String::new()
     };
+    let states = st.history.request_states().unwrap_or_default();
+    let is_company = |id: &str| id.starts_with(scanner::BROKER_PREFIX);
+    let broker_funnel = Funnel::of(states.values().filter(|s| !is_company(&s.broker_id)));
+    let company_funnel = Funnel::of(states.values().filter(|s| is_company(&s.broker_id)));
+    let remaining = st
+        .brokers
+        .filter(&cfg.options.regions, &cfg.options.excluded_brokers)
+        .iter()
+        .filter(|b| !b.email.is_empty() && !states.contains_key(&b.id))
+        .count() as i64;
+    let sent_today = st
+        .history
+        .emails_sent_since(start_of_today(local_now))
+        .unwrap_or(0);
     render(
         &st,
         &t,
@@ -223,6 +240,7 @@ pub async fn today(
             "title": "Today",
             "profile": cfg.profile,
             "enabled": cfg.autopilot.enabled,
+            "broker_requests": cfg.autopilot.broker_requests,
             "setup_ok": cfg.validate().is_ok(),
             "running": st.history.round_running().unwrap_or(false),
             "last_round": rounds.first().map(|r| r.started.clone()).unwrap_or_default(),
@@ -230,15 +248,12 @@ pub async fn today(
             "todos": todos,
             "todo_total": tasks.len(),
             "show_all": all || tasks.len() <= TODO_SHOWN,
-            "brokers": bar(st.history.progress(false).unwrap_or_default()),
             "broker_total": st.brokers.brokers.len(),
-            "company_progress": bar(st.history.progress(true).unwrap_or_default()),
-            "companies_requested": companies.iter().filter(|c| c.requested_at.is_some()).count(),
-            "companies_unsubscribed": companies.iter().filter(|c| c.unsubscribed_at.is_some()).count(),
-            "companies_total": companies
-                .iter()
-                .filter(|c| c.excluded_reason.is_empty() && c.decision != "ignored")
-                .count(),
+            "broker_funnel": status::funnel(&broker_funnel, |k| format!("/brokers?status={k}")),
+            "company_funnel": status::funnel(&company_funnel, |k| format!("/companies?filter=all&stage={k}")),
+            "sending": status::sending(sent_today, email::daily_limit(&cfg.email.provider), remaining, local_now),
+            "regions": status::regions(&st.brokers.brokers, &states),
+            "activity": status::activity(&recent),
             "rounds": rounds,
         }),
     )

@@ -345,6 +345,79 @@
             color: var(--text-secondary);
         }
 
+        /* Status chips (partials/status.html): icon + text, never color alone */
+        :root {
+            --chip-deleted-fg: #6ee7b7; --chip-deleted-bg: rgba(16, 185, 129, 0.16);
+            --chip-waiting-fg: #cbd5e1; --chip-waiting-bg: rgba(148, 163, 184, 0.16);
+            --chip-reminder-fg: #fcd34d; --chip-reminder-bg: rgba(245, 158, 11, 0.16);
+            --chip-action-fg: #fdba74; --chip-action-bg: rgba(249, 115, 22, 0.18);
+            --chip-rejected-fg: #fda4af; --chip-rejected-bg: rgba(244, 63, 94, 0.16);
+            --chip-none-fg: #94a3b8; --chip-none-border: #475569;
+            --chip-opened-fg: #93c5fd; --chip-opened-bg: rgba(57, 135, 229, 0.18);
+            --bar-ok: #10b981; --bar-late: #f59e0b; --bar-overdue: #f43f5e;
+            --viz-1: #3987e5;
+        }
+        .light {
+            --chip-deleted-fg: #047857; --chip-deleted-bg: #d1fae5;
+            --chip-waiting-fg: #334155; --chip-waiting-bg: #e2e8f0;
+            --chip-reminder-fg: #92400e; --chip-reminder-bg: #fef3c7;
+            --chip-action-fg: #9a3412; --chip-action-bg: #ffedd5;
+            --chip-rejected-fg: #be123c; --chip-rejected-bg: #ffe4e6;
+            --chip-none-fg: #475569; --chip-none-border: #cbd5e1;
+            --chip-opened-fg: #1d4ed8; --chip-opened-bg: #dbeafe;
+            --bar-ok: #059669; --bar-late: #d97706; --bar-overdue: #e11d48;
+            --viz-1: #2a78d6;
+        }
+        .chip {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 3px 9px 3px 7px; border-radius: 999px;
+            font-size: 12px; font-weight: 600; line-height: 1.25; white-space: nowrap;
+            font-variant-numeric: tabular-nums;
+        }
+        .chip-icon { width: 14px; height: 14px; flex-shrink: 0; }
+        .chip-deleted { color: var(--chip-deleted-fg); background: var(--chip-deleted-bg); }
+        .chip-waiting { color: var(--chip-waiting-fg); background: var(--chip-waiting-bg); }
+        .chip-reminder, .chip-interrupted { color: var(--chip-reminder-fg); background: var(--chip-reminder-bg); }
+        .chip-action { color: var(--chip-action-fg); background: var(--chip-action-bg); }
+        .chip-rejected, .chip-failed { color: var(--chip-rejected-fg); background: var(--chip-rejected-bg); }
+        .chip-opened, .chip-receipt { color: var(--chip-opened-fg); background: var(--chip-opened-bg); }
+        .chip-none { color: var(--chip-none-fg); box-shadow: inset 0 0 0 1px var(--chip-none-border); }
+
+        /* 30-day deadline bar */
+        .deadline { min-width: 120px; }
+        .deadline-track { position: relative; height: 6px; border-radius: 999px; background: var(--border); }
+        .deadline-fill { height: 100%; border-radius: 999px; background: var(--bar-ok); }
+        .deadline-late .deadline-fill { background: var(--bar-late); }
+        .deadline-overdue .deadline-fill { background: var(--bar-overdue); }
+        .deadline-marker {
+            position: absolute; top: -3px; width: 2px; height: 12px; margin-left: -1px;
+            border-radius: 1px; background: var(--text-primary);
+        }
+        .deadline-text { margin-top: 4px; font-size: 12px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+
+        /* Funnel / meters */
+        .meter { position: relative; height: 10px; border-radius: 999px; background: var(--border); overflow: hidden; }
+        .meter > span { position: absolute; top: 0; bottom: 0; left: 0; border-radius: 999px; }
+        .funnel-row { display: grid; grid-template-columns: 6.5rem 1fr 4.5rem; align-items: center; gap: 12px; padding: 6px 8px; margin: 0 -8px; border-radius: 10px; text-decoration: none; }
+        .funnel-row:hover, .funnel-row:focus-visible { background: var(--bg-elevated); }
+        .funnel-row:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+        .num { font-variant-numeric: tabular-nums; }
+        .funnel-note { padding-left: calc(6.5rem + 12px); margin: -2px 0 4px; }
+
+        /* Broker timeline */
+        .timeline { position: relative; }
+        .timeline-item { position: relative; display: flex; gap: 14px; padding-bottom: 18px; }
+        .timeline-item:last-child { padding-bottom: 0; }
+        .timeline-item::before { content: ''; position: absolute; left: 5px; top: 16px; bottom: 0; width: 2px; background: var(--border); }
+        .timeline-item:last-child::before { display: none; }
+        .timeline-dot { flex-shrink: 0; width: 12px; height: 12px; margin-top: 4px; border-radius: 999px; background: var(--chip-waiting-fg); box-shadow: 0 0 0 3px var(--bg-surface); }
+        .timeline-sent .timeline-dot { background: var(--viz-1); }
+        .timeline-reply .timeline-dot, .timeline-confirm .timeline-dot, .timeline-task_done .timeline-dot { background: var(--bar-ok); }
+        .timeline-reminder .timeline-dot { background: var(--bar-late); }
+        .timeline-task .timeline-dot { background: var(--chip-action-fg); }
+        .timeline-opened .timeline-dot, .timeline-receipt .timeline-dot { background: var(--chip-opened-fg); }
+        .timeline-failed .timeline-dot { background: var(--bar-overdue); }
+
         /* Status dot */
         .status-dot {
             width: 8px;

@@ -3,11 +3,12 @@
 use super::AppState;
 use super::csrf::CsrfToken;
 use super::job::{Job, JobKind, JobStatus, PersistentJobState, go_json_time};
+use super::status;
 use super::views::STATIC_FILES;
 use crate::broker::Broker;
 use crate::config::{Config, EmailConfig, InboxConfig, Options, Profile};
 use crate::email::{Message, SendResult, Sender};
-use crate::history::{PipelineStatus, Record, Status, TaskType};
+use crate::history::{Chip, PipelineStatus, Record, Status, TaskType};
 use crate::inbox::classifier::{ResponseType, classify_by_subject_only, classify_response};
 use crate::inbox::monitor::Monitor as Inbox;
 use crate::inbox::{Email, body_of, response_record};
@@ -18,6 +19,7 @@ use axum::extract::{Path, State};
 use axum::http::{HeaderMap, HeaderValue, Method, StatusCode, Uri, header};
 use axum::response::{IntoResponse, Response};
 use axum_extra::extract::cookie::CookieJar;
+use chrono::Local;
 use minijinja::value::{Serde, Value};
 use serde::Serialize;
 use serde_json::json;
@@ -31,7 +33,6 @@ use tokio::time::Instant;
 pub(super) type St = State<Arc<AppState>>;
 
 const SESSION_COOKIE: &str = "eraser_session";
-const SEND_TIMEOUT: Duration = Duration::from_secs(30);
 
 // ==================== response helpers (net/http equivalents) ====================
 
@@ -283,6 +284,9 @@ pub(super) struct BrokerWithStatus {
     status: String,
     last_sent: String,
     total_sent: i64,
+    chip: Chip,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    deadline: Option<status::Deadline>,
 }
 
 #[derive(Serialize, Default)]
@@ -310,6 +314,9 @@ impl AppState {
         status_filter: &str,
     ) -> Vec<BrokerWithStatus> {
         let statuses = self.history.get_all_broker_statuses().unwrap_or_default();
+        let states = self.history.request_states().unwrap_or_default();
+        let reminder_days = self.reminder_days();
+        let now = Local::now();
         let search = search.trim().to_lowercase();
         let category = category.trim().to_lowercase();
         let region = region.trim().to_lowercase();
@@ -329,11 +336,14 @@ impl AppState {
             if !region.is_empty() && b.region.to_lowercase() != region {
                 continue;
             }
+            let state = states.get(&b.id);
             let mut bws = BrokerWithStatus {
                 broker: b.clone(),
                 status: "never".into(),
                 last_sent: String::new(),
                 total_sent: 0,
+                chip: status::chip(&states, &b.id, now),
+                deadline: status::deadline(state, now, reminder_days),
             };
             if let Some(s) = statuses.get(&b.id) {
                 bws.status = s.status.as_str().to_string();
@@ -342,17 +352,25 @@ impl AppState {
                     bws.last_sent = t.format("%b %-d, %Y").to_string();
                 }
             }
-            let skip = match status_filter.as_str() {
-                "pending" => bws.status != "never",
-                "sent" => bws.status != "sent",
-                "failed" => bws.status != "failed",
-                _ => false,
+            let keep = match status_filter.as_str() {
+                "" => true,
+                "pending" => bws.status == "never",
+                "sent" => bws.status == "sent",
+                "failed" => bws.status == "failed",
+                stage => state.is_some_and(|s| s.matches_stage(stage)),
             };
-            if !skip {
+            if keep {
                 result.push(bws);
             }
         }
         result
+    }
+
+    fn reminder_days(&self) -> i64 {
+        self.config()
+            .map_or(crate::config::DEFAULT_REMINDER_DAYS, |c| {
+                c.autopilot.reminder_days
+            })
     }
 
     fn unique_values(&self, get: impl Fn(&Broker) -> &str) -> Vec<String> {
@@ -459,6 +477,75 @@ pub(super) fn needs_setup(cfg: &Option<Config>) -> bool {
     cfg.as_ref().is_none_or(|c| c.profile.first_name.is_empty())
 }
 
+/// Pages that need a finished setup, with the name the setup banner uses.
+const GATED: &[&str] = &["/", "/dashboard", "/pipeline", "/tasks", "/companies"];
+
+/// Before setup, a GET of a gated page shows the setup welcome with a banner (URL kept);
+/// HTMX requests get an HX-Redirect. Other methods keep the handlers' redirects.
+pub(super) async fn setup_gate(
+    State(st): St,
+    req: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> Response {
+    if req.method() != Method::GET
+        || !GATED.contains(&req.uri().path())
+        || !needs_setup(&st.config())
+    {
+        return next.run(req).await;
+    }
+    if req.headers().get("HX-Request").is_some_and(|v| v == "true") {
+        return (StatusCode::OK, [("HX-Redirect", "/setup")]).into_response();
+    }
+    let token = req
+        .extensions()
+        .get::<CsrfToken>()
+        .map(|t| t.0.clone())
+        .unwrap_or_default();
+    render(
+        &st,
+        &CsrfToken(token),
+        "setup/welcome.html",
+        json!({ "title": "Setup", "step": "welcome", "gated": true }),
+    )
+}
+
+/// With a config that exists but cannot be read, everything except static files answers 503:
+/// pages show "Config locked", the API and all writes are refused, so nothing overwrites it.
+pub(super) async fn locked_guard(
+    State(st): St,
+    req: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> Response {
+    let Some(err) = st.config_locked.as_deref() else {
+        return next.run(req).await;
+    };
+    let path = req.uri().path();
+    let read = req.method() == Method::GET || req.method() == Method::HEAD;
+    if read && path.starts_with("/static/") {
+        return next.run(req).await;
+    }
+    if path.starts_with("/api/") || path.starts_with("/internal/") {
+        return json_resp(
+            StatusCode::SERVICE_UNAVAILABLE,
+            json!({ "error": "configuration locked: check ERASER_CONFIG_KEY" }),
+        );
+    }
+    if !read {
+        return http_error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Configuration locked: check ERASER_CONFIG_KEY and restart",
+        );
+    }
+    let mut resp = render(
+        &st,
+        &CsrfToken(String::new()),
+        "config-locked.html",
+        json!({ "title": "Config locked", "error": err }),
+    );
+    *resp.status_mut() = StatusCode::SERVICE_UNAVAILABLE;
+    resp
+}
+
 // ==================== pages ====================
 
 pub async fn dashboard(
@@ -509,9 +596,48 @@ pub async fn brokers(State(st): St, Extension(t): Extension<CsrfToken>, uri: Uri
             "category": category,
             "region": region,
             "status": status,
+            "stages": crate::history::STAGES,
             "total": st.brokers.brokers.len(),
         }),
     )
+}
+
+/// GET /brokers/{id} — one broker: status, deadline and event timeline.
+pub async fn broker_detail(
+    State(st): St,
+    Extension(t): Extension<CsrfToken>,
+    Path(id): Path<String>,
+) -> Response {
+    let Some(b) = st.brokers.find_by_id(&id).cloned() else {
+        return http_error(StatusCode::NOT_FOUND, "Broker not found");
+    };
+    let states = st.history.request_states().unwrap_or_default();
+    let now = Local::now();
+    let timeline = st.history.broker_timeline(&b.id).unwrap_or_default();
+    render(
+        &st,
+        &t,
+        "broker-detail.html",
+        json!({
+            "title": "Data Brokers",
+            "broker": b,
+            "status_chip": status::chip(&states, &b.id, now),
+            "deadline_bar": status::deadline(states.get(&b.id), now, st.reminder_days()),
+            "timeline": timeline,
+            "can_send": !states.contains_key(&b.id) && !b.email.is_empty(),
+        }),
+    )
+}
+
+/// One status chip as HTML (for HTMX swaps), via the shared macro.
+pub(super) fn chip_html(st: &AppState, c: &Chip) -> String {
+    st.views
+        .render_named_str(
+            "chip.html",
+            r#"{% from "partials/status.html" import chip %}{{ chip(c) }}"#,
+            minijinja::context! { c => Serde(c) },
+        )
+        .unwrap_or_else(|_| html_escape(&c.label))
 }
 
 pub async fn history(State(st): St, Extension(t): Extension<CsrfToken>, uri: Uri) -> Response {
@@ -526,10 +652,28 @@ pub async fn history(State(st): St, Extension(t): Extension<CsrfToken>, uri: Uri
         "history.html",
         json!({
             "title": "History",
-            "history": records,
+            "history": history_rows(&st, records),
             "status_filter": status_filter,
         }),
     )
+}
+
+/// History records with their status chip.
+fn history_rows(st: &AppState, records: Vec<Record>) -> Vec<serde_json::Value> {
+    let states = st.history.request_states().unwrap_or_default();
+    let mut tracking = st.history.request_tracking().unwrap_or_default();
+    let now = Local::now();
+    records
+        .into_iter()
+        .map(|r| {
+            let chip = status::record_chip(&states, &r, now);
+            let opens = tracking.remove(&r.id).map(status::opens);
+            let mut v = json!(r);
+            v["chip"] = json!(chip);
+            v["opens"] = json!(opens);
+            v
+        })
+        .collect()
 }
 
 fn settings_page(st: &AppState, t: &CsrfToken, message: Option<(&str, bool)>) -> Response {
@@ -1012,7 +1156,7 @@ pub async fn setup_test(
 }
 
 async fn send_with_timeout(sender: &dyn Sender, msg: &Message) -> SendResult {
-    match tokio::time::timeout(SEND_TIMEOUT, sender.send(msg, None)).await {
+    match tokio::time::timeout(actions::SEND_TIMEOUT, sender.send(msg, None)).await {
         Ok(r) => r,
         Err(_) => SendResult {
             success: false,
@@ -1154,7 +1298,7 @@ pub async fn api_history(State(st): St) -> Response {
     render_partial(
         &st,
         "partials/history-list.html",
-        json!({ "history": st.recent_history(50) }),
+        json!({ "history": history_rows(&st, st.recent_history(50)) }),
     )
 }
 
@@ -1220,23 +1364,22 @@ pub async fn api_send_one(State(st): St, Path(broker_id): Path<String>) -> Respo
         subject: rendered.subject,
         body: rendered.body,
     };
-    let result = send_with_timeout(sender.as_ref(), &msg).await;
-    let _ = st
-        .history
-        .add(&mut Record::for_send(&br, &rendered.template, &result));
+    let result = send_recorded(&st, &br, &rendered.template, sender.as_ref(), &msg).await;
 
     if result.success {
+        let states = st.history.request_states().unwrap_or_default();
         fragment(
             StatusCode::OK,
-            r#"<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Sent</span>"#,
+            chip_html(&st, &status::chip(&states, &br.id, Local::now())),
         )
     } else {
         let err = result.error.unwrap_or_else(|| "Unknown error".into());
         fragment(
             StatusCode::OK,
             format!(
-                r#"<span class="text-red-600" title="{}">Failed</span>"#,
-                html_escape(&err)
+                r#"<span title="{}">{}</span>"#,
+                html_escape(&err),
+                chip_html(&st, &Chip::failed())
             ),
         )
     }
@@ -1272,6 +1415,12 @@ pub async fn api_send_all(
     let mut status = f.get("status");
     if status.is_empty() {
         status = "pending".into(); // default: never sent
+    }
+    if !["pending", "sent", "failed"].contains(&status.as_str()) {
+        return json_resp(
+            StatusCode::BAD_REQUEST,
+            json!({ "error": "Send all only works with the pending, sent or failed filter." }),
+        );
     }
     let to_send = st.brokers_with_status(&search, &category, &region, &status);
     if to_send.is_empty() {
@@ -1366,11 +1515,35 @@ async fn send_broker_item(
         subject: rendered.subject,
         body: rendered.body,
     };
-    let result = send_with_timeout(sender, &msg).await;
-    let _ = st
-        .history
-        .add(&mut Record::for_send(broker, &rendered.template, &result));
-    Ok(result)
+    Ok(send_recorded(st, broker, &rendered.template, sender, &msg).await)
+}
+
+/// Crash-safe broker send (like actions::send_request): recorded as `pending` before sending
+/// and finalized after, so a crash mid-send is flagged instead of resent.
+async fn send_recorded(
+    st: &AppState,
+    broker: &Broker,
+    template: &str,
+    sender: &dyn Sender,
+    msg: &Message,
+) -> SendResult {
+    let mut rec = Record {
+        status: Status::Pending,
+        error: String::new(),
+        ..Record::for_send(broker, template, &SendResult::default())
+    };
+    if let Err(e) = st.history.add(&mut rec) {
+        return SendResult {
+            success: false,
+            message_id: String::new(),
+            error: Some(format!("history error, not sent: {e:#}")),
+        };
+    }
+    let result = send_with_timeout(sender, msg).await;
+    if let Err(e) = st.history.finish_send(rec.id, &result) {
+        tracing::warn!("failed to record request to {}: {e:#}", broker.id);
+    }
+    result
 }
 
 /// Runs one job item. Returns (result, whether an email was sent); Err = not attempted.
@@ -1521,6 +1694,8 @@ pub(super) fn check_pending_job(st: &Arc<AppState>) {
 pub(super) fn job_item(broker: Broker) -> BrokerWithStatus {
     BrokerWithStatus {
         broker,
+        chip: Chip::not_contacted(),
+        deadline: None,
         status: "never".into(),
         last_sent: String::new(),
         total_sent: 0,

@@ -19,6 +19,7 @@ fn state(cfg: Config, dir: &std::path::Path, mail: MockSender) -> Arc<AppState> 
         .collect();
     let (_, st) = app(AppOptions {
         config: Some(cfg),
+        config_error: None,
         config_path: dir.join("config.yaml"),
         brokers: BrokerDatabase { brokers },
         history: Store::new(dir.join("h.db")).unwrap(),

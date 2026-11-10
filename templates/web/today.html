@@ -1,4 +1,42 @@
 {% extends "layout.html" %}
+{% from "partials/status.html" import chip %}
+{% macro funnel_card(id, title, f, empty, list_href) %}
+<section class="card p-6" aria-labelledby="{{ id }}-h">
+    <div class="flex items-baseline justify-between gap-2 mb-3">
+        <h2 id="{{ id }}-h" class="font-display text-lg font-semibold text-primary">{{ title }}</h2>
+        <a href="{{ list_href }}" class="text-xs text-secondary hover:text-primary underline underline-offset-2">View all</a>
+    </div>
+    {% if f.sent %}
+    <div>
+        {% for s in f.stages %}
+        <a href="{{ s.href }}" class="funnel-row" aria-label="{{ s.label }}: {{ s.count }} ({{ s.pct }}% of sent)">
+            <span class="text-sm font-medium text-primary">{{ s.label }}</span>
+            <span class="meter"><span style="width: {{ s.pct }}%; background: {% if s.key == "deleted" %}var(--bar-ok){% else %}var(--viz-1){% endif %};"></span></span>
+            <span class="text-sm text-right num"><span class="text-primary font-semibold">{{ s.count }}</span> <span class="text-xs text-muted">{{ s.pct }}%</span></span>
+        </a>
+        {% if s.key == "opened" and (f.proxy_opened or f.receipts) %}
+        <p class="funnel-note text-xs text-muted num">
+            {% if f.receipts %}<a href="{{ f.receipt_href }}" class="hover:text-primary hover:underline underline-offset-2">{{ f.receipts }} with read receipt</a>{% endif %}{% if f.proxy_opened and f.receipts %} · {% endif %}
+            {% if f.proxy_opened %}<a href="{{ f.proxy_href }}" class="hover:text-primary hover:underline underline-offset-2" title="Apple Mail Privacy Protection and Google's image proxy load images automatically, so these opens do not show that anyone read the mail. They are not counted as opened.">+{{ f.proxy_opened }} proxy-only <span class="sr-only">(image proxies load images automatically; not counted as opened)</span><svg class="inline w-3.5 h-3.5 -mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></a>{% endif %}
+        </p>
+        {% endif %}
+        {% endfor %}
+    </div>
+    <ul class="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-4 pt-4 border-t border-[var(--border-subtle)]" aria-label="Side exits">
+        {% for e in f.exits %}
+        <li>
+            <a href="{{ e.href }}" class="block h-full p-3 rounded-xl hover:bg-elevated transition-colors" style="box-shadow: inset 0 0 0 1px var(--border-subtle);">
+                <span class="flex items-center justify-between gap-2">{{ chip({"kind": e.chip, "label": e.label}) }}<span class="font-display text-lg font-semibold text-primary num">{{ e.count }}</span></span>
+                <span class="block text-xs text-muted mt-1.5">{{ e.hint }}</span>
+            </a>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p class="text-muted text-sm">{{ empty }}</p>
+    {% endif %}
+</section>
+{% endmacro %}
 {% block content %}
 <div class="fade-in-up space-y-6">
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -9,7 +47,8 @@
         <a href="/dashboard" class="btn btn-ghost">Dashboard</a>
     </div>
 
-    <section class="card p-6" aria-labelledby="status-h">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <section class="card p-6 lg:col-span-2" aria-labelledby="status-h">
         <h2 id="status-h" class="font-display text-lg font-semibold text-primary mb-4">Status</h2>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
             <div>
@@ -53,6 +92,20 @@
         </div>
     </section>
 
+    <section class="card p-6" aria-labelledby="sending-h">
+        <h2 id="sending-h" class="font-display text-lg font-semibold text-primary mb-3">Sending today</h2>
+        <p class="text-primary num"><span class="font-display text-3xl font-bold">{{ sending.sent_today }}</span> <span class="text-sm text-secondary">of {{ sending.limit }} emails</span></p>
+        <div class="meter mt-3" role="img" aria-label="{{ sending.sent_today }} of {{ sending.limit }} emails sent today">
+            <span style="width: {{ sending.pct }}%; background: var(--viz-1);"></span>
+        </div>
+        <p class="text-sm text-secondary mt-3">
+            {% if sending.remaining == 0 %}Every broker in your regions has been contacted.
+            {% else %}<span class="text-primary font-medium num">{{ sending.remaining }}</span> brokers not contacted yet.
+            At the daily limit they are all contacted {% if sending.eta_today %}<span class="text-primary font-medium">today</span>{% else %}by <span class="text-primary font-medium">{{ sending.eta }}</span>{% endif %}{% if not enabled or not broker_requests %}, once the autopilot sends broker requests{% endif %}.{% endif %}
+        </p>
+    </section>
+    </div>
+
     <section class="card p-6" aria-labelledby="todo-h">
         <h2 id="todo-h" class="font-display text-lg font-semibold text-primary mb-4">To do <span class="text-muted text-sm font-normal">({{ todo_total }})</span></h2>
         {% if todos %}
@@ -84,38 +137,109 @@
         {% endif %}
     </section>
 
-    <section class="card p-6" aria-labelledby="progress-h">
-        <h2 id="progress-h" class="font-display text-lg font-semibold text-primary mb-4">Progress</h2>
-        <p class="text-sm text-secondary mb-2">Brokers: {{ brokers.p.contacted }} of {{ broker_total }} contacted · {{ brokers.p.confirmed }} confirmed deleted · {{ brokers.p.rejected }} rejected · {{ brokers.p.no_response }} no response · {{ brokers.p.waiting }} waiting</p>
-        <div class="flex h-3 rounded-full overflow-hidden" style="background: var(--border-subtle);" role="img" aria-label="Broker progress">
-            <div style="width: {{ brokers.confirmed_pct }}%; background: var(--success);"></div>
-            <div style="width: {{ brokers.rejected_pct }}%; background: var(--error);"></div>
-            <div style="width: {{ brokers.no_response_pct }}%; background: var(--warning);"></div>
-            <div style="width: {{ brokers.waiting_pct }}%; background: var(--accent-muted);"></div>
-        </div>
-        <p class="text-sm text-secondary mt-5 mb-2">Inbox companies: {{ companies_requested }} of {{ companies_total }} requested · {{ companies_unsubscribed }} unsubscribed · {{ company_progress.p.confirmed }} confirmed deleted</p>
-        <div class="flex h-3 rounded-full overflow-hidden" style="background: var(--border-subtle);" role="img" aria-label="Company progress">
-            <div style="width: {{ company_progress.confirmed_pct }}%; background: var(--success);"></div>
-            <div style="width: {{ company_progress.rejected_pct }}%; background: var(--error);"></div>
-            <div style="width: {{ company_progress.no_response_pct }}%; background: var(--warning);"></div>
-            <div style="width: {{ company_progress.waiting_pct }}%; background: var(--accent-muted);"></div>
-        </div>
-    </section>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {{ funnel_card("broker-funnel", "Data brokers", broker_funnel, "No broker requests sent yet.", "/brokers") }}
+        {{ funnel_card("company-funnel", "Inbox companies", company_funnel, "No requests to inbox companies yet.", "/companies") }}
+    </div>
 
-    <section class="card p-6" aria-labelledby="activity-h">
-        <h2 id="activity-h" class="font-display text-lg font-semibold text-primary mb-4">Activity</h2>
-        {% if rounds %}
-        <ul class="space-y-2">
-            {% for r in rounds %}
-            <li class="text-sm flex flex-col md:flex-row gap-1 md:gap-3">
-                <span class="text-muted md:w-32 shrink-0">{{ r.started }}</span>
-                <span class="text-primary break-words">{{ r.summary }}</span>
-            </li>
-            {% endfor %}
-        </ul>
-        {% else %}
-        <p class="text-muted">No rounds yet.</p>
-        {% endif %}
-    </section>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <section class="card p-6" aria-labelledby="regions-h">
+            <div class="flex flex-wrap items-baseline justify-between gap-2 mb-4">
+                <h2 id="regions-h" class="font-display text-lg font-semibold text-primary">By region</h2>
+                <p class="flex items-center gap-3 text-xs text-secondary">
+                    <span class="inline-flex items-center gap-1.5"><span class="inline-block w-2.5 h-2.5 rounded-sm" style="background: var(--bar-ok);"></span>Deleted</span>
+                    <span class="inline-flex items-center gap-1.5"><span class="inline-block w-2.5 h-2.5 rounded-sm" style="background: var(--viz-1);"></span>Contacted</span>
+                </p>
+            </div>
+            <table class="w-full text-sm">
+                <thead class="sr-only"><tr><th>Region</th><th>Contacted of total</th><th>Deleted</th></tr></thead>
+                <tbody>
+                {% for r in regions %}
+                <tr>
+                    <th scope="row" class="py-2 pr-3 text-left font-medium text-primary whitespace-nowrap w-24">
+                        {% if r.href %}<a href="{{ r.href }}" class="hover:underline">{{ r.label }}</a>{% else %}{{ r.label }}{% endif %}
+                    </th>
+                    <td class="py-2 pr-3 w-full">
+                        <div class="meter" role="img" aria-label="{{ r.contacted }} of {{ r.total }} contacted, {{ r.deleted }} deleted">
+                            <span style="width: {{ r.contacted_pct }}%; background: var(--viz-1);"></span>
+                            <span style="width: {{ r.deleted_pct }}%; background: var(--bar-ok); box-shadow: 2px 0 0 var(--bg-surface);"></span>
+                        </div>
+                        <p class="text-xs text-muted mt-1 num">{{ r.contacted }} of {{ r.total }} contacted</p>
+                    </td>
+                    <td class="py-2 text-right whitespace-nowrap num">
+                        <span class="text-primary font-semibold">{{ r.deleted }}</span>
+                        <span class="text-xs text-muted block">{% if r.contacted %}{{ r.rate }}% deleted{% else %}—{% endif %}</span>
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </section>
+
+        <section class="card p-6" aria-labelledby="activity-h">
+            <div class="flex flex-wrap items-baseline justify-between gap-2 mb-4">
+                <h2 id="activity-h" class="font-display text-lg font-semibold text-primary">Autopilot activity</h2>
+                {% if activity.table %}<p class="text-xs text-muted">Last {{ activity.table|length }} rounds</p>{% endif %}
+            </div>
+            {% if activity.table %}
+            <div class="space-y-3">
+                {% for row in activity.rows %}
+                <div>
+                    <div class="flex items-baseline justify-between text-xs mb-1">
+                        <span class="font-medium text-primary">{{ row.label }}</span>
+                        <span class="text-muted num">{{ row.total }} total{% if row.max %} · max {{ row.max }}{% endif %}</span>
+                    </div>
+                    <svg viewBox="0 0 {{ activity.width }} {{ activity.height }}" width="{{ activity.width }}" height="{{ activity.height }}" style="max-width: 100%; height: auto; display: block;" role="img" aria-label="{{ row.label }} per round">
+                        <line x1="0" x2="{{ activity.width }}" y1="{{ activity.height - 0.5 }}" y2="{{ activity.height - 0.5 }}" stroke="var(--border)" stroke-width="1"/>
+                        {% for b in row.bars %}
+                        <g>
+                            <title>{{ b.title }}</title>
+                            <rect x="{{ b.x - 2 }}" y="0" width="{{ activity.bar_w + 4 }}" height="{{ activity.height }}" fill="transparent"/>
+                            <rect x="{{ b.x }}" y="{{ b.y }}" width="{{ activity.bar_w }}" height="{{ b.h }}" rx="{% if b.zero %}0{% else %}3{% endif %}" fill="{% if b.zero %}var(--border){% else %}var(--viz-1){% endif %}"{% if b.dry %} fill-opacity="0.4"{% endif %}/>
+                        </g>
+                        {% endfor %}
+                    </svg>
+                </div>
+                {% endfor %}
+                <div class="flex justify-between text-xs text-muted num" style="max-width: {{ activity.width }}px;">
+                    <span>{{ activity.first }}</span><span>{{ activity.last }}</span>
+                </div>
+                {% if activity.any_dry %}<p class="text-xs text-muted">Faded bars are dry runs: counted, nothing sent.</p>{% endif %}
+            </div>
+            <details class="mt-4 text-sm">
+                <summary class="cursor-pointer text-secondary hover:text-primary">Show as table</summary>
+                <div class="overflow-x-auto mt-2">
+                <table class="w-full text-xs num">
+                    <thead><tr class="text-muted text-left">
+                        <th class="py-1 pr-3 font-medium">Round</th>
+                        {% for row in activity.rows %}<th class="py-1 pr-3 font-medium text-right">{{ row.label }}</th>{% endfor %}
+                    </tr></thead>
+                    <tbody>
+                    {% for r in activity.table %}
+                    <tr class="border-t border-[var(--border-subtle)]">
+                        <td class="py-1 pr-3 text-secondary whitespace-nowrap">{{ r.when }}{% if r.dry %} (dry){% endif %}</td>
+                        {% for v in r["values"] %}<td class="py-1 pr-3 text-right text-primary">{{ v }}</td>{% endfor %}
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                </div>
+            </details>
+            {% endif %}
+            <h3 class="font-display text-sm font-semibold text-primary mt-6 mb-2">Recent rounds</h3>
+            {% if rounds %}
+            <ul class="space-y-2">
+                {% for r in rounds %}
+                <li class="text-sm flex flex-col md:flex-row gap-1 md:gap-3">
+                    <span class="text-muted md:w-32 shrink-0 num">{{ r.started }}</span>
+                    <span class="text-primary break-words">{{ r.summary }}</span>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="text-muted text-sm">No rounds yet.</p>
+            {% endif %}
+        </section>
+    </div>
 </div>
 {% endblock %}

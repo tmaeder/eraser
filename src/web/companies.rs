@@ -8,7 +8,9 @@ use super::handlers::{
     inbox_config, job_item, needs_setup, query, redirect, render, spawn_send_job, within,
 };
 use super::job::{JobKind, JobStatus, PersistentJobState, go_json_time};
-use crate::history::Company;
+use super::status;
+use crate::config;
+use crate::history::{Chip, Company, stage_label};
 use crate::inbox::monitor::Monitor;
 use crate::scanner::actions::{Unsubscribe, request_target};
 use crate::scanner::discovery::{CONCURRENCY, Discoverer};
@@ -19,6 +21,7 @@ use axum::body::Bytes;
 use axum::extract::{Path, State};
 use axum::http::{HeaderMap, Method, StatusCode, Uri};
 use axum::response::Response;
+use chrono::Local;
 use serde::Serialize;
 use serde_json::json;
 use std::time::Duration;
@@ -58,14 +61,21 @@ struct Row {
     c: Company,
     unsub_kind: &'static str,
     unsub_target: String,
+    /// Deletion request status (None: never requested).
+    chip: Option<Chip>,
 }
 
-fn row(c: Company) -> Row {
+fn request_id(c: &Company) -> String {
+    format!("{}{}", scanner::BROKER_PREFIX, c.agg.domain)
+}
+
+fn row(c: Company, states: &status::States) -> Row {
     let plan = Unsubscribe::for_company(&c);
     let (kind, target) = plan.describe();
     Row {
         unsub_kind: kind,
         unsub_target: target.to_string(),
+        chip: states.get(&request_id(&c)).map(|s| s.chip(Local::now())),
         c,
     }
 }
@@ -93,6 +103,8 @@ pub async fn companies_page(
     }
     let q = query(&uri);
     let (filter, search) = (q.get("filter"), q.get("q").trim().to_lowercase());
+    let stage = q.get("stage");
+    let states = st.history.request_states().unwrap_or_default();
     let all = st.history.list_companies().unwrap_or_default();
     let counts: Vec<_> = FILTERS
         .iter()
@@ -108,7 +120,13 @@ pub async fn companies_page(
                 || c.agg.domain.contains(&search)
                 || c.agg.display_name.to_lowercase().contains(&search)
         })
-        .map(row)
+        .filter(|c| {
+            stage.is_empty()
+                || states
+                    .get(&request_id(c))
+                    .is_some_and(|s| s.matches_stage(&stage))
+        })
+        .map(|c| row(c, &states))
         .collect();
     let pending_discovery = rows
         .iter()
@@ -123,6 +141,8 @@ pub async fn companies_page(
             "companies": rows,
             "filters": counts,
             "filter": filter,
+            "stage": stage,
+            "stage_label": stage_label(&stage).unwrap_or_default(),
             "search": q.get("q"),
             "job_id": q.get("job"),
             "error": q.get("error"),
@@ -152,13 +172,23 @@ pub async fn company_detail(
     };
     let actions = st.history.company_actions(&domain).unwrap_or_default();
     let request = request_target(&c);
+    let states = st.history.request_states().unwrap_or_default();
+    let id = request_id(&c);
+    let now = Local::now();
+    let reminder_days = st
+        .config()
+        .map_or(config::DEFAULT_REMINDER_DAYS, |c| c.autopilot.reminder_days);
+    let deadline_bar = status::deadline(states.get(&id), now, reminder_days);
+    let timeline = st.history.broker_timeline(&id).unwrap_or_default();
     render(
         &st,
         &t,
         "company-detail.html",
         json!({
             "title": "Companies",
-            "company": row(c),
+            "company": row(c, &states),
+            "deadline_bar": deadline_bar,
+            "timeline": timeline,
             "actions": actions,
             "request_target": request.clone().unwrap_or_default(),
             "request_blocker": request.err().unwrap_or_default(),

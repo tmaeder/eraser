@@ -3,8 +3,8 @@
 //! they compare correctly as strings.
 
 use super::{
-    PendingTask, RECORD_COLUMNS, Record, Store, TASK_COLUMNS, TaskType, format_time, now_str,
-    scan_record, scan_task, sum_col,
+    PendingTask, RECORD_COLUMNS, Record, Status, Store, TASK_COLUMNS, TaskType, format_time,
+    now_str, scan_record, scan_task, sum_col,
 };
 use anyhow::{Context, Result};
 use chrono::{DateTime, Local, SecondsFormat, TimeDelta, Utc};
@@ -63,6 +63,10 @@ fn parse(s: Option<String>) -> Option<DateTime<Utc>> {
         .ok()
         .map(|t| t.with_timezone(&Utc))
 }
+
+/// Error text of a send left `pending` by a crashed run (never resent automatically).
+pub const INTERRUPTED: &str =
+    "interrupted before the result was recorded: check your Sent folder, it was not resent";
 
 const RUNNING: &str =
     "SELECT EXISTS(SELECT 1 FROM autopilot_rounds WHERE finished_at IS NULL AND started_at > ?)";
@@ -138,6 +142,71 @@ impl Store {
         let rows = stmt.query_map([], scan_record)?;
         rows.collect::<rusqlite::Result<_>>()
             .context("failed to query reminder candidates")
+    }
+
+    /// Crash-safe send, step 2: stores the outcome of a request recorded as `pending`.
+    pub fn finish_send(&self, record_id: i64, result: &crate::email::SendResult) -> Result<()> {
+        let (status, error) = if result.success {
+            (Status::Sent, String::new())
+        } else {
+            (Status::Failed, result.error.clone().unwrap_or_default())
+        };
+        self.db()
+            .execute(
+                "UPDATE removal_requests SET status = ?, message_id = ?, error = ? WHERE id = ?",
+                params![status, result.message_id, error, record_id],
+            )
+            .context("failed to record send result")?;
+        Ok(())
+    }
+
+    /// Requests still `pending` (sent_at before `before`) whose run crashed mid-send: flags them
+    /// with [`INTERRUPTED`] once and returns the newly flagged ones. They stay `pending`, so they
+    /// count as contacted and are neither resent nor reminded.
+    pub fn flag_interrupted_sends(&self, before: DateTime<Local>) -> Result<Vec<Record>> {
+        let db = self.db();
+        let sql = format!(
+            "SELECT {RECORD_COLUMNS} FROM removal_requests
+             WHERE status = 'pending' AND COALESCE(error, '') = '' AND sent_at < ? ORDER BY id"
+        );
+        let found: Vec<Record> = db
+            .prepare(&sql)?
+            .query_map([format_time(&before)], scan_record)?
+            .collect::<rusqlite::Result<_>>()
+            .context("failed to query interrupted sends")?;
+        for r in &found {
+            db.execute(
+                "UPDATE removal_requests SET error = ? WHERE id = ?",
+                params![INTERRUPTED, r.id],
+            )
+            .context("failed to flag interrupted send")?;
+        }
+        Ok(found)
+    }
+
+    /// Claims the reminder for `record_id` before sending it (false = already claimed), so a
+    /// crash mid-send never sends it twice.
+    /// ponytail: a crash between claim and send loses that one reminder (at most once).
+    pub fn claim_reminder(&self, record_id: i64) -> Result<bool> {
+        let n = self
+            .db()
+            .execute(
+                "UPDATE removal_requests SET reminder_sent_at = ? WHERE id = ? AND reminder_sent_at IS NULL",
+                params![now_str(), record_id],
+            )
+            .context("failed to claim reminder")?;
+        Ok(n == 1)
+    }
+
+    /// Undoes [`Store::claim_reminder`] after a failed send.
+    pub fn release_reminder(&self, record_id: i64) -> Result<()> {
+        self.db()
+            .execute(
+                "UPDATE removal_requests SET reminder_sent_at = NULL WHERE id = ?",
+                [record_id],
+            )
+            .context("failed to release reminder")?;
+        Ok(())
     }
 
     pub fn mark_reminder_sent(&self, record_id: i64) -> Result<()> {

@@ -1037,7 +1037,7 @@ impl Store {
 mod companies;
 mod rounds;
 pub use companies::{Company, CompanyAction, CompanyAggregate, ScannedMessage};
-pub use rounds::{AutopilotRound, Progress, STALE_ROUND, TODO_TYPES};
+pub use rounds::{AutopilotRound, INTERRUPTED, Progress, STALE_ROUND, TODO_TYPES};
 
 #[cfg(test)]
 mod tests;

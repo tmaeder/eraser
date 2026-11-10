@@ -603,3 +603,143 @@ async fn greenmail_round_end_to_end() {
     );
     assert_eq!(hits.lock().unwrap().len(), 1);
 }
+
+/// Sends like MockSender but panics (a crash mid-send) for one recipient.
+struct CrashOn(&'static str, MockSender);
+
+impl Sender for CrashOn {
+    fn send<'a>(
+        &'a self,
+        msg: &'a Message,
+        seq: Option<usize>,
+    ) -> futures::future::BoxFuture<'a, SendResult> {
+        assert_ne!(msg.to, self.0, "simulated crash mid-send");
+        self.1.send(msg, seq)
+    }
+    fn name(&self) -> &'static str {
+        "crash"
+    }
+}
+
+#[tokio::test]
+async fn crash_mid_send_is_never_resent_and_round_goes_on() {
+    let f = fixture(cfg(), vec![broker("a", ""), broker("b", "")]);
+    let crash = CrashOn("privacy@a.test", f.mail.clone());
+    let deps = Deps {
+        sender: &crash,
+        ..f.deps()
+    };
+    let id = f.store.begin_round(false).unwrap().unwrap();
+    let r = run_round(&deps, None, false, id).await;
+    assert_eq!(
+        r.errors,
+        vec!["broker requests: internal error, step skipped".to_string()]
+    );
+    assert!(f.sent().is_empty(), "nothing went out after the crash");
+    let a = f.store.get_last_request_for_broker("a").unwrap().unwrap();
+    assert_eq!(a.status, Status::Pending, "recorded before sending");
+
+    // Restart: a is never resent, b (never attempted) is sent.
+    let r = f.round(false, None).await;
+    assert_eq!(r.requests_sent, 1);
+    let to: Vec<String> = f.sent().into_iter().map(|m| m.to).collect();
+    assert_eq!(to, vec!["privacy@b.test".to_string()]);
+    assert_eq!(r.todos_added, 0, "a fresh pending row is not flagged yet");
+}
+
+#[tokio::test]
+async fn interrupted_sends_are_flagged_once_and_not_resent() {
+    let f = fixture(cfg(), vec![broker("a", "")]);
+    // A pending row from a run that crashed an hour ago (broker request) …
+    let mut rec = Record {
+        broker_id: "a".into(),
+        broker_name: "Broker a".into(),
+        email: "privacy@a.test".into(),
+        template: "gdpr".into(),
+        status: Status::Pending,
+        sent_at: Some(Local::now() - TimeDelta::hours(1)),
+        ..Default::default()
+    };
+    f.store.add(&mut rec).unwrap();
+    // … and one for an inbox company with a verified contact.
+    company(&f.store, "shop.de", "Shop", false, 400, "privacy@shop.de");
+    let shop = f.store.get_company("shop.de").unwrap().unwrap();
+    let mut rec = Record {
+        broker_id: scanner::company_broker(&shop).id,
+        broker_name: "Shop".into(),
+        email: "privacy@shop.de".into(),
+        template: "gdpr".into(),
+        status: Status::Pending,
+        sent_at: Some(Local::now() - TimeDelta::hours(1)),
+        ..Default::default()
+    };
+    f.store.add(&mut rec).unwrap();
+
+    let r = f.round(false, None).await;
+    assert!(f.sent().is_empty(), "{:?}", f.sent());
+    assert_eq!((r.requests_sent, r.company_requests), (0, 0));
+    assert_eq!(r.todos_added, 2);
+    let reviews = f
+        .store
+        .get_pending_tasks(Some(TaskType::Review), Some("pending"))
+        .unwrap();
+    assert_eq!(reviews.len(), 2);
+    assert!(reviews[0].notes.contains("check your Sent folder"));
+    let a = f.store.get_last_request_for_broker("a").unwrap().unwrap();
+    assert_eq!(
+        (a.status, a.error.as_str()),
+        (Status::Pending, crate::history::INTERRUPTED)
+    );
+
+    let r = f.round(false, None).await;
+    assert_eq!(r.todos_added, 0, "flagged only once");
+    assert!(f.sent().is_empty());
+}
+
+#[tokio::test]
+async fn failed_reminder_is_released_for_the_next_round() {
+    struct Fails;
+    impl Sender for Fails {
+        fn send<'a>(
+            &'a self,
+            _: &'a Message,
+            _: Option<usize>,
+        ) -> futures::future::BoxFuture<'a, SendResult> {
+            Box::pin(async {
+                SendResult {
+                    success: false,
+                    message_id: String::new(),
+                    error: Some("SMTP error: check your configuration".into()),
+                }
+            })
+        }
+        fn name(&self) -> &'static str {
+            "fails"
+        }
+    }
+    let mut c = cfg();
+    c.autopilot.company_requests = false;
+    let f = fixture(c, vec![broker("old", "")]);
+    sent_record(&f.store, "old", 31);
+    let deps = Deps {
+        sender: &Fails,
+        ..f.deps()
+    };
+    let id = f.store.begin_round(false).unwrap().unwrap();
+    let r = run_round(&deps, None, false, id).await;
+    assert_eq!(r.reminders_sent, 0);
+    assert_eq!(f.store.reminder_candidates().unwrap().len(), 1, "released");
+    let r = f.round(false, None).await;
+    assert_eq!(r.reminders_sent, 1);
+}
+
+#[test]
+fn long_errors_are_shortened() {
+    let mut r = RoundReport {
+        errors: vec!["é".repeat(500), "short".into()],
+        ..Default::default()
+    };
+    shorten_errors(&mut r);
+    assert_eq!(r.errors[0].chars().count(), MAX_ERROR_LEN + 1);
+    assert_eq!(r.errors[1], "short");
+}

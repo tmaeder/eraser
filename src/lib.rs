@@ -7,6 +7,7 @@ pub mod config;
 pub mod email;
 pub mod history;
 pub mod inbox;
+pub mod retry;
 pub mod scanner;
 pub mod template;
 pub mod web;

@@ -8,6 +8,29 @@ use lettre::message::header::ContentType;
 use lettre::transport::smtp::authentication::{Credentials, Mechanism};
 use lettre::transport::smtp::client::{Tls, TlsParameters};
 use lettre::{AsyncSmtpTransport, AsyncTransport, Tokio1Executor};
+use std::time::Duration;
+
+/// ponytail: a network error or timeout after DATA can mean the server accepted the mail, so
+/// a retry may duplicate it; a duplicate deletion request beats a lost one.
+const SMTP_RETRY: crate::retry::Policy = crate::retry::Policy::new(3, Duration::from_secs(1));
+/// Per SMTP command; 3 tries + backoff stay under the callers' 90 s send timeout.
+const SMTP_TIMEOUT: Duration = Duration::from_secs(25);
+
+/// Sanitized SMTP failure; `transient` = worth retrying.
+#[derive(Debug)]
+struct SmtpFailure {
+    message: String,
+    transient: bool,
+}
+
+impl SmtpFailure {
+    fn permanent(message: String) -> Self {
+        SmtpFailure {
+            message,
+            transient: false,
+        }
+    }
+}
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Message {
@@ -102,8 +125,20 @@ impl SmtpSender {
             return SendResult::failed("SMTP auth requires TLS");
         }
 
-        if let Err(e) = self.deliver(msg).await {
-            return SendResult::failed(e);
+        let delivered = crate::retry::run(
+            SMTP_RETRY,
+            || self.deliver(msg),
+            |f: &SmtpFailure| {
+                if f.transient {
+                    crate::retry::Verdict::Retry
+                } else {
+                    crate::retry::Verdict::Stop
+                }
+            },
+        )
+        .await;
+        if let Err(f) = delivered {
+            return SendResult::failed(f.message);
         }
 
         // Go formats a missing ctx value with %d, which yields "%!d(<nil>)".
@@ -115,9 +150,9 @@ impl SmtpSender {
         }
     }
 
-    /// Returns an already-sanitized error message.
-    async fn deliver(&self, msg: &Message) -> std::result::Result<(), String> {
-        let generic = || "SMTP error: check your configuration".to_string();
+    /// One delivery attempt; the error message is already sanitized.
+    async fn deliver(&self, msg: &Message) -> std::result::Result<(), SmtpFailure> {
+        let generic = || SmtpFailure::permanent("SMTP error: check your configuration".into());
         let from: Mailbox = msg.from.parse().map_err(|_| generic())?;
         let to: Mailbox = msg.to.parse().map_err(|_| generic())?;
         let email = lettre::Message::builder()
@@ -138,9 +173,10 @@ impl SmtpSender {
             } else {
                 AsyncSmtpTransport::<Tokio1Executor>::relay(host)
             }
-            .map_err(|e| sanitize_smtp_error(&e))?;
+            .map_err(|e| SmtpFailure::permanent(sanitize_smtp_error(&e)))?;
             builder
                 .port(port)
+                .timeout(Some(SMTP_TIMEOUT))
                 .credentials(Credentials::new(
                     self.config.username.clone(),
                     self.config.password.clone(),
@@ -149,18 +185,22 @@ impl SmtpSender {
                 .build()
         } else {
             // Like Go's smtp.SendMail: no auth, STARTTLS if the server offers it.
-            let tls = TlsParameters::new(host.to_string()).map_err(|e| sanitize_smtp_error(&e))?;
+            let tls = TlsParameters::new(host.to_string())
+                .map_err(|e| SmtpFailure::permanent(sanitize_smtp_error(&e)))?;
             AsyncSmtpTransport::<Tokio1Executor>::builder_dangerous(host)
                 .port(port)
+                .timeout(Some(SMTP_TIMEOUT))
                 .tls(Tls::Opportunistic(tls))
                 .build()
         };
 
-        transport
-            .send(email)
-            .await
-            .map(|_| ())
-            .map_err(|e| sanitize_smtp_error(&e))
+        transport.send(email).await.map(|_| ()).map_err(|e| {
+            let message = sanitize_smtp_error(&e);
+            SmtpFailure {
+                transient: is_transient(&e) && message != AUTH_FAILED,
+                message,
+            }
+        })
     }
 }
 
@@ -172,6 +212,19 @@ impl Sender for SmtpSender {
     fn name(&self) -> &'static str {
         "smtp"
     }
+}
+
+const AUTH_FAILED: &str = "SMTP authentication failed";
+
+/// 4xx replies, timeouts and connection/network errors; never 5xx, TLS or client errors.
+fn is_transient(err: &lettre::transport::smtp::Error) -> bool {
+    err.is_transient()
+        || err.is_timeout()
+        || !(err.is_permanent()
+            || err.is_tls()
+            || err.is_client()
+            || err.is_response()
+            || err.is_transport_shutdown())
 }
 
 /// Maps transport errors to messages that never leak server responses or credentials.
@@ -187,7 +240,7 @@ fn sanitize_smtp_error(err: &lettre::transport::smtp::Error) -> String {
 fn sanitize_message(text: &str, auth_code: bool) -> String {
     let s = text.to_lowercase();
     if auth_code || s.contains("auth") {
-        "SMTP authentication failed".into()
+        AUTH_FAILED.into()
     } else if s.contains("certificate") {
         "TLS certificate error".into()
     } else {
@@ -331,55 +384,103 @@ mod tests {
         );
     }
 
-    /// Minimal fake SMTP server: verifies the plain (no TLS, no auth) path and the message format.
-    #[tokio::test]
-    async fn sends_plain_text_message() {
+    /// Minimal fake SMTP server (no TLS, no auth). `mail_from[i]` is the reply to MAIL FROM on
+    /// connection `i` (later connections reuse the last one). Returns (port, DATA of the
+    /// connections that got that far, number of connections).
+    async fn fake_smtp(
+        mail_from: Vec<&'static str>,
+    ) -> (u16, tokio::task::JoinHandle<(String, usize)>) {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let port = listener.local_addr().unwrap().port();
         let server = tokio::spawn(async move {
-            let (sock, _) = listener.accept().await.unwrap();
-            let (r, mut w) = sock.into_split();
-            let mut lines = BufReader::new(r).lines();
-            w.write_all(b"220 fake ESMTP\r\n").await.unwrap();
             let mut data = String::new();
-            let mut in_data = false;
-            while let Some(line) = lines.next_line().await.unwrap() {
-                if in_data {
-                    if line == "." {
-                        in_data = false;
-                        w.write_all(b"250 queued\r\n").await.unwrap();
-                    } else {
-                        data.push_str(&line);
-                        data.push('\n');
+            for conn in 0.. {
+                let accepted =
+                    tokio::time::timeout(Duration::from_secs(3), listener.accept()).await;
+                let Ok(Ok((sock, _))) = accepted else {
+                    return (data, conn);
+                };
+                let mail_reply = mail_from[conn.min(mail_from.len() - 1)];
+                let (r, mut w) = sock.into_split();
+                let mut lines = BufReader::new(r).lines();
+                w.write_all(b"220 fake ESMTP\r\n").await.unwrap();
+                let mut in_data = false;
+                while let Ok(Some(line)) = lines.next_line().await {
+                    if in_data {
+                        if line == "." {
+                            in_data = false;
+                            w.write_all(b"250 queued\r\n").await.unwrap();
+                        } else {
+                            data.push_str(&line);
+                            data.push('\n');
+                        }
+                        continue;
                     }
-                    continue;
-                }
-                let reply: &[u8] = match line.get(..4).unwrap_or("").to_uppercase().as_str() {
-                    "EHLO" => b"250 fake\r\n",
-                    "DATA" => {
-                        in_data = true;
-                        b"354 go\r\n"
-                    }
-                    "QUIT" => {
-                        w.write_all(b"221 bye\r\n").await.unwrap();
+                    let reply = match line.get(..4).unwrap_or("").to_uppercase().as_str() {
+                        "EHLO" => "250 fake".to_string(),
+                        "MAIL" => mail_reply.to_string(),
+                        "DATA" => {
+                            in_data = true;
+                            "354 go".into()
+                        }
+                        "QUIT" => {
+                            let _ = w.write_all(b"221 bye\r\n").await;
+                            break;
+                        }
+                        _ => "250 ok".into(),
+                    };
+                    if w.write_all(format!("{reply}\r\n").as_bytes())
+                        .await
+                        .is_err()
+                    {
                         break;
                     }
-                    _ => b"250 ok\r\n",
-                };
-                w.write_all(reply).await.unwrap();
+                }
+                if data.contains("Subject:") {
+                    return (data, conn + 1);
+                }
             }
-            data
+            unreachable!()
         });
+        (port, server)
+    }
 
+    #[tokio::test]
+    async fn sends_plain_text_message() {
+        let (port, server) = fake_smtp(vec!["250 ok"]).await;
         let r = smtp(port as i64, false, "").send(&msg(), Some(7)).await;
         assert!(r.success, "{:?}", r.error);
         assert_eq!(r.message_id, "smtp-privacy@broker.com-7");
-        let data = server.await.unwrap();
+        let (data, conns) = server.await.unwrap();
+        assert_eq!(conns, 1);
         assert!(data.contains("From: me@example.com\n"), "{data}");
         assert!(data.contains("To: privacy@broker.com\n"));
         assert!(data.contains("Subject: Personal Data Removal Request\n"));
         assert!(data.contains("Content-Type: text/plain; charset=utf-8\n"));
     }
+
+    #[tokio::test]
+    async fn retries_transient_4xx() {
+        let (port, server) = fake_smtp(vec!["451 4.3.0 try again later", "250 ok"]).await;
+        let r = smtp(port as i64, false, "").send(&msg(), Some(1)).await;
+        assert!(r.success, "{:?}", r.error);
+        let (data, conns) = server.await.unwrap();
+        assert_eq!(conns, 2, "second connection delivered");
+        assert_eq!(data.matches("Subject:").count(), 1, "delivered once");
+    }
+
+    #[tokio::test]
+    async fn never_retries_permanent_5xx() {
+        let (port, server) = fake_smtp(vec!["550 5.7.1 rejected", "250 ok"]).await;
+        let r = smtp(port as i64, false, "").send(&msg(), Some(1)).await;
+        assert_eq!(
+            r.error.as_deref(),
+            Some("SMTP error: check your configuration")
+        );
+        let (data, conns) = server.await.unwrap();
+        assert_eq!((data.as_str(), conns), ("", 1));
+    }
+
     #[test]
     fn daily_limits() {
         assert_eq!(daily_limit("smtp"), 250);

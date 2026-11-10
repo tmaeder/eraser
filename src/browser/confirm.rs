@@ -127,17 +127,25 @@ impl ConfirmationHandler {
             }))
             .build()?;
 
-        let mut resp = client
-            .get(confirm_url)
-            .header("User-Agent", DEFAULT_USER_AGENT)
-            .header(
-                "Accept",
-                "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-            )
-            .header("Accept-Language", "en-US,en;q=0.5")
-            .send()
-            .await
-            .map_err(|e| anyhow!("request failed: {e}"))?;
+        // GET: retried on connect errors, timeouts and 429/5xx (Retry-After honoured).
+        let policy = crate::retry::Policy::new(3, Duration::from_secs(1));
+        let mut resp = crate::retry::http(
+            policy,
+            || {
+                redirects.lock().unwrap().clear();
+                client
+                    .get(confirm_url)
+                    .header("User-Agent", DEFAULT_USER_AGENT)
+                    .header(
+                        "Accept",
+                        "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+                    )
+                    .header("Accept-Language", "en-US,en;q=0.5")
+            },
+            true,
+        )
+        .await
+        .map_err(|e| anyhow!("request failed: {e}"))?;
 
         result.status_code = resp.status().as_u16();
         result.final_url = resp.url().to_string();
@@ -402,6 +410,39 @@ fn parse_host(host: &[u8]) -> Option<Vec<u8>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn click_retries_a_5xx_once_then_succeeds() {
+        let hits = Arc::new(Mutex::new(0));
+        let h = hits.clone();
+        let app = axum::Router::new().route(
+            "/confirm",
+            axum::routing::get(move || {
+                let h = h.clone();
+                async move {
+                    let mut n = h.lock().unwrap();
+                    *n += 1;
+                    if *n == 1 {
+                        (axum::http::StatusCode::BAD_GATEWAY, "busy")
+                    } else {
+                        (
+                            axum::http::StatusCode::OK,
+                            "Your request has been confirmed",
+                        )
+                    }
+                }
+            }),
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+        let r = ConfirmationHandler::new(&["127.0.0.1"])
+            .click_confirmation_link(&format!("http://{addr}/confirm"), false)
+            .await
+            .unwrap();
+        assert!(r.success, "{r:?}");
+        assert_eq!((r.status_code, *hits.lock().unwrap()), (200, 2));
+    }
 
     #[test]
     fn domain_variants_and_subdomains() {

@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 use std::future::Future;
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::{Context, Result, anyhow};
 use async_imap::Session;
@@ -23,6 +24,61 @@ use crate::config::InboxConfig;
 type ImapSession = Session<TlsStream<TcpStream>>;
 
 const NOT_CONNECTED: &str = "not connected to IMAP server";
+/// TCP + TLS + greeting + login.
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(30);
+/// ponytail: one bound per operation (all its commands), not per socket read; a per-read
+/// timeout would need a stream wrapper that also knows about IDLE.
+const OP_TIMEOUT: Duration = Duration::from_secs(300);
+const CONNECT_RETRY: crate::retry::Policy = crate::retry::Policy::new(2, Duration::from_secs(1));
+
+/// An IMAP operation exceeded its time limit; the session is unusable afterwards.
+#[derive(Debug)]
+struct ImapTimeout;
+
+impl std::fmt::Display for ImapTimeout {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("IMAP server did not respond in time")
+    }
+}
+
+impl std::error::Error for ImapTimeout {}
+
+/// Dropped connection or timeout (worth one reconnect); not login, NO/BAD or parse errors.
+fn is_connection_error(e: &anyhow::Error) -> bool {
+    e.chain().any(|c| {
+        c.is::<ImapTimeout>()
+            // InvalidData = TLS certificate / protocol error: permanent
+            || c.downcast_ref::<std::io::Error>()
+                .is_some_and(|io| io.kind() != std::io::ErrorKind::InvalidData)
+            || matches!(
+                c.downcast_ref::<async_imap::error::Error>(),
+                Some(async_imap::error::Error::Io(_) | async_imap::error::Error::ConnectionLost)
+            )
+    })
+}
+
+async fn timed<T>(limit: Duration, fut: impl Future<Output = Result<T>>) -> Result<T> {
+    tokio::time::timeout(limit, fut)
+        .await
+        .unwrap_or_else(|_| Err(ImapTimeout.into()))
+}
+
+/// Runs `self.<method>(args)` under the operation timeout; after a dropped connection or a
+/// timeout it reconnects and tries once more.
+macro_rules! reconnect_once {
+    ($self:ident . $method:ident ( $($arg:expr),* )) => {{
+        let first = timed($self.op_timeout, $self.$method($($arg),*)).await;
+        match first {
+            Err(e) if is_connection_error(&e) => {
+                warn!("IMAP connection problem ({e:#}), reconnecting once");
+                $self.session = None;
+                $self.connect().await?;
+                timed($self.op_timeout, $self.$method($($arg),*)).await
+            }
+            r => r,
+        }
+    }};
+}
 const FOLDER_BATCH_SIZE: usize = 50;
 
 const BOUNCE_SENDERS: &[&str] = &[
@@ -72,6 +128,8 @@ pub struct Monitor {
     session: Option<ImapSession>,
     /// Map of email domain to broker
     brokers: HashMap<String, Broker>,
+    /// Limit per operation ([`OP_TIMEOUT`]; tests shorten it).
+    pub(crate) op_timeout: Duration,
     /// Test-only: accept any server certificate (self-signed test servers).
     #[cfg(test)]
     pub(crate) insecure_tls: bool,
@@ -97,13 +155,33 @@ impl Monitor {
             config: cfg,
             session: None,
             brokers: build_broker_map(broker_list),
+            op_timeout: OP_TIMEOUT,
             #[cfg(test)]
             insecure_tls: false,
         }
     }
 
-    /// Establishes the IMAP connection (implicit TLS) and logs in.
+    /// Establishes the IMAP connection (implicit TLS) and logs in, within [`CONNECT_TIMEOUT`];
+    /// a dropped connection or timeout is retried once, a failed login never.
     pub async fn connect(&mut self) -> Result<()> {
+        let session = crate::retry::run(
+            CONNECT_RETRY,
+            || timed(CONNECT_TIMEOUT, self.open_session()),
+            |e| {
+                if is_connection_error(e) {
+                    crate::retry::Verdict::Retry
+                } else {
+                    crate::retry::Verdict::Stop
+                }
+            },
+        )
+        .await?;
+        self.session = Some(session);
+        info!("Login successful");
+        Ok(())
+    }
+
+    async fn open_session(&self) -> Result<ImapSession> {
         let addr = format!("{}:{}", self.config.server, self.config.port);
         info!("Connecting to IMAP server {addr}...");
 
@@ -124,10 +202,7 @@ impl Monitor {
             .login(&self.config.email, &self.config.password)
             .await
             .map_err(|(e, _)| anyhow::Error::from(e).context("failed to login"))?;
-
-        self.session = Some(session);
-        info!("Login successful");
-        Ok(())
+        Ok(session)
     }
 
     async fn dial_tls(&self, addr: &str) -> Result<TlsStream<TcpStream>> {
@@ -168,6 +243,10 @@ impl Monitor {
     /// Fetches emails from the last `days` days in the configured folder.
     /// Uses `BODY[]`, so fetched messages get marked `\Seen`.
     pub async fn fetch_recent_emails(&mut self, days: i64) -> Result<Vec<Email>> {
+        reconnect_once!(self.fetch_recent_emails_once(days))
+    }
+
+    async fn fetch_recent_emails_once(&mut self, days: i64) -> Result<Vec<Email>> {
         let folder = self.config.folder.clone();
         let session = self.session()?;
 
@@ -238,6 +317,14 @@ impl Monitor {
         folder: &str,
         days: i64,
     ) -> Result<Vec<Email>> {
+        reconnect_once!(self.fetch_broker_emails_from_folder_once(folder, days))
+    }
+
+    async fn fetch_broker_emails_from_folder_once(
+        &mut self,
+        folder: &str,
+        days: i64,
+    ) -> Result<Vec<Email>> {
         let session = self.session()?;
         let mbox = session
             .select(folder)
@@ -272,6 +359,9 @@ impl Monitor {
             .await;
             match result {
                 Ok(f) => fetched.extend(f),
+                // The connection is gone: fail so the caller reconnects instead of skipping
+                // every remaining batch.
+                Err(e) if is_connection_error(&e) => return Err(e),
                 Err(e) => warn!("Warning: error fetching batch: {e:#}"),
             }
         }
@@ -367,6 +457,10 @@ impl Monitor {
 
     /// Lists all mailbox names.
     pub async fn list_folders(&mut self) -> Result<Vec<String>> {
+        reconnect_once!(self.list_folders_once())
+    }
+
+    async fn list_folders_once(&mut self) -> Result<Vec<String>> {
         let names: Vec<_> = self
             .session()?
             .list(Some(""), Some("*"))
@@ -382,6 +476,16 @@ impl Monitor {
     /// last `days` and fetches `BODY.PEEK[HEADER.FIELDS (...)]` for UIDs `[offset, offset+limit)`
     /// in batches of 50. Never sets `\Seen`, never downloads bodies.
     pub async fn fetch_scan_headers(
+        &mut self,
+        folder: &str,
+        days: i64,
+        offset: usize,
+        limit: usize,
+    ) -> Result<HeaderBatch> {
+        reconnect_once!(self.fetch_scan_headers_once(folder, days, offset, limit))
+    }
+
+    async fn fetch_scan_headers_once(
         &mut self,
         folder: &str,
         days: i64,
@@ -943,6 +1047,153 @@ pub(crate) mod tests {
             assert_eq!(err.to_string(), NOT_CONNECTED);
         }
         assert!(m.disconnect().await.is_ok());
+    }
+
+    // ---- fake implicit-TLS IMAP server (self-signed, local only) ----
+
+    const TEST_CERT: &str = "-----BEGIN CERTIFICATE-----\nMIIBgDCCASWgAwIBAgIUGcBMSfQCmTA/QFcVVN3CPtwnva0wCgYIKoZIzj0EAwIw\nFDESMBAGA1UEAwwJbG9jYWxob3N0MCAXDTI2MTExMDAzNTEwNFoYDzIxMjYxMDE3\nMDM1MTA0WjAUMRIwEAYDVQQDDAlsb2NhbGhvc3QwWTATBgcqhkjOPQIBBggqhkjO\nPQMBBwNCAATUvu4s4iPN406m5ErPBC4AQrlMCmc6c+/ihcw3Qjd5wh2PQouA503W\n2fR9tXoBqjFEWmdToQN/zkmdU7ZYrBZbo1MwUTAdBgNVHQ4EFgQUV6nXsAt42gv9\nn/0Y64s18X5+xQMwHwYDVR0jBBgwFoAUV6nXsAt42gv9n/0Y64s18X5+xQMwDwYD\nVR0TAQH/BAUwAwEB/zAKBggqhkjOPQQDAgNJADBGAiEA1ugNI4LCyjTj7QuuAJEP\nKfPaLYVPI/1AVCirEhRNohICIQDNIu/Gm0SVWKGmXyVWeIU3PrfqaIWcr0HPW8bp\nzlHJcQ==\n-----END CERTIFICATE-----";
+    const TEST_KEY: &str = "-----BEGIN PRIVATE KEY-----\nMIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgXHRI9aW/ZnqrBNBk\nDES5R+EWdFBlkQvsgq2lF/378OehRANCAATUvu4s4iPN406m5ErPBC4AQrlMCmc6\nc+/ihcw3Qjd5wh2PQouA503W2fR9tXoBqjFEWmdToQN/zkmdU7ZYrBZb\n-----END PRIVATE KEY-----";
+
+    #[derive(Clone, Copy)]
+    enum Fake {
+        Ok,
+        /// Closes the connection on LIST.
+        DropOnList,
+        /// Never answers LIST.
+        HangOnList,
+        /// Rejects LOGIN.
+        LoginNo,
+    }
+
+    /// Connection `i` behaves like `script[i]` (the last entry repeats). Returns (port, accepted
+    /// connections).
+    async fn fake_imap(script: Vec<Fake>) -> (u16, Arc<std::sync::atomic::AtomicUsize>) {
+        use rustls::pki_types::PrivateKeyDer;
+        use rustls::pki_types::pem::PemObject;
+        use std::sync::atomic::Ordering;
+        use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+
+        let provider = Arc::new(rustls::crypto::aws_lc_rs::default_provider());
+        let tls = rustls::ServerConfig::builder_with_provider(provider)
+            .with_safe_default_protocol_versions()
+            .unwrap()
+            .with_no_client_auth()
+            .with_single_cert(
+                vec![CertificateDer::from_pem_slice(TEST_CERT.as_bytes()).unwrap()],
+                PrivateKeyDer::from_pem_slice(TEST_KEY.as_bytes()).unwrap(),
+            )
+            .unwrap();
+        let acceptor = tokio_rustls::TlsAcceptor::from(Arc::new(tls));
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let conns = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let counter = conns.clone();
+        tokio::spawn(async move {
+            loop {
+                let Ok((tcp, _)) = listener.accept().await else {
+                    return;
+                };
+                let i = counter.fetch_add(1, Ordering::SeqCst);
+                let mode = script[i.min(script.len() - 1)];
+                let acceptor = acceptor.clone();
+                tokio::spawn(async move {
+                    let Ok(tls) = acceptor.accept(tcp).await else {
+                        return;
+                    };
+                    let (r, mut w) = tokio::io::split(tls);
+                    let mut lines = BufReader::new(r).lines();
+                    let _ = w.write_all(b"* OK fake IMAP ready\r\n").await;
+                    while let Ok(Some(line)) = lines.next_line().await {
+                        let (tag, cmd) = line.split_once(' ').unwrap_or((&line, ""));
+                        let cmd = cmd.to_ascii_uppercase();
+                        let reply = match mode {
+                            Fake::LoginNo if cmd.starts_with("LOGIN") => {
+                                format!("{tag} NO [AUTHENTICATIONFAILED] invalid\r\n")
+                            }
+                            Fake::DropOnList if cmd.starts_with("LIST") => return,
+                            Fake::HangOnList if cmd.starts_with("LIST") => {
+                                tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+                                return;
+                            }
+                            _ if cmd.starts_with("LIST") => format!(
+                                "* LIST (\\HasNoChildren) \"/\" INBOX\r\n{tag} OK LIST done\r\n"
+                            ),
+                            _ if cmd.starts_with("LOGOUT") => {
+                                format!("* BYE\r\n{tag} OK LOGOUT done\r\n")
+                            }
+                            _ => format!("{tag} OK done\r\n"),
+                        };
+                        if w.write_all(reply.as_bytes()).await.is_err() {
+                            return;
+                        }
+                    }
+                });
+            }
+        });
+        (port, conns)
+    }
+
+    fn fake_monitor(port: u16) -> Monitor {
+        let cfg = InboxConfig {
+            server: "127.0.0.1".into(),
+            port: port.into(),
+            email: "u@example.com".into(),
+            password: "pw".into(),
+            ..Default::default()
+        };
+        let mut m = Monitor::new(cfg, &[]);
+        m.insecure_tls = true;
+        m
+    }
+
+    fn count(c: &std::sync::atomic::AtomicUsize) -> usize {
+        c.load(std::sync::atomic::Ordering::SeqCst)
+    }
+
+    #[tokio::test]
+    async fn reconnects_once_after_dropped_connection() {
+        let (port, conns) = fake_imap(vec![Fake::DropOnList, Fake::Ok]).await;
+        let mut m = fake_monitor(port);
+        m.connect().await.unwrap();
+        assert_eq!(m.list_folders().await.unwrap(), vec!["INBOX".to_string()]);
+        assert_eq!(count(&conns), 2);
+        m.disconnect().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn reconnects_once_after_timeout_then_gives_up() {
+        let (port, conns) = fake_imap(vec![Fake::HangOnList, Fake::Ok]).await;
+        let mut m = fake_monitor(port);
+        m.op_timeout = std::time::Duration::from_millis(300);
+        m.connect().await.unwrap();
+        assert_eq!(m.list_folders().await.unwrap(), vec!["INBOX".to_string()]);
+        assert_eq!(count(&conns), 2);
+
+        let (port, conns) = fake_imap(vec![Fake::DropOnList]).await;
+        let mut m = fake_monitor(port);
+        m.connect().await.unwrap();
+        let err = m.list_folders().await.unwrap_err();
+        assert!(is_connection_error(&err), "{err:#}");
+        assert_eq!(count(&conns), 2, "retried only once");
+    }
+
+    #[tokio::test]
+    async fn login_failure_is_not_retried() {
+        let (port, conns) = fake_imap(vec![Fake::LoginNo]).await;
+        let mut m = fake_monitor(port);
+        let err = m.connect().await.unwrap_err();
+        assert!(format!("{err:#}").contains("failed to login"), "{err:#}");
+        assert_eq!(count(&conns), 1);
+    }
+
+    #[tokio::test]
+    async fn connect_retries_refused_connection_once() {
+        let port = {
+            let l = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+            l.local_addr().unwrap().port()
+        };
+        let err = fake_monitor(port).connect().await.unwrap_err();
+        assert!(is_connection_error(&err), "{err:#}");
     }
 
     // ---- integration test against a throwaway GreenMail container ----

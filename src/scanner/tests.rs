@@ -242,6 +242,46 @@ fn discoverer(origin: &str) -> discovery::Discoverer {
     discovery::Discoverer::with_origin(Arc::new(move |_: &str| origin.clone())).unwrap()
 }
 
+/// Router whose `path` answers 503 on the first hit and `ok` afterwards; counts hits.
+async fn flaky(path: &'static str, ok: &'static str) -> (String, Arc<Mutex<usize>>) {
+    let hits = Arc::new(Mutex::new(0));
+    let h = hits.clone();
+    let reply = move || {
+        let h = h.clone();
+        async move {
+            let mut n = h.lock().unwrap();
+            *n += 1;
+            if *n == 1 {
+                axum::http::StatusCode::SERVICE_UNAVAILABLE.into_response()
+            } else {
+                axum::response::Html(ok).into_response()
+            }
+        }
+    };
+    let app = Router::new().route(path, axum::routing::any(reply));
+    (serve(app).await, hits)
+}
+
+#[tokio::test]
+async fn discovery_retries_a_5xx_page() {
+    let (origin, hits) = flaky("/privacy", "privacy@flaky.test").await;
+    let c = discoverer(&origin).discover("flaky.test", &[]).await;
+    assert_eq!(
+        (c.status, c.email.as_str()),
+        ("website", "privacy@flaky.test")
+    );
+    assert_eq!(*hits.lock().unwrap(), 2);
+}
+
+#[tokio::test]
+async fn one_click_post_is_not_retried_after_5xx() {
+    let (origin, hits) = flaky("/unsub", "ok").await;
+    let code = actions::one_click_post(&actions::http_client(), &format!("{origin}/unsub"))
+        .await
+        .unwrap();
+    assert_eq!((code, *hits.lock().unwrap()), (503, 1));
+}
+
 #[tokio::test]
 async fn discovery_against_fake_websites() {
     let (origin, hits) = fake_sites().await;

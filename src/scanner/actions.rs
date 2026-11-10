@@ -11,6 +11,8 @@ use chrono::Local;
 use std::time::Duration;
 
 const HTTP_TIMEOUT: Duration = Duration::from_secs(10);
+/// Covers the SMTP sender's own retries (3 tries of up to 25 s per command).
+pub const SEND_TIMEOUT: Duration = Duration::from_secs(90);
 
 /// What an unsubscribe would do for a company (shown on the confirmation page).
 #[derive(Debug, Clone, PartialEq)]
@@ -86,16 +88,23 @@ pub fn http_client() -> reqwest::Client {
 }
 
 /// RFC 8058 one-click: `POST List-Unsubscribe=One-Click` as a form body. Returns the HTTP status.
+/// Retried only on connect errors (the POST never reached the server).
 pub async fn one_click_post(client: &reqwest::Client, url: &str) -> anyhow::Result<u16> {
-    let resp = client
-        .post(url)
-        .header(
-            reqwest::header::CONTENT_TYPE,
-            "application/x-www-form-urlencoded",
-        )
-        .body("List-Unsubscribe=One-Click")
-        .send()
-        .await?;
+    let policy = crate::retry::Policy::new(3, Duration::from_millis(500));
+    let resp = crate::retry::http(
+        policy,
+        || {
+            client
+                .post(url)
+                .header(
+                    reqwest::header::CONTENT_TYPE,
+                    "application/x-www-form-urlencoded",
+                )
+                .body("List-Unsubscribe=One-Click")
+        },
+        false,
+    )
+    .await?;
     Ok(resp.status().as_u16())
 }
 
@@ -120,7 +129,7 @@ pub fn mailto_message(uri: &str, cfg: &Config) -> Option<Message> {
 }
 
 async fn send(sender: &dyn Sender, msg: &Message) -> SendResult {
-    match tokio::time::timeout(Duration::from_secs(30), sender.send(msg, None)).await {
+    match tokio::time::timeout(SEND_TIMEOUT, sender.send(msg, None)).await {
         Ok(r) => r,
         Err(_) => SendResult {
             success: false,
@@ -175,24 +184,27 @@ pub async fn send_request(
         subject: rendered.subject,
         body: rendered.body,
     };
-    let result = send(sender, &msg).await;
+    // Crash-safe: the attempt is recorded as `pending` before sending and finalized after, so
+    // a restart never sends it again (see Store::flag_interrupted_sends).
     let mut record = Record {
         broker_id: broker.id.clone(),
         broker_name: broker.name.clone(),
         email: to.clone(),
         template: rendered.template.clone(),
+        status: Status::Pending,
         sent_at: Some(Local::now()),
         ..Default::default()
     };
-    if result.success {
-        record.status = Status::Sent;
-        record.message_id = result.message_id.clone();
-        let _ = store.mark_company(domain, "requested");
-    } else {
-        record.status = Status::Failed;
-        record.error = result.error.clone().unwrap_or_default();
+    if let Err(e) = store.add(&mut record) {
+        return fail(format!("history error, not sent: {e:#}"));
     }
-    let _ = store.add(&mut record);
+    let result = send(sender, &msg).await;
+    if result.success {
+        let _ = store.mark_company(domain, "requested");
+    }
+    if let Err(e) = store.finish_send(record.id, &result) {
+        tracing::warn!("failed to record request to {domain}: {e:#}");
+    }
     let _ = store.add_company_action(
         domain,
         "request",

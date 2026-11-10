@@ -22,6 +22,8 @@ pub const USER_AGENT: &str = concat!(
 const ROBOTS_TOKEN: &str = "eraser";
 const MAX_FETCHES: usize = 6;
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
+/// ponytail: retries (connect errors, timeouts, 429/5xx) are not counted against MAX_FETCHES.
+const FETCH_RETRY: crate::retry::Policy = crate::retry::Policy::new(2, Duration::from_millis(500));
 const MAX_PAGE_BYTES: usize = 1 << 20;
 pub const CONCURRENCY: usize = 4;
 
@@ -332,12 +334,17 @@ impl Discoverer {
     /// GET host+path; returns (final url, body) for 2xx text responses (capped at 1 MiB).
     async fn fetch(&self, host: &str, path: &str) -> Option<(url::Url, String)> {
         let url = format!("{}{path}", (self.origin)(host));
-        let mut req = self.client.get(&url);
-        if !url.starts_with(&format!("https://{host}/")) {
-            // `origin` remapped the host (tests): keep the logical host for virtual hosting.
-            req = req.header(reqwest::header::HOST, host);
-        }
-        let mut resp = req.send().await.ok()?;
+        // `origin` remapped the host (tests): keep the logical host for virtual hosting.
+        let remapped = !url.starts_with(&format!("https://{host}/"));
+        let build = || {
+            let req = self.client.get(&url);
+            if remapped {
+                req.header(reqwest::header::HOST, host)
+            } else {
+                req
+            }
+        };
+        let mut resp = crate::retry::http(FETCH_RETRY, build, true).await.ok()?;
         if !resp.status().is_success() {
             return None;
         }

@@ -13,14 +13,16 @@ use crate::broker::{Broker, BrokerDatabase};
 use crate::browser::{ConfirmationHandler, detect_captcha_from_html, extract_confirmation_status};
 use crate::config::Config;
 use crate::email::{self, Message, SendResult, Sender};
-use crate::history::{Company, PendingTask, PipelineStatus, Record, Store, TaskType};
+use crate::history::{Company, PendingTask, PipelineStatus, Record, Status, Store, TaskType};
 use crate::inbox::classifier::{ResponseType, classify_response};
 use crate::inbox::monitor::Monitor;
 use crate::scanner::actions::{self, Unsubscribe};
 use crate::scanner::{self, Identity, discovery::Discoverer, domain};
 use crate::template::Engine;
 use chrono::{DateTime, Datelike, Local, TimeDelta, TimeZone, Timelike, Utc};
+use futures::FutureExt;
 use serde::{Deserialize, Serialize};
+use std::panic::AssertUnwindSafe;
 use std::time::Duration;
 
 /// Hours between hosted rounds (Worker cron `0 */6 * * *`, UTC).
@@ -31,7 +33,10 @@ const INBOX_DAYS: i64 = 7;
 const SCAN_DAYS: i64 = 7;
 /// ponytail: contact discovery capped per round so a first scan cannot run for hours.
 const MAX_DISCOVER: usize = 50;
-const SEND_TIMEOUT: Duration = Duration::from_secs(30);
+/// A request still `pending` after this was interrupted by a crash (sends time out long before).
+const INTERRUPTED_AFTER: TimeDelta = TimeDelta::minutes(10);
+/// Round errors are cut to this many characters (the report is shown as a list).
+const MAX_ERROR_LEN: usize = 200;
 
 /// Everything a round uses; the web server and the CLI fill it from their own state.
 pub struct Deps<'a> {
@@ -164,7 +169,7 @@ fn add_todo(store: &Store, r: &mut RoundReport, mut task: PendingTask) {
 }
 
 async fn send(d: &Deps<'_>, msg: &Message) -> SendResult {
-    match tokio::time::timeout(SEND_TIMEOUT, d.sender.send(msg, None)).await {
+    match tokio::time::timeout(actions::SEND_TIMEOUT, d.sender.send(msg, None)).await {
         Ok(res) => res,
         Err(_) => SendResult {
             success: false,
@@ -260,13 +265,20 @@ async fn reminders(d: &Deps<'_>, dry_run: bool, budget: &mut i64, r: &mut RoundR
             subject: mail.subject,
             body: mail.body,
         };
+        // Claimed before sending: a crash mid-send never sends the reminder twice.
+        match d.store.claim_reminder(rec.id) {
+            Ok(true) => {}
+            Ok(false) => continue,
+            Err(e) => {
+                r.errors.push(format!("reminder {}: {e:#}", rec.broker_id));
+                continue;
+            }
+        }
         let res = send(d, &msg).await;
         if res.success {
             r.reminders_sent += 1;
-            if let Err(e) = d.store.mark_reminder_sent(rec.id) {
-                r.errors.push(format!("reminder {}: {e:#}", rec.broker_id));
-            }
         } else {
+            let _ = d.store.release_reminder(rec.id);
             let what = format!("reminder {}", rec.broker_id);
             record_failure(r, &what, res.error.as_deref().unwrap_or(""));
         }
@@ -310,11 +322,19 @@ async fn broker_requests(d: &Deps<'_>, dry_run: bool, budget: &mut i64, r: &mut 
             subject: rendered.subject,
             body: rendered.body,
         };
+        // Crash-safe: recorded as `pending` first, so a restart counts it as contacted and never
+        // sends it again (run_round flags it for the user instead).
+        let mut rec = Record {
+            status: Status::Pending,
+            ..Record::for_send(b, &rendered.template, &SendResult::default())
+        };
+        if let Err(e) = d.store.add(&mut rec) {
+            r.errors
+                .push(format!("{}: not sent, history error: {e:#}", b.id));
+            continue;
+        }
         let res = send(d, &msg).await;
-        if let Err(e) = d
-            .store
-            .add(&mut Record::for_send(b, &rendered.template, &res))
-        {
+        if let Err(e) = d.store.finish_send(rec.id, &res) {
             r.errors.push(format!("{}: {e:#}", b.id));
         }
         if res.success {
@@ -639,8 +659,22 @@ async fn company_requests(
     budget: &mut i64,
     r: &mut RoundReport,
 ) {
+    let statuses = match d.store.get_all_broker_statuses() {
+        Ok(s) => s,
+        Err(e) => {
+            r.errors.push(format!("company requests: {e:#}"));
+            return;
+        }
+    };
+    // An interrupted earlier send (still `pending`) is never repeated automatically.
+    let interrupted = |c: &Company| {
+        statuses
+            .get(&scanner::company_broker(c).id)
+            .is_some_and(|s| s.status == Status::Pending)
+    };
     let verified = |c: &&Company| {
         c.requested_at.is_none()
+            && !interrupted(c)
             && matches!(c.contact_status.as_str(), "broker" | "website")
             && actions::request_target(c).is_ok()
     };
@@ -688,6 +722,53 @@ fn sync_form_todos(store: &Store, r: &mut RoundReport) {
     }
 }
 
+/// Sends left `pending` by a crashed run become to-dos once; they are never resent.
+fn flag_interrupted(store: &Store, r: &mut RoundReport) {
+    let found = match store.flag_interrupted_sends(Local::now() - INTERRUPTED_AFTER) {
+        Ok(f) => f,
+        Err(e) => {
+            r.errors.push(format!("interrupted sends: {e:#}"));
+            return;
+        }
+    };
+    for rec in found {
+        add_todo(
+            store,
+            r,
+            PendingTask {
+                broker_id: rec.broker_id,
+                broker_name: rec.broker_name,
+                task_type: TaskType::Review,
+                notes: format!(
+                    "Sending to {} was interrupted: check your Sent folder. It was not resent.",
+                    rec.email
+                ),
+                ..Default::default()
+            },
+        );
+    }
+}
+
+/// Runs one step; a panic is recorded as an error and the round goes on with the next step.
+macro_rules! step {
+    ($r:ident, $name:literal, $fut:expr) => {
+        if AssertUnwindSafe($fut).catch_unwind().await.is_err() {
+            $r.errors
+                .push(concat!($name, ": internal error, step skipped").to_string());
+        }
+    };
+}
+
+/// Cuts each error to [`MAX_ERROR_LEN`] characters.
+fn shorten_errors(r: &mut RoundReport) {
+    for e in &mut r.errors {
+        if let Some((i, _)) = e.char_indices().nth(MAX_ERROR_LEN) {
+            e.truncate(i);
+            e.push('…');
+        }
+    }
+}
+
 fn finish(store: &Store, id: i64, r: &RoundReport) {
     let json = serde_json::to_string(r).unwrap_or_default();
     if let Err(e) = store.finish_round(id, &json) {
@@ -709,8 +790,14 @@ pub async fn run_round(
         ..Default::default()
     };
     let steps = &d.cfg.autopilot;
-    let sent_today = d.store.emails_sent_since(start_of_today()).unwrap_or(0);
-    let mut budget = email::daily_limit(&d.cfg.email.provider) - sent_today;
+    let mut budget = match d.store.emails_sent_since(start_of_today()) {
+        Ok(n) => email::daily_limit(&d.cfg.email.provider) - n,
+        Err(e) => {
+            r.errors.push(format!("daily limit: {e:#}; nothing sent"));
+            0
+        }
+    };
+    flag_interrupted(d.store, &mut r);
 
     let mut monitor = monitor;
     let connected = match monitor.as_mut() {
@@ -728,20 +815,24 @@ pub async fn run_round(
         && steps.check_inbox
         && let Some(m) = monitor.as_mut()
     {
-        check_inbox(d, m, dry_run, &mut r).await;
+        step!(r, "inbox", check_inbox(d, m, dry_run, &mut r));
     }
     if steps.confirm_links {
-        confirm_links(d, dry_run, &mut r).await;
+        step!(r, "confirm links", confirm_links(d, dry_run, &mut r));
     }
     if steps.broker_requests {
-        reminders(d, dry_run, &mut budget, &mut r).await;
-        broker_requests(d, dry_run, &mut budget, &mut r).await;
+        step!(r, "reminders", reminders(d, dry_run, &mut budget, &mut r));
+        step!(
+            r,
+            "broker requests",
+            broker_requests(d, dry_run, &mut budget, &mut r)
+        );
     }
     if connected
         && steps.scan_inbox
         && let Some(m) = monitor.as_mut()
     {
-        scan_companies(d, m, &mut r).await;
+        step!(r, "scan", scan_companies(d, m, &mut r));
     }
     let cands = if steps.unsubscribe || steps.company_requests {
         candidates(d, &mut r)
@@ -749,16 +840,21 @@ pub async fn run_round(
         Vec::new()
     };
     if steps.unsubscribe {
-        unsubscribe(d, &cands, dry_run, &mut r).await;
+        step!(r, "unsubscribe", unsubscribe(d, &cands, dry_run, &mut r));
     }
     if steps.company_requests {
-        company_requests(d, &cands, dry_run, &mut budget, &mut r).await;
+        step!(
+            r,
+            "company requests",
+            company_requests(d, &cands, dry_run, &mut budget, &mut r)
+        );
     }
     sync_form_todos(d.store, &mut r);
 
     if connected && let Some(m) = monitor.as_mut() {
         let _ = m.disconnect().await;
     }
+    shorten_errors(&mut r);
     finish(d.store, round_id, &r);
     r
 }

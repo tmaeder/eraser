@@ -99,9 +99,15 @@
                     <div><label for="imap_port" class="label">Port</label><input id="imap_port" name="imap_port" type="number" class="input" value="{% if a and a.imap_port %}{{ a.imap_port }}{% endif %}" placeholder="993"></div>
                 </div>
                 <div>
-                    <label for="account_email" class="label">Email address</label>
+                    {% set prov = a.provider if a else "icloud" %}
+                    <label for="account_email" class="label">{% if prov == "icloud" %}iCloud Mail address (primary — used to sign in){% else %}Primary email address (used to sign in){% endif %}</label>
                     <input type="email" id="account_email" name="account_email" class="input" value="{% if a %}{{ a.email }}{% endif %}" placeholder="you@icloud.com" autocomplete="username">
-                    <p class="text-xs text-muted mt-1">Also the From address of every request.</p>
+                    <p class="text-xs text-muted mt-1">{% if prov == "icloud" %}Must be your primary iCloud Mail address, not an alias. Find it on iPhone: Settings → [your name] → iCloud → iCloud Mail.{% else %}Must be your primary address, not an alias.{% endif %}</p>
+                </div>
+                <div>
+                    <label for="send_as" class="label">Send as (alias, optional)</label>
+                    <input type="email" id="send_as" name="send_as" class="input" value="{% if a %}{{ a.send_as }}{% endif %}" placeholder="alias@me.com">
+                    <p class="text-xs text-muted mt-1">Requests are sent from this address. Must be one of your {% if prov == "icloud" %}iCloud Mail {% endif %}aliases.</p>
                 </div>
                 <div>
                     <label for="account_password" class="label">App-specific password</label>

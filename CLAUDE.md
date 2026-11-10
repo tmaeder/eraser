@@ -13,7 +13,7 @@ Eraser sends GDPR / CCPA / Swiss FADP deletion requests to 1,350+ data brokers f
 - **Inbox**: async-imap + mail-parser
 - **Browser automation**: chromiumoxide (Chrome/Chromium; `CHROME_PATH` overrides)
 - **Database**: SQLite via rusqlite (bundled) at `~/.eraser/history.db`
-- **Config**: YAML (`yaml_serde`) at `~/.eraser/config.yaml`. One `account:` (provider icloud/gmail/outlook/custom, email, app password) feeds both SMTP and IMAP; `email.smtp`/`email.from`/inbox credentials are derived in memory at load (`Config::apply_account`) and never written. Old configs migrate on load. `email.tracking` (default off) switches own Message-ID, read-receipt headers and pixel on.
+- **Config**: YAML (`yaml_serde`) at `~/.eraser/config.yaml`. One `account:` (provider icloud/gmail/outlook/custom, primary email = login, optional `send_as` alias = From, app password) feeds both SMTP and IMAP; `email.smtp`/`email.from`/inbox credentials are derived in memory at load (`Config::apply_account`) and never written. Old configs migrate on load. `email.tracking` (default off) switches own Message-ID, read-receipt headers and pixel on.
 
 ## Project Structure
 

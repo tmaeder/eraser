@@ -459,9 +459,38 @@ async fn settings_account_and_inbox_options() {
         ("127.0.0.1", 1)
     );
 
-    // empty password keeps the saved one; the inbox form never touches it
+    // empty password keeps the saved one, also with a changed address; the inbox form
+    // never touches it
+    let mut changed = account.to_vec();
+    changed[1] = ("account_email", "ada.primary@icloud.com");
+    changed.push(("send_as", "ada@me.com"));
+    let r = h.post_form("/settings/account", &t, &changed).await;
+    assert!(r.body.contains("Account saved."), "{}", r.body);
+    assert!(
+        r.body.contains(r#"value="ada@me.com""#),
+        "send_as rendered back"
+    );
+    let cfg = config::load(&path).unwrap();
+    assert_eq!(cfg.account.password, "app-pw", "kept across email change");
+    assert_eq!(cfg.email.smtp.username, "ada.primary@icloud.com");
+    assert_eq!(cfg.inbox.email, "ada.primary@icloud.com");
+    assert_eq!(cfg.email.from, "ada@me.com");
+    let mut bad = changed.clone();
+    bad.pop();
+    bad.push(("send_as", "not-an-address"));
+    let r = h.post_form("/settings/account", &t, &bad).await;
+    assert!(
+        r.body.contains("Send as must be an email address"),
+        "{}",
+        r.body
+    );
     let r = h.post_form("/settings/account", &t, &account).await;
     assert!(r.body.contains("Account saved."));
+    assert_eq!(
+        config::load(&path).unwrap().email.from,
+        "ada@icloud.com",
+        "alias cleared"
+    );
     let r = h
         .post_form(
             "/settings/inbox",

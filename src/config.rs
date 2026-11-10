@@ -102,8 +102,15 @@ pub struct AccountConfig {
     /// icloud, gmail, outlook, custom
     #[serde(deserialize_with = "nullable")]
     pub provider: String,
+    /// Primary address: SMTP and IMAP login (iCloud accepts no alias here).
     #[serde(deserialize_with = "nullable")]
     pub email: String,
+    /// Optional alias used as From; empty = `email`.
+    #[serde(
+        skip_serializing_if = "String::is_empty",
+        deserialize_with = "nullable"
+    )]
+    pub send_as: String,
     /// App-specific password (never the account password); encrypted at rest with a key.
     #[serde(deserialize_with = "nullable")]
     pub password: String,
@@ -240,7 +247,7 @@ pub struct EmailConfig {
     /// Derived from the account ("smtp"); old configs are migrated from these fields.
     #[serde(skip_serializing, deserialize_with = "nullable")]
     pub provider: String,
-    /// Derived: account email (iCloud rejects any other From).
+    /// Derived: account send_as, else account email.
     #[serde(skip_serializing, deserialize_with = "nullable")]
     pub from: String,
     /// Derived: account SMTP server and credentials.
@@ -434,6 +441,12 @@ fn migrate_legacy_account(cfg: &mut Config) {
             "config: inbox credentials differ from the SMTP ones; using the SMTP account for both"
         );
     }
+    let from = &cfg.email.from;
+    let send_as = if from.is_empty() || from.eq_ignore_ascii_case(&email) {
+        String::new()
+    } else {
+        from.clone()
+    };
     let mut imap = inbox.clone();
     apply_inbox_defaults(&mut imap);
     let known = PROVIDERS.iter().copied().find(|p| {
@@ -446,12 +459,14 @@ fn migrate_legacy_account(cfg: &mut Config) {
         Some(p) => AccountConfig {
             provider: p.into(),
             email,
+            send_as,
             password,
             ..Default::default()
         },
         None => AccountConfig {
             provider: "custom".into(),
             email,
+            send_as,
             password,
             smtp_host: smtp.host.clone(),
             smtp_port: smtp.port,
@@ -543,7 +558,11 @@ impl Config {
         let (smtp_host, smtp_port) = a.smtp_server();
         let (imap_host, imap_port) = a.imap_server();
         self.email.provider = "smtp".into();
-        self.email.from.clone_from(&a.email);
+        self.email.from.clone_from(if a.send_as.is_empty() {
+            &a.email
+        } else {
+            &a.send_as
+        });
         self.email.smtp = SmtpConfig {
             host: smtp_host,
             port: smtp_port,
@@ -806,6 +825,49 @@ mod tests {
         assert_eq!(raw.matches(ENC_PREFIX).count(), 1, "{raw}");
         assert!(!raw.contains("smtp-pw"));
         assert_eq!(load_with_key(&path, Some(&key)).unwrap(), cfg);
+    }
+
+    #[test]
+    fn send_as_alias_applies_and_migrates() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("c.yaml");
+        // Legacy: login with the primary address, From an alias.
+        std::fs::write(
+            &path,
+            LEGACY
+                .replace("from: me@icloud.com", "from: alias@me.com")
+                .replace("IMAPPW", "SMTPPW"),
+        )
+        .unwrap();
+        let cfg = load(&path).unwrap();
+        assert_eq!(
+            (cfg.account.email.as_str(), cfg.account.send_as.as_str()),
+            ("me@icloud.com", "alias@me.com")
+        );
+        assert_eq!(
+            cfg.email.smtp.username, "me@icloud.com",
+            "SMTP login = primary"
+        );
+        assert_eq!(cfg.inbox.email, "me@icloud.com", "IMAP login = primary");
+        assert_eq!(cfg.email.from, "alias@me.com", "From = alias");
+        assert_eq!(cfg.profile.email, "a@b.c", "profile untouched");
+        save(&path, &cfg).unwrap();
+        let raw = std::fs::read_to_string(&path).unwrap();
+        assert!(raw.contains("send_as: alias@me.com"), "{raw}");
+        assert_eq!(load(&path).unwrap(), cfg);
+
+        // Same address: no send_as written; clearing send_as falls back to the email.
+        std::fs::write(&path, LEGACY).unwrap();
+        let mut cfg = load(&path).unwrap();
+        assert_eq!(cfg.account.send_as, "");
+        save(&path, &cfg).unwrap();
+        assert!(!std::fs::read_to_string(&path).unwrap().contains("send_as"));
+        cfg.account.send_as = "x@me.com".into();
+        cfg.apply_account();
+        assert_eq!(cfg.email.from, "x@me.com");
+        cfg.account.send_as.clear();
+        cfg.apply_account();
+        assert_eq!(cfg.email.from, "me@icloud.com");
     }
 
     #[test]

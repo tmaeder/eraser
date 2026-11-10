@@ -6,7 +6,7 @@ use std::process::{Command, Stdio};
 #[test]
 fn init_writes_icloud_config() {
     let home = tempfile::tempdir().unwrap();
-    let answers = "Jane\nDoe\njane@example.com\n1 Main St\nZurich\nZH\n8000\nSwitzerland\n+41 44 000 00 00\nicloud\njane@icloud.com\nabcd-efgh-ijkl-mnop\nn\nccpa\n";
+    let answers = "Jane\nDoe\njane@example.com\n1 Main St\nZurich\nZH\n8000\nSwitzerland\n+41 44 000 00 00\nicloud\njane@icloud.com\njane.alias@me.com\nabcd-efgh-ijkl-mnop\nn\nccpa\n";
     let mut child = Command::new(env!("CARGO_BIN_EXE_eraser"))
         .arg("init")
         .env("HOME", home.path())
@@ -58,9 +58,13 @@ fn init_writes_icloud_config() {
     assert!(cfg.email.smtp.use_tls);
     assert_eq!(cfg.email.smtp.username, "jane@icloud.com");
     assert_eq!(cfg.email.smtp.password, "abcd-efgh-ijkl-mnop");
-    assert_eq!(cfg.email.from, cfg.email.smtp.username);
+    assert_eq!(cfg.account.send_as, "jane.alias@me.com");
+    assert_eq!(cfg.email.from, "jane.alias@me.com", "From = alias");
+    assert_eq!(cfg.inbox.email, "jane@icloud.com", "IMAP login = primary");
     assert_eq!(cfg.options.template, "ccpa");
     assert_eq!(cfg.options.rate_limit_ms, 2000);
+    assert!(stdout.contains("iCloud Mail address (primary — used to sign in)"));
+    assert!(stdout.contains("Send as (alias, optional"));
 }
 
 #[test]
@@ -97,7 +101,7 @@ fn init_rejects_unknown_template() {
         .stderr(Stdio::piped())
         .spawn()
         .unwrap();
-    let answers = "J\nD\nj@x.com\n\n\n\n\n\n\n\nj@icloud.com\npw\n\nnosuch\n";
+    let answers = "J\nD\nj@x.com\n\n\n\n\n\n\n\nj@icloud.com\n\npw\n\nnosuch\n";
     child
         .stdin
         .take()

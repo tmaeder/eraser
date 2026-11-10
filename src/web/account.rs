@@ -23,6 +23,7 @@ fn account_from_form(f: &FormValues, existing: &AccountConfig) -> (AccountConfig
     let mut a = AccountConfig {
         provider: f.get("provider").trim().to_string(),
         email: f.get("account_email").trim().to_string(),
+        send_as: f.get("send_as").trim().to_string(),
         password: f.get("account_password").trim().to_string(),
         ..Default::default()
     };
@@ -45,6 +46,9 @@ fn account_from_form(f: &FormValues, existing: &AccountConfig) -> (AccountConfig
     if validate_email(&a.email).is_err() || !a.email.contains('@') {
         errors.insert("account_email", "Email address is required");
     }
+    if !a.send_as.is_empty() && (validate_email(&a.send_as).is_err() || !a.send_as.contains('@')) {
+        errors.insert("send_as", "Send as must be an email address");
+    }
     if a.password.is_empty() {
         errors.insert("account_password", "App password is required");
     }
@@ -61,6 +65,7 @@ pub(super) fn account_view(a: &AccountConfig) -> serde_json::Value {
     json!({
         "provider": if a.provider.is_empty() { "icloud" } else { a.provider.as_str() },
         "email": a.email,
+        "send_as": a.send_as,
         "has_password": !a.password.is_empty(),
         "smtp_host": smtp_host,
         "smtp_port": smtp_port,
@@ -91,12 +96,34 @@ pub(super) async fn connection_checks(cfg: &Config) -> Vec<Check> {
     let check = |name, r: Result<(), String>| Check {
         name,
         ok: r.is_ok(),
-        detail: r.err().unwrap_or_else(|| "Login OK".into()),
+        detail: r.map_or_else(
+            |e| alias_hint(&cfg.email.smtp.username, e),
+            |()| "Login OK".into(),
+        ),
     };
     vec![
         check("Sending (SMTP)", smtp),
         check("Reading replies (IMAP)", imap),
     ]
+}
+
+/// iCloud logs in with the primary address only; an alias fails with these errors.
+fn alias_hint(login: &str, detail: String) -> String {
+    let d = detail.to_lowercase();
+    let apple = ["@icloud.com", "@me.com", "@mac.com"]
+        .iter()
+        .any(|s| login.to_lowercase().ends_with(s));
+    let alias_error = d.contains("5.1.1")
+        || d.contains("mailbox does not exist")
+        || d.contains("authenticationfailed")
+        || d.contains("authentication failed");
+    if apple && alias_error {
+        format!(
+            "{detail}. If this address is an alias, enter your primary iCloud Mail address here and put the alias under Send as."
+        )
+    } else {
+        detail
+    }
 }
 
 fn checks_html(checks: &[Check]) -> String {
@@ -309,8 +336,32 @@ mod tests {
             &Default::default(),
         );
         assert!(e.is_empty());
+        assert_eq!(a.send_as, "");
         assert_eq!(a.smtp_server(), ("mx.x.org".to_string(), 465));
         assert_eq!(a.imap_server(), ("mx.x.org".to_string(), 993));
+        let (a, e) = account_from_form(
+            &form("account_email=me%40icloud.com&send_as=alias%40me.com&account_password=p"),
+            &Default::default(),
+        );
+        assert!(e.is_empty(), "{e:?}");
+        assert_eq!(a.send_as, "alias@me.com");
+        let (_, e) = account_from_form(
+            &form("account_email=me%40icloud.com&send_as=nope&account_password=p"),
+            &Default::default(),
+        );
+        assert!(e.contains_key("send_as"));
+    }
+
+    #[test]
+    fn alias_hint_only_for_apple_alias_errors() {
+        let smtp = "Rejected by mail server: 550 5.1.1 Mailbox does not exist".to_string();
+        assert!(alias_hint("x@me.com", smtp.clone()).ends_with("put the alias under Send as."));
+        assert!(
+            alias_hint("x@icloud.com", "NO [AUTHENTICATIONFAILED] invalid".into())
+                .contains("primary iCloud Mail address")
+        );
+        assert_eq!(alias_hint("x@gmail.com", smtp.clone()), smtp);
+        assert_eq!(alias_hint("x@mac.com", "timeout".into()), "timeout");
     }
 
     #[tokio::test]

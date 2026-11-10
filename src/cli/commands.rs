@@ -193,7 +193,29 @@ async fn run_init(ctx: &Ctx) -> Result<()> {
             "  (Create an app-specific password at https://account.apple.com → Sign-In and Security)"
         );
     }
-    a.email = prompt(&mut input, "  Email address (e.g. you@icloud.com): ");
+    let icloud = a.provider == "icloud";
+    if icloud {
+        println!(
+            "  Must be your primary iCloud Mail address, not an alias. Find it on iPhone: Settings → [your name] → iCloud → iCloud Mail."
+        );
+    }
+    a.email = prompt(
+        &mut input,
+        if icloud {
+            "  iCloud Mail address (primary — used to sign in): "
+        } else {
+            "  Primary email address (used to sign in): "
+        },
+    );
+    a.send_as = prompt(
+        &mut input,
+        "  Send as (alias, optional; requests are sent from this address): ",
+    );
+    if !a.send_as.is_empty()
+        && (email::validate_email(&a.send_as).is_err() || !a.send_as.contains('@'))
+    {
+        anyhow::bail!("send as {:?} is not an email address", a.send_as);
+    }
     a.password = prompt(
         &mut input,
         "  App-specific password (xxxx-xxxx-xxxx-xxxx): ",

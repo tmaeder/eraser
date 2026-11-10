@@ -603,7 +603,13 @@ mod tests {
                     }
                     let reply = match line.get(..4).unwrap_or("").to_uppercase().as_str() {
                         "EHLO" => "250 fake".to_string(),
-                        "MAIL" => mail_reply.to_string(),
+                        "MAIL" => {
+                            if mail_reply.starts_with("250") {
+                                data.push_str(&line);
+                                data.push('\n');
+                            }
+                            mail_reply.to_string()
+                        }
                         "DATA" => {
                             in_data = true;
                             "354 go".into()
@@ -661,6 +667,32 @@ mod tests {
         assert!(data.contains(&format!("Message-ID: {}\n", r.message_id)));
         assert!(data.contains("Disposition-Notification-To: me@example.com\n"));
         assert!(data.contains("Content-Type: text/plain; charset=utf-8\n"));
+    }
+
+    #[tokio::test]
+    async fn send_as_alias_is_from_and_primary_is_login() {
+        let mut cfg = crate::config::Config {
+            account: crate::config::AccountConfig {
+                provider: "icloud".into(),
+                email: "me@icloud.com".into(),
+                send_as: "alias@me.com".into(),
+                password: "pw".into(),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        cfg.apply_account();
+        assert_eq!(cfg.email.smtp.username, "me@icloud.com", "AUTH user");
+        assert_eq!(cfg.inbox.email, "me@icloud.com", "IMAP login");
+        // The fake server has no TLS, so no AUTH; it checks the envelope and header.
+        let (port, server) = fake_smtp(vec!["250 ok"]).await;
+        let mut m = msg();
+        m.from.clone_from(&cfg.email.from);
+        let r = smtp(i64::from(port), false, "").send(&m, None).await;
+        assert!(r.success, "{:?}", r.error);
+        let (data, _) = server.await.unwrap();
+        assert!(data.contains("MAIL FROM:<alias@me.com>"), "{data}");
+        assert!(data.contains("From: alias@me.com\n"), "{data}");
     }
 
     #[tokio::test]

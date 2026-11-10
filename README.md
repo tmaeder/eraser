@@ -67,9 +67,9 @@ Eraser sends removal requests from your iCloud Mail account. Apple requires an *
 3. Go to **Sign-In and Security → App-Specific Passwords**
 4. Click **+**, name it "Eraser", and copy the password (looks like `xxxx-xxxx-xxxx-xxxx`)
 
-Use your `@icloud.com` / `@me.com` address plus that password in the setup wizard. You enter the account **once**: the same address and app-specific password are used for sending requests and for reading broker replies. Eraser connects to `smtp.mail.me.com:587` (STARTTLS) and, for inbox monitoring, `imap.mail.me.com:993`.
+Enter your **primary iCloud Mail address** (iPhone: Settings → [your name] → iCloud → iCloud Mail) plus that password in the setup wizard; iCloud only accepts the primary address as login, an alias fails with `550 5.1.1 Mailbox does not exist` / `AUTHENTICATIONFAILED`. You enter the account **once**: the same address and app-specific password are used for sending requests and for reading broker replies. Eraser connects to `smtp.mail.me.com:587` (STARTTLS) and, for inbox monitoring, `imap.mail.me.com:993`.
 
-**Note:** iCloud only sends mail whose *From* address is one of your iCloud addresses, so Eraser uses your iCloud login as the sender.
+**Send as (optional):** to send from an alias (e.g. `@me.com`), enter it under *Send as*; requests then go out with that address as *From* while Eraser still signs in with the primary one. It must be one of your iCloud Mail aliases.
 
 **Daily sending limits:** iCloud allows ~1,000 emails per day. Eraser chunks large sends across multiple days (250/day) so you stay well under the limit.
 
@@ -231,7 +231,8 @@ profile:
 # One account sends the requests (SMTP) and reads the replies (IMAP)
 account:
   provider: icloud  # icloud | gmail | outlook | custom
-  email: jane@icloud.com  # also the From address
+  email: jane@icloud.com  # primary address, used to sign in
+  send_as: jane@me.com  # optional alias used as From
   password: xxxx-xxxx-xxxx-xxxx  # app-specific password (encrypted at rest with ERASER_CONFIG_KEY)
   # custom only: smtp_host, smtp_port (587 = STARTTLS), imap_host, imap_port
 

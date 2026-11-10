@@ -20,7 +20,8 @@ profile:
 account:
   # icloud (smtp.mail.me.com:587 + imap.mail.me.com:993), gmail, outlook or custom
   provider: icloud
-  email: john.doe@icloud.com  # also the From address (iCloud rejects any other)
+  email: john.doe@icloud.com  # primary iCloud Mail address (login; aliases are rejected)
+  # send_as: john@me.com      # optional alias used as From (must be one of your aliases)
   password: your-app-password  # app-specific password, never your account password!
   # Only for provider: custom
   # smtp_host: mail.example.com

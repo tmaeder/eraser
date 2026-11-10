@@ -1,12 +1,15 @@
+import { DurableObject } from "cloudflare:workers";
 import { Container, getContainer } from "@cloudflare/containers";
 export { ContainerProxy } from "@cloudflare/containers";
-import { isInternalPath } from "./guard";
+import { isInternalPath, limiterKey, LOGIN_WINDOW_MS, recentFailures, retryAfterSeconds } from "./guard";
 
 interface Env {
   ERASER: DurableObjectNamespace<EraserContainer>;
   STATE: R2Bucket;
   ERASER_PASSWORD: string;
   ERASER_AUTOPILOT_TOKEN: string;
+  ERASER_CONFIG_KEY: string;
+  LOGIN_LIMITER: DurableObjectNamespace<LoginLimiter>;
 }
 
 const STATE_KEY = "eraser-home.tar.gz";
@@ -17,7 +20,36 @@ export class EraserContainer extends Container<Env> {
   sleepAfter = "2h";
   enableInternet = true; // SMTP/IMAP to iCloud
   // The container's tick endpoint compares X-Autopilot-Token against this.
-  envVars = { ERASER_AUTOPILOT_TOKEN: this.env.ERASER_AUTOPILOT_TOKEN ?? "" };
+  // ERASER_CONFIG_KEY encrypts the SMTP/IMAP passwords in config.yaml (and so in the R2 snapshot).
+  envVars = {
+    ERASER_AUTOPILOT_TOKEN: this.env.ERASER_AUTOPILOT_TOKEN ?? "",
+    ERASER_CONFIG_KEY: this.env.ERASER_CONFIG_KEY ?? "",
+  };
+}
+
+/** Failed sign-ins of one client (one instance per IP or IPv6 /64). */
+export class LoginLimiter extends DurableObject<Env> {
+  private async failures(): Promise<number[]> {
+    return recentFailures((await this.ctx.storage.get<number[]>("f")) ?? [], Date.now());
+  }
+  async retryAfter(): Promise<number> {
+    return retryAfterSeconds(await this.failures(), Date.now());
+  }
+  async fail(): Promise<void> {
+    const now = Date.now();
+    await this.ctx.storage.put("f", [...(await this.failures()), now]);
+    await this.ctx.storage.setAlarm(now + LOGIN_WINDOW_MS);
+  }
+  async clear(): Promise<void> {
+    await this.ctx.storage.deleteAll();
+  }
+  async alarm(): Promise<void> {
+    await this.ctx.storage.deleteAll(); // every failure has left the window
+  }
+}
+
+function limiter(request: Request, env: Env): DurableObjectStub<LoginLimiter> {
+  return env.LOGIN_LIMITER.get(env.LOGIN_LIMITER.idFromName(limiterKey(request.headers.get("CF-Connecting-IP"))));
 }
 
 // The container reads/writes its ~/.eraser snapshot via http://state.internal/
@@ -50,7 +82,12 @@ const SESSION_DAYS = 30;
 function basicAuthOk(request: Request, password: string): boolean {
   const header = request.headers.get("Authorization") ?? "";
   if (!header.startsWith("Basic ")) return false;
-  const decoded = atob(header.slice(6));
+  let decoded: string;
+  try {
+    decoded = atob(header.slice(6));
+  } catch {
+    return false; // malformed base64
+  }
   return timingSafeEqual(decoded.slice(decoded.indexOf(":") + 1), password);
 }
 
@@ -76,7 +113,7 @@ function safeNext(next: string | null): string {
   return next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
 }
 
-function loginPage(next: string, failed: boolean, status = 401): Response {
+function loginPage(next: string, error = "", status = 401): Response {
   const esc = (s: string) => s.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
   return new Response(
     `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -93,9 +130,20 @@ button{margin-top:14px;width:100%;padding:10px;font-size:16px;border:0;border-ra
 <form method="post" action="/__login"><h1>Eraser</h1><p>Enter your password to continue.</p>
 <label for="pw">Password</label><input id="pw" name="password" type="password" autocomplete="current-password" autofocus required>
 <input type="hidden" name="next" value="${esc(next)}">
-<button type="submit">Sign in</button>${failed ? '<p class="err">Wrong password.</p>' : ""}</form></body></html>`,
+<button type="submit">Sign in</button>${error ? `<p class="err">${esc(error)}</p>` : ""}</form></body></html>`,
     { status, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } },
   );
+}
+
+function tooManyAttempts(next: string, retryAfter: number): Response {
+  const minutes = Math.ceil(retryAfter / 60);
+  const res = loginPage(
+    next,
+    `Too many failed attempts. Please wait ${minutes} minute${minutes === 1 ? "" : "s"} and try again.`,
+    429,
+  );
+  res.headers.set("Retry-After", String(retryAfter));
+  return res;
 }
 
 export default {
@@ -109,10 +157,15 @@ export default {
     if (url.pathname === "/__login" && request.method === "POST") {
       const form = await request.formData();
       const next = safeNext(String(form.get("next") ?? "/"));
+      const limit = limiter(request, env);
+      const wait = await limit.retryAfter();
+      if (wait) return tooManyAttempts(next, wait);
       // trim: pasted passwords often carry a trailing newline
       if (!timingSafeEqual(String(form.get("password") ?? "").trim(), password)) {
-        return loginPage(next, true);
+        await limit.fail();
+        return loginPage(next, "Wrong password.");
       }
+      await limit.clear();
       const expiry = String(Date.now() + SESSION_DAYS * 86400_000);
       return new Response(null, {
         status: 303,
@@ -129,9 +182,18 @@ export default {
       });
     }
 
-    // Basic auth still works for scripts (curl -u eraser:...)
-    if (!basicAuthOk(request, password) && !(await cookieOk(request, password))) {
-      return loginPage(safeNext(url.pathname + url.search), false);
+    // Basic auth still works for scripts (curl -u eraser:...); wrong Basic credentials count
+    // towards the same limit as the sign-in form.
+    const next = safeNext(url.pathname + url.search);
+    if (!(await cookieOk(request, password))) {
+      if (!request.headers.get("Authorization")?.startsWith("Basic ")) return loginPage(next);
+      const limit = limiter(request, env);
+      const wait = await limit.retryAfter();
+      if (wait) return tooManyAttempts(next, wait);
+      if (!basicAuthOk(request, password)) {
+        await limit.fail();
+        return loginPage(next);
+      }
     }
     // Single-user app: one container instance holds all state.
     return getContainer(env.ERASER, "main").fetch(request);

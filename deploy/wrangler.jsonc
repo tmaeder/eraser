@@ -16,8 +16,14 @@
     }
   ],
   "durable_objects": {
-    "bindings": [{ "name": "ERASER", "class_name": "EraserContainer" }]
+    "bindings": [
+      { "name": "ERASER", "class_name": "EraserContainer" },
+      { "name": "LOGIN_LIMITER", "class_name": "LoginLimiter" }
+    ]
   },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["EraserContainer"] }],
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["EraserContainer"] },
+    { "tag": "v2", "new_sqlite_classes": ["LoginLimiter"] }
+  ],
   "r2_buckets": [{ "binding": "STATE", "bucket_name": "eraser-state" }]
 }

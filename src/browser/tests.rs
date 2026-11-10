@@ -110,7 +110,7 @@ const FORM: &str = r#"<!doctype html><html><head><title>Opt Out</title></head><b
   <input name="last_name">
   <input name="city">
   <input name="hidden_zip" style="display:none">
-  <button type="submit">Submit</button>
+  <button type="button" onclick="this.form.requestSubmit()">Opt out</button>
 </form></body></html>"#;
 
 #[tokio::test(flavor = "multi_thread")]

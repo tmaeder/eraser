@@ -20,6 +20,7 @@ use tracing::{info, warn};
 use super::go_lower;
 use crate::broker::Broker;
 use crate::config::InboxConfig;
+use crate::scanner::domain::is_personal_domain;
 
 type ImapSession = Session<TlsStream<TcpStream>>;
 
@@ -291,11 +292,25 @@ impl Monitor {
 
     fn parse_message(&self, uid: u32, raw: &[u8]) -> Email {
         let mut email = parse_raw_email(uid, raw);
-        if let Some(b) = self.brokers.get(&email.from_domain) {
+        if let Some(b) = self.broker_for_domain(&email.from_domain) {
             email.broker_id = b.id.clone();
             email.broker_name = b.name.clone();
         }
         email
+    }
+
+    /// Exact domain first, then parent domains (`mail.acme.com` → `acme.com`).
+    fn broker_for_domain(&self, domain: &str) -> Option<&Broker> {
+        let mut d = domain;
+        loop {
+            if let Some(b) = self.brokers.get(d) {
+                return Some(b);
+            }
+            d = d.split_once('.')?.1;
+            if !d.contains('.') {
+                return None;
+            }
+        }
     }
 
     /// Fetches only emails from known broker domains.
@@ -631,13 +646,14 @@ fn webpki_root_store() -> rustls::RootCertStore {
 }
 
 /// Maps broker email domains and website domains to brokers. Later brokers win
-/// on collisions. Lookup is exact (no subdomain matching), like Go.
+/// on collisions. Freemail domains (a broker writing from gmail.com) are skipped: they
+/// would attribute every private mail from that provider to the broker.
 fn build_broker_map(broker_list: &[Broker]) -> HashMap<String, Broker> {
     let mut map = HashMap::new();
     for b in broker_list {
         if !b.email.is_empty() {
             let parts: Vec<&str> = b.email.split('@').collect();
-            if parts.len() == 2 {
+            if parts.len() == 2 && !is_personal_domain(parts[1]) {
                 map.insert(go_lower(parts[1]), b.clone());
             }
         }
@@ -653,10 +669,11 @@ fn build_broker_map(broker_list: &[Broker]) -> HashMap<String, Broker> {
 
 /// Extracts the lowercased host from a URL (strips one `https://`, `http://`, `www.`).
 fn extract_domain(url: &str) -> String {
-    let url = url.strip_prefix("https://").unwrap_or(url);
+    let url = go_lower(url);
+    let url = url.strip_prefix("https://").unwrap_or(&url);
     let url = url.strip_prefix("http://").unwrap_or(url);
     let url = url.strip_prefix("www.").unwrap_or(url);
-    go_lower(url.split('/').next().unwrap_or_default())
+    url.split('/').next().unwrap_or_default().to_string()
 }
 
 /// IMAP SINCE date (`2-Jan-2006`) for local "today minus `days`".
@@ -890,7 +907,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn extract_domain_matches_go() {
+    fn extract_domain_strips_scheme_and_www() {
         assert_eq!(
             extract_domain("https://www.Spokeo.com/optout"),
             "spokeo.com"
@@ -901,8 +918,7 @@ pub(crate) mod tests {
             extract_domain("https://sub.example.com:8080/a"),
             "sub.example.com:8080"
         );
-        // Go only strips lowercase scheme prefixes
-        assert_eq!(extract_domain("HTTPS://X.com"), "https:");
+        assert_eq!(extract_domain("HTTPS://WWW.X.com"), "x.com");
         assert_eq!(extract_domain(""), "");
     }
 
@@ -915,6 +931,7 @@ pub(crate) mod tests {
                 "https://www.acme.io/privacy",
             ),
             broker("bad", "not-an-email", ""),
+            broker("free", "optout.broker@gmail.com", ""),
             broker("two", "a@b@c.com", ""),
             broker("late", "", "https://acme.io"),
         ];
@@ -925,15 +942,24 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn domain_lookup_is_exact() {
+    fn domain_lookup_exact_then_parent() {
         let m = Monitor::new(
             InboxConfig::default(),
-            &[broker("acme", "privacy@acme.com", "")],
+            &[
+                broker("acme", "privacy@acme.com", ""),
+                broker("eu", "dpo@eu.acme.com", ""),
+            ],
         );
-        let raw = crlf("From: Acme <noreply@mail.acme.com>\nSubject: hi\n\nbody\n");
-        let e = m.parse_message(5, &raw);
+        let from = |addr: &str| {
+            let raw = crlf(&format!("From: Acme <{addr}>\nSubject: hi\n\nbody\n"));
+            m.parse_message(5, &raw)
+        };
+        let e = from("noreply@mail.acme.com");
         assert_eq!(e.from_domain, "mail.acme.com");
-        assert_eq!(e.broker_id, "", "subdomains do not match (same as Go)");
+        assert_eq!(e.broker_id, "acme", "subdomain matches parent");
+        assert_eq!(from("x@a.eu.acme.com").broker_id, "eu", "closest parent wins");
+        assert_eq!(from("x@notacme.com").broker_id, "");
+        assert_eq!(from("x@acme.org").broker_id, "");
 
         let raw = crlf("From: Acme <NoReply@ACME.com>\nSubject: hi\n\nbody\n");
         let e = m.parse_message(5, &raw);

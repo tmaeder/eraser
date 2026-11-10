@@ -354,11 +354,12 @@ pub fn get_primary_form_url(urls: &ExtractedURLs, broker_domain: &str) -> String
     best.map(|(u, _)| u.clone()).unwrap_or_default()
 }
 
-/// First confirmation URL containing `broker_domain` (case-sensitive, as in Go), else the first one.
+/// First confirmation URL containing `broker_domain` (case-insensitive), else the first one.
 pub fn get_primary_confirmation_url(urls: &ExtractedURLs, broker_domain: &str) -> String {
+    let domain = go_lower(broker_domain);
     urls.confirmation_urls
         .iter()
-        .find(|u| go_lower(u).contains(broker_domain))
+        .find(|u| go_lower(u).contains(&domain))
         .or(urls.confirmation_urls.first())
         .cloned()
         .unwrap_or_default()
@@ -382,6 +383,34 @@ mod tests {
         assert_eq!(clean_url("mailto:x@example.com"), "");
         assert_eq!(clean_url("https:///nohost"), "");
         assert_eq!(clean_url("https://example.com:abc/"), "");
+    }
+
+    #[test]
+    fn primary_urls_prefer_broker_domain() {
+        let urls = ExtractedURLs {
+            form_urls: vec![
+                "https://other.com/opt-out".into(),
+                "https://Acme.com/opt-out".into(),
+            ],
+            confirmation_urls: vec![
+                "https://other.com/confirm".into(),
+                "https://Acme.com/confirm".into(),
+            ],
+            ..Default::default()
+        };
+        assert_eq!(
+            get_primary_confirmation_url(&urls, "ACME.com"),
+            "https://Acme.com/confirm"
+        );
+        assert_eq!(
+            get_primary_confirmation_url(&urls, "nope.com"),
+            "https://other.com/confirm"
+        );
+        assert_eq!(
+            get_primary_form_url(&urls, "acme.com"),
+            "https://Acme.com/opt-out"
+        );
+        assert_eq!(get_primary_form_url(&ExtractedURLs::default(), "x"), "");
     }
 
     #[test]

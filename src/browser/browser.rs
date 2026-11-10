@@ -96,15 +96,18 @@ pub fn needs_no_sandbox() -> bool {
     root || std::env::var("ERASER_CHROME_NO_SANDBOX").as_deref() == Ok("1")
 }
 
+/// Fallback after [`SUBMIT_SELECTORS`]: clicks the first `<button>` labelled like a submit.
+const CLICK_SUBMIT_BY_TEXT_JS: &str = r"(() => {
+    const re = /submit|remove|opt.?out|delete|request/i;
+    const b = [...document.querySelectorAll('button')].find(b => re.test(b.textContent));
+    if (!b) return false;
+    b.click();
+    return true;
+})()";
+
 const SUBMIT_SELECTORS: &[&str] = &[
     "button[type='submit']",
     "input[type='submit']",
-    // :contains() is not valid CSS; querySelector throws and these are skipped, as in Go.
-    "button:contains('Submit')",
-    "button:contains('Remove')",
-    "button:contains('Opt Out')",
-    "button:contains('Delete')",
-    "button:contains('Request')",
     ".submit-button",
     "#submit",
     "#submit-btn",
@@ -326,6 +329,11 @@ impl Browser {
             {
                 return Ok(());
             }
+        }
+        if let Ok(r) = self.page.evaluate(CLICK_SUBMIT_BY_TEXT_JS).await
+            && r.into_value::<bool>().unwrap_or(false)
+        {
+            return Ok(());
         }
         // Press Enter on the focused element (chromedp KeyEvent("\r")).
         for kind in [DispatchKeyEventType::KeyDown, DispatchKeyEventType::KeyUp] {

@@ -1,8 +1,8 @@
-//! Route handlers (port of the handler half of internal/web/server.go).
+//! Route handlers.
 
 use super::AppState;
 use super::csrf::CsrfToken;
-use super::job::{Job, JobKind, JobStatus, PersistentJobState, go_json_time};
+use super::job::{Job, JobKind, JobStatus, PersistentJobState, json_time};
 use super::status;
 use super::views::STATIC_FILES;
 use crate::broker::Broker;
@@ -66,60 +66,17 @@ pub(super) fn redirect(method: &Method, to: &str) -> Response {
     resp
 }
 
-/// Subset of Go's http.DetectContentType for the bodies this server writes.
-fn sniff(body: &str) -> Option<&'static str> {
-    if body.is_empty() {
-        return None;
-    }
-    let trimmed = body
-        .trim_start_matches(['\t', '\n', '\x0c', '\r', ' '])
-        .as_bytes();
-    const SIGS: [&str; 17] = [
-        "<!DOCTYPE HTML",
-        "<HTML",
-        "<HEAD",
-        "<SCRIPT",
-        "<IFRAME",
-        "<H1",
-        "<DIV",
-        "<FONT",
-        "<TABLE",
-        "<A",
-        "<STYLE",
-        "<TITLE",
-        "<B",
-        "<BODY",
-        "<BR",
-        "<P",
-        "<!--",
-    ];
-    let html = SIGS.iter().any(|sig| {
-        let n = sig.len();
-        trimmed.len() > n
-            && trimmed[..n].eq_ignore_ascii_case(sig.as_bytes())
-            && matches!(trimmed[n], b' ' | b'>')
-    });
-    Some(if html {
-        "text/html; charset=utf-8"
-    } else {
-        "text/plain; charset=utf-8"
-    })
-}
-
-/// w.Write of an HTML fragment (content type sniffed like Go).
+/// An HTML fragment (HTMX swaps).
 pub(super) fn fragment(status: StatusCode, body: impl Into<String>) -> Response {
-    let body = body.into();
-    let mut resp = (status, body.clone()).into_response();
-    match sniff(&body) {
-        Some(ct) => resp
-            .headers_mut()
-            .insert(header::CONTENT_TYPE, HeaderValue::from_static(ct)),
-        None => resp.headers_mut().remove(header::CONTENT_TYPE),
-    };
-    resp
+    (
+        status,
+        [(header::CONTENT_TYPE, "text/html; charset=utf-8")],
+        body.into(),
+    )
+        .into_response()
 }
 
-/// json.NewEncoder(w).Encode (keys sorted, trailing newline).
+/// JSON body (keys sorted, trailing newline).
 pub(super) fn json_resp(status: StatusCode, v: serde_json::Value) -> Response {
     (
         status,
@@ -163,7 +120,7 @@ pub async fn static_file(Path(path): Path<String>) -> Response {
     }
 }
 
-/// r.FormValue: urlencoded body (POST/PUT/PATCH) first, then the query string.
+/// Form values: urlencoded body (POST/PUT/PATCH) first, then the query string.
 pub(super) struct FormValues(HashMap<String, String>);
 
 impl FormValues {
@@ -193,14 +150,9 @@ pub(super) fn query(uri: &Uri) -> FormValues {
     FormValues::new(&Method::GET, &HeaderMap::new(), uri, b"")
 }
 
-/// fmt.Sscanf("%d"): leading (optionally signed) integer, 0 if none.
+/// Numeric id from a path segment, 0 if it is not a number.
 pub(super) fn parse_id(s: &str) -> i64 {
-    let s = s.trim_start();
-    let end = s
-        .char_indices()
-        .find(|&(i, c)| !(c.is_ascii_digit() || (i == 0 && (c == '-' || c == '+'))))
-        .map_or(s.len(), |(i, _)| i);
-    s[..end].parse().unwrap_or(0)
+    s.trim().parse().unwrap_or(0)
 }
 
 // ==================== rendering ====================
@@ -232,7 +184,7 @@ pub(super) fn render(
     data: serde_json::Value,
 ) -> Response {
     let field = format!(
-        r#"<input type="hidden" name="gorilla.csrf.Token" value="{}">"#,
+        r#"<input type="hidden" name="csrf_token" value="{}">"#,
         token.0
     );
     let ctx = minijinja::context! {
@@ -251,8 +203,8 @@ fn email_view(e: &EmailConfig) -> serde_json::Value {
     json!({ "provider": e.provider, "from": e.from, "smtp": e.smtp })
 }
 
-/// Config as the templates see it: Go structs are always present, so no skipped sections.
-fn config_view(cfg: &Option<Config>) -> serde_json::Value {
+/// Config as the templates see it: every section present, none skipped.
+fn config_view(cfg: Option<&Config>) -> serde_json::Value {
     match cfg {
         None => serde_json::Value::Null,
         Some(c) => json!({
@@ -287,6 +239,8 @@ pub(super) struct BrokerWithStatus {
     chip: Chip,
     #[serde(skip_serializing_if = "Option::is_none")]
     deadline: Option<status::Deadline>,
+    /// Send button label (None: no button).
+    send_label: Option<&'static str>,
 }
 
 #[derive(Serialize, Default)]
@@ -344,6 +298,7 @@ impl AppState {
                 total_sent: 0,
                 chip: status::chip(&states, &b.id, now),
                 deadline: status::deadline(state, now, reminder_days),
+                send_label: status::send_label(&states, b, now, reminder_days),
             };
             if let Some(s) = statuses.get(&b.id) {
                 bws.status = s.status.as_str().to_string();
@@ -366,7 +321,7 @@ impl AppState {
         result
     }
 
-    fn reminder_days(&self) -> i64 {
+    pub(super) fn reminder_days(&self) -> i64 {
         self.config()
             .map_or(crate::config::DEFAULT_REMINDER_DAYS, |c| {
                 c.autopilot.reminder_days
@@ -386,11 +341,7 @@ impl AppState {
 
     fn stats(&self) -> Stats {
         let total = self.brokers.brokers.len() as i64;
-        let (sent, failed) = self
-            .history
-            .get_stats()
-            .map(|(_, s, f)| (s, f))
-            .unwrap_or((0, 0));
+        let (sent, failed) = self.history.get_stats().map_or((0, 0), |(_, s, f)| (s, f));
         Stats {
             total_brokers: total,
             sent,
@@ -418,15 +369,11 @@ impl AppState {
             s.rejected = g(PipelineStatus::Rejected);
             s.failed = g(PipelineStatus::Failed);
         }
-        let pending_tasks = self
-            .history
-            .get_pending_task_stats()
-            .map(|t| t.0)
-            .unwrap_or(0);
+        let pending_tasks = self.history.get_pending_task_stats().map_or(0, |t| t.0);
         if let Ok(r) = self.history.get_broker_responses(None, true, 1000) {
             s.needs_review = r.len() as i64;
         }
-        let pending_forms = self.history.get_form_stats().map(|f| f.0).unwrap_or(0);
+        let pending_forms = self.history.get_form_stats().map_or(0, |f| f.0);
         // Unified "Action Needed": pending forms + pending tasks + items needing review
         s.pending_tasks = pending_forms + pending_tasks + s.needs_review;
         s
@@ -473,8 +420,8 @@ fn pending_tasks(
     }
 }
 
-pub(super) fn needs_setup(cfg: &Option<Config>) -> bool {
-    cfg.as_ref().is_none_or(|c| c.profile.first_name.is_empty())
+pub(super) fn needs_setup(cfg: Option<&Config>) -> bool {
+    cfg.is_none_or(|c| c.profile.first_name.is_empty())
 }
 
 /// Pages that need a finished setup, with the name the setup banner uses.
@@ -489,7 +436,7 @@ pub(super) async fn setup_gate(
 ) -> Response {
     if req.method() != Method::GET
         || !GATED.contains(&req.uri().path())
-        || !needs_setup(&st.config())
+        || !needs_setup(st.config().as_ref())
     {
         return next.run(req).await;
     }
@@ -554,7 +501,7 @@ pub async fn dashboard(
     method: Method,
 ) -> Response {
     let cfg = st.config();
-    if needs_setup(&cfg) {
+    if needs_setup(cfg.as_ref()) {
         return redirect(&method, "/setup");
     }
     let cfg = cfg.unwrap();
@@ -624,7 +571,7 @@ pub async fn broker_detail(
             "status_chip": status::chip(&states, &b.id, now),
             "deadline_bar": status::deadline(states.get(&b.id), now, st.reminder_days()),
             "timeline": timeline,
-            "can_send": !states.contains_key(&b.id) && !b.email.is_empty(),
+            "send_label": status::send_label(&states, &b, now, st.reminder_days()),
         }),
     )
 }
@@ -689,7 +636,7 @@ pub(super) fn settings_with(
 ) -> Response {
     let mut data = json!({
         "title": "Settings",
-        "config": config_view(&st.config()),
+        "config": config_view(st.config().as_ref()),
         "keep_builtin": crate::autopilot::keep::summary(),
     });
     if let Some((msg, ok)) = message {
@@ -756,7 +703,7 @@ pub async fn pipeline(
     method: Method,
 ) -> Response {
     let cfg = st.config();
-    if needs_setup(&cfg) {
+    if needs_setup(cfg.as_ref()) {
         return redirect(&method, "/setup");
     }
     render(
@@ -777,7 +724,7 @@ pub async fn forms(method: Method) -> Response {
     redirect(&method, "/tasks")
 }
 
-async fn form_status(
+fn form_status(
     st: &AppState,
     method: &Method,
     headers: &HeaderMap,
@@ -803,7 +750,7 @@ pub async fn form_complete(
     headers: HeaderMap,
     Path(id): Path<String>,
 ) -> Response {
-    form_status(&st, &method, &headers, &id, PipelineStatus::Confirmed).await
+    form_status(&st, &method, &headers, &id, PipelineStatus::Confirmed)
 }
 
 pub async fn form_skip(
@@ -812,7 +759,7 @@ pub async fn form_skip(
     headers: HeaderMap,
     Path(id): Path<String>,
 ) -> Response {
-    form_status(&st, &method, &headers, &id, PipelineStatus::Rejected).await
+    form_status(&st, &method, &headers, &id, PipelineStatus::Rejected)
 }
 
 pub async fn tasks(
@@ -821,7 +768,7 @@ pub async fn tasks(
     method: Method,
     uri: Uri,
 ) -> Response {
-    if needs_setup(&st.config()) {
+    if needs_setup(st.config().as_ref()) {
         return redirect(&method, "/setup");
     }
     let q = query(&uri);
@@ -885,7 +832,7 @@ pub async fn task_detail(
     }
 }
 
-async fn finish_task(st: &AppState, id: i64, status: &str) -> Response {
+fn finish_task(st: &AppState, id: i64, status: &str) -> Response {
     if let Err(e) = st.history.complete_pending_task(id, status) {
         return fragment(
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -910,11 +857,11 @@ pub async fn task_complete(
     if status.is_empty() {
         status = "completed".into();
     }
-    finish_task(&st, parse_id(&id), &status).await
+    finish_task(&st, parse_id(&id), &status)
 }
 
 pub async fn task_skip(State(st): St, Path(id): Path<String>) -> Response {
-    finish_task(&st, parse_id(&id), "skipped").await
+    finish_task(&st, parse_id(&id), "skipped")
 }
 
 pub async fn task_helper(
@@ -1077,7 +1024,7 @@ pub async fn setup_email(
         e.smtp.password = f.get("smtp_password").trim().to_string();
         e.smtp.use_tls = f.get("smtp_tls") == "on";
         // iCloud rejects mail whose From isn't one of your iCloud addresses
-        e.from = e.smtp.username.clone();
+        e.from.clone_from(&e.smtp.username);
 
         let mut errors = HashMap::new();
         if e.smtp.host.is_empty() {
@@ -1328,6 +1275,15 @@ pub async fn api_send_one(State(st): St, Path(broker_id): Path<String>) -> Respo
             r#"<span class="text-red-600">Broker not found</span>"#,
         );
     };
+    let states = st.history.request_states().unwrap_or_default();
+    let now = Local::now();
+    if status::send_label(&states, &br, now, st.reminder_days()).is_none() {
+        // Deleted, recently requested or no address: show the current state, send nothing.
+        return fragment(
+            StatusCode::OK,
+            chip_html(&st, &status::chip(&states, &br.id, now)),
+        );
+    }
     let Some(cfg) = st.config().filter(|c| !c.email.provider.is_empty()) else {
         return fragment(
             StatusCode::BAD_REQUEST,
@@ -1422,7 +1378,11 @@ pub async fn api_send_all(
             json!({ "error": "Send all only works with the pending, sent or failed filter." }),
         );
     }
-    let to_send = st.brokers_with_status(&search, &category, &region, &status);
+    let to_send: Vec<_> = st
+        .brokers_with_status(&search, &category, &region, &status)
+        .into_iter()
+        .filter(|b| b.send_label.is_some())
+        .collect();
     if to_send.is_empty() {
         return json_resp(
             StatusCode::BAD_REQUEST,
@@ -1449,7 +1409,7 @@ pub async fn api_send_all(
         id: id.clone(),
         status: JobStatus::Running,
         total,
-        started_at: go_json_time(&started_at),
+        started_at: json_time(started_at.as_ref()),
         remaining_brokers: to_send.iter().map(|b| b.broker.id.clone()).collect(),
         search,
         category,
@@ -1487,7 +1447,7 @@ fn save_job_progress(st: &AppState, job: &Job, sent: i64, failed: i64, remaining
             sent,
             failed,
             total: d.total,
-            started_at: go_json_time(&d.started_at),
+            started_at: json_time(d.started_at.as_ref()),
             remaining_brokers: remaining.to_vec(),
             kind: d.kind,
             ..Default::default()
@@ -1696,6 +1656,7 @@ pub(super) fn job_item(broker: Broker) -> BrokerWithStatus {
         broker,
         chip: Chip::not_contacted(),
         deadline: None,
+        send_label: None,
         status: "never".into(),
         last_sent: String::new(),
         total_sent: 0,
@@ -1771,23 +1732,7 @@ pub async fn api_job_cancel(State(st): St, Path(id): Path<String>) -> Response {
 }
 
 pub async fn api_pipeline_stats(State(st): St) -> Response {
-    let s = st.pipeline_stats();
-    let body = format!(
-        "{{\n\t\t\"email_sent\": {},\n\t\t\"awaiting_response\": {},\n\t\t\"form_required\": {},\n\t\t\"form_filled\": {},\n\t\t\"awaiting_captcha\": {},\n\t\t\"captcha_solved\": {},\n\t\t\"awaiting_confirmation\": {},\n\t\t\"confirmed\": {},\n\t\t\"rejected\": {},\n\t\t\"failed\": {},\n\t\t\"pending_tasks\": {},\n\t\t\"needs_review\": {}\n\t}}",
-        s.email_sent,
-        s.awaiting_response,
-        s.form_required,
-        s.form_filled,
-        s.awaiting_captcha,
-        s.captcha_solved,
-        s.awaiting_confirmation,
-        s.confirmed,
-        s.rejected,
-        s.failed,
-        s.pending_tasks,
-        s.needs_review
-    );
-    ([(header::CONTENT_TYPE, "application/json")], body).into_response()
+    json_resp(StatusCode::OK, json!(st.pipeline_stats()))
 }
 
 pub async fn api_responses(State(st): St, uri: Uri) -> Response {
@@ -1828,20 +1773,19 @@ pub async fn api_tasks(State(st): St, uri: Uri) -> Response {
 
 // ==================== inbox ====================
 
-pub(super) const INBOX_NOT_CONFIGURED: &str = "\n\t\t\t<div class=\"bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-3 rounded\">\n\t\t\t\t<strong>Inbox monitoring not configured.</strong>\n\t\t\t\t<p class=\"mt-1 text-sm\">Go to <a href=\"/settings\" class=\"underline\">Settings</a> to configure IMAP access.</p>\n\t\t\t</div>\n\t\t";
+pub(super) const INBOX_NOT_CONFIGURED: &str = r#"<div class="bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-3 rounded"><strong>Inbox monitoring not configured.</strong><p class="mt-1 text-sm">Go to <a href="/settings" class="underline">Settings</a> to configure IMAP access.</p></div>"#;
 
-pub(super) fn error_box(indent: &str, title: &str, err: &str) -> Response {
+pub(super) fn error_box(title: &str, err: &str) -> Response {
     fragment(
         StatusCode::OK,
         format!(
-            "\n{indent}<div class=\"bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded\">\n{indent}\t<strong>{title}</strong> {}\n{indent}</div>\n{}",
-            html_escape(err),
-            &indent[1..]
+            r#"<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded"><strong>{title}</strong> {}</div>"#,
+            html_escape(err)
         ),
     )
 }
 
-/// Runs `fut` against the request-wide deadline (Go: context.WithTimeout).
+/// Runs `fut` against the request-wide deadline.
 pub(super) async fn within<T>(
     deadline: Instant,
     fut: impl Future<Output = anyhow::Result<T>>,
@@ -1862,7 +1806,7 @@ struct TypeCounts {
 }
 
 impl TypeCounts {
-    /// `pending_is_unknown`: the scan handler counts pending as unknown (as in Go).
+    /// `pending_is_unknown`: the scan summary has no pending row.
     fn add(&mut self, t: ResponseType, pending_is_unknown: bool) {
         match t {
             ResponseType::Success => self.success += 1,
@@ -1884,7 +1828,6 @@ async fn fetch_all(
 ) -> Result<Vec<Email>, Box<Response>> {
     if let Err(e) = within(deadline, inbox.connect()).await {
         return Err(Box::new(error_box(
-            "\t\t\t",
             "Failed to connect to inbox:",
             &format!("{e:#}"),
         )));
@@ -1894,7 +1837,6 @@ async fn fetch_all(
         Err(e) => {
             let _ = inbox.disconnect().await;
             return Err(Box::new(error_box(
-                "\t\t\t",
                 "Failed to fetch emails:",
                 &format!("{e:#}"),
             )));
@@ -1987,7 +1929,7 @@ pub async fn api_inbox_rescan(State(st): St, uri: Uri) -> Response {
     if query(&uri).get("clear") == "true"
         && let Err(e) = st.history.clear_broker_responses()
     {
-        return error_box("\t\t\t\t", "Failed to clear responses:", &format!("{e:#}"));
+        return error_box("Failed to clear responses:", &format!("{e:#}"));
     }
     let deadline = Instant::now() + Duration::from_secs(180);
     let mut inbox = Inbox::new(
@@ -2068,7 +2010,7 @@ pub async fn api_inbox_rescan(State(st): St, uri: Uri) -> Response {
 pub async fn api_reclassify(State(st): St) -> Response {
     let mut responses = match st.history.get_all_broker_responses() {
         Ok(r) => r,
-        Err(e) => return error_box("\t\t\t", "Failed to get responses:", &format!("{e:#}")),
+        Err(e) => return error_box("Failed to get responses:", &format!("{e:#}")),
     };
     if responses.is_empty() {
         return fragment(
@@ -2126,7 +2068,7 @@ pub async fn api_reclassify(State(st): St) -> Response {
                             .is_ok()
                     {
                         filled += 1;
-                        resp.email_body = body.clone();
+                        resp.email_body.clone_from(body);
                     }
                 }
                 tracing::info!("Updated {filled} records with email bodies from IMAP");
@@ -2209,15 +2151,8 @@ mod tests {
 
     #[test]
     fn helpers() {
-        assert_eq!(parse_id("12abc"), 12);
+        assert_eq!((parse_id("12"), parse_id("12abc")), (12, 0));
         assert_eq!(parse_id("abc"), 0);
-        assert_eq!(sniff("<span>x</span>"), Some("text/plain; charset=utf-8"));
-        assert_eq!(sniff("\n\t<div class=x>"), Some("text/html; charset=utf-8"));
-        assert_eq!(
-            sniff("<!DOCTYPE html>\n<html>"),
-            Some("text/html; charset=utf-8")
-        );
-        assert_eq!(sniff(""), None);
         assert_eq!(
             html_escape(r#"<a href="x">'&"#),
             "&lt;a href=&#34;x&#34;&gt;&#39;&amp;"

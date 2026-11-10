@@ -180,7 +180,7 @@ impl Harness {
     /// Form POST with the CSRF token from `token_page` in the hidden field.
     async fn post_form(&mut self, uri: &str, token: &str, fields: &[(&str, &str)]) -> Resp {
         let mut body = url::form_urlencoded::Serializer::new(String::new());
-        body.append_pair("gorilla.csrf.Token", token);
+        body.append_pair("csrf_token", token);
         for (k, v) in fields {
             body.append_pair(k, v);
         }
@@ -484,7 +484,7 @@ async fn bulk_send_job_with_mock_sender() {
 
     let sent = h.mail.0.lock().unwrap().clone();
     let mut to: Vec<_> = sent.iter().map(|m| m.to.as_str()).collect();
-    to.sort();
+    to.sort_unstable();
     assert_eq!(
         to,
         ["privacy@eurolist.example", "privacy@swissdata.example"]
@@ -493,7 +493,7 @@ async fn bulk_send_job_with_mock_sender() {
         .iter()
         .map(|m| (m.to.as_str(), m.subject.as_str()))
         .collect();
-    subjects.sort();
+    subjects.sort_unstable();
     assert!(
         subjects[0].1.contains("GDPR") && subjects[1].1.contains("FADP"),
         "auto law selection: {subjects:?}"
@@ -521,7 +521,10 @@ async fn bulk_send_job_with_mock_sender() {
     // everything is sent now: nothing pending
     let r = h.post_htmx("/api/send-all", &t, "category=marketing").await;
     assert_eq!(r.status, StatusCode::BAD_REQUEST);
-    assert!(h.get("/api/job/nope/status").await.status == StatusCode::NOT_FOUND);
+    assert_eq!(
+        h.get("/api/job/nope/status").await.status,
+        StatusCode::NOT_FOUND
+    );
 }
 
 #[tokio::test]
@@ -606,8 +609,7 @@ async fn csrf_rejections() {
     );
     assert_eq!(
         r.headers.get(header::CONTENT_TYPE).unwrap(),
-        "text/plain; charset=utf-8",
-        "Go sniffs <span> as text"
+        "text/html; charset=utf-8"
     );
 }
 
@@ -619,7 +621,7 @@ async fn public_origin_mode() {
     let r = h.get("/setup/profile").await;
     let csrf_cookie = r.headers.get(header::SET_COOKIE).unwrap().to_str().unwrap();
     assert!(
-        csrf_cookie.starts_with("_gorilla_csrf=") && csrf_cookie.contains("; Secure"),
+        csrf_cookie.starts_with("eraser_csrf=") && csrf_cookie.contains("; Secure"),
         "{csrf_cookie}"
     );
     let t = token_from(&r.body);
@@ -672,13 +674,14 @@ async fn security_headers_and_static() {
             .unwrap()
             .starts_with("default-src 'self';")
     );
-    let css = h.get("/static/css/tailwind.min.css").await;
-    assert_eq!(css.status, StatusCode::OK);
+    let js = h.get("/static/js/htmx.min.js").await;
+    assert_eq!(js.status, StatusCode::OK);
     assert_eq!(
-        css.headers.get(header::CONTENT_TYPE).unwrap(),
-        "text/css; charset=utf-8"
+        js.headers.get(header::CONTENT_TYPE).unwrap(),
+        "text/javascript; charset=utf-8"
     );
-    assert!(css.headers.get(header::CACHE_CONTROL).is_none());
+    assert!(js.headers.get(header::CACHE_CONTROL).is_none());
+    assert!(r.body.contains(r#"<script src="/static/js/htmx.min.js">"#));
     let r = h.get("/nope").await;
     assert_eq!(
         (r.status, r.body.as_str()),
@@ -702,7 +705,7 @@ async fn security_headers_and_static() {
         h.get("/api/pipeline/stats")
             .await
             .body
-            .contains("\"needs_review\": 0")
+            .contains("\"needs_review\":0")
     );
 }
 
@@ -1022,14 +1025,9 @@ async fn task_helper_forms_post_with_csrf() {
     };
     h.history.add_pending_task(&mut task).unwrap();
     let page = h.get(&format!("/tasks/{}/helper", task.id)).await;
-    assert!(page.body.contains(r#"name="gorilla.csrf.Token""#));
-    assert!(!page.body.contains(r#"name="csrf_token""#));
     // submit the helper form exactly as the browser would (hidden field from the page)
-    let start = page
-        .body
-        .find(r#"name="gorilla.csrf.Token" value=""#)
-        .unwrap()
-        + 33;
+    let marker = r#"name="csrf_token" value=""#;
+    let start = page.body.find(marker).unwrap() + marker.len();
     let field = &page.body[start..start + page.body[start..].find('"').unwrap()];
     let field = field
         .replace("&#x2f;", "/")
@@ -1085,7 +1083,7 @@ async fn autopilot_tick_when_switched_off() {
     let r = h.call(tick(Some(TOKEN))).await;
     assert_eq!(r.status, StatusCode::OK);
     assert!(r.body.contains("disabled"), "{}", r.body);
-    assert!(h.history.recent_rounds(1).unwrap().is_empty());
+    assert_eq!(h.history.recent_rounds(1).unwrap(), []);
 }
 
 #[tokio::test]
@@ -1449,4 +1447,103 @@ async fn config_locked_is_read_only() {
         !h.dir.path().join(".eraser/config.yaml").exists(),
         "nothing written"
     );
+}
+
+#[tokio::test]
+async fn send_button_follows_request_state() {
+    use eraser::history::PipelineStatus;
+    let mut h = harness(Some(ready()), None);
+    sent(&h.history, "acme", "Acme People Search", 3);
+    sent(&h.history, "swissdata", "Swiss Data AG", 40);
+    h.history
+        .update_pipeline_status("swissdata", PipelineStatus::Confirmed)
+        .unwrap();
+    h.history
+        .add(&mut Record {
+            broker_id: "eurolist".into(),
+            broker_name: "EuroList".into(),
+            status: Status::Failed,
+            sent_at: Some(chrono::Local::now()),
+            ..Default::default()
+        })
+        .unwrap();
+    let send_btn = |body: &str, id: &str| body.contains(&format!(r#"hx-post="/api/send/{id}""#));
+    let r = h.get("/brokers").await;
+    assert!(
+        !send_btn(&r.body, "acme"),
+        "open request younger than reminder_days"
+    );
+    assert!(!send_btn(&r.body, "swissdata"), "deleted");
+    assert!(send_btn(&r.body, "eurolist") && r.body.contains("Send again"));
+    assert!(!r.body.contains("Send Request"));
+    for id in ["acme", "swissdata"] {
+        assert!(!send_btn(&h.get(&format!("/brokers/{id}")).await.body, id));
+    }
+    assert!(send_btn(&h.get("/brokers/eurolist").await.body, "eurolist"));
+
+    // server side: a hidden button's POST sends nothing and returns the current chip
+    let t = h.token("/brokers").await;
+    let r = h.post_htmx("/api/send/swissdata", &t, "").await;
+    assert_eq!(r.status, StatusCode::OK);
+    assert!(r.body.contains("chip-deleted"), "{}", r.body);
+    assert!(h.mail.0.lock().unwrap().is_empty());
+    let r = h.post_htmx("/api/send/eurolist", &t, "").await;
+    assert!(r.body.contains("chip-waiting"), "{}", r.body);
+    assert_eq!(h.mail.0.lock().unwrap().len(), 1);
+
+    // send-all by "sent" skips the deleted and the recent broker
+    let r = h.post_htmx("/api/send-all", &t, "status=sent").await;
+    assert_eq!(r.status, StatusCode::BAD_REQUEST, "{}", r.body);
+}
+
+#[tokio::test]
+async fn company_request_only_once() {
+    let mut h = harness(Some(configured()), None);
+    seed_companies(&h.history);
+    let r = h.get("/companies/shop.de").await;
+    assert!(
+        r.body
+            .contains(r#"value="request" class="btn btn-primary" >"#),
+        "enabled before any request"
+    );
+    h.history.mark_company("shop.de", "requested").unwrap();
+    let r = h.get("/companies/shop.de").await;
+    assert!(
+        r.body
+            .contains(r#"disabled title="deletion request already sent""#),
+        "{}",
+        r.body
+    );
+    let t = token_from(&r.body);
+    let r = h
+        .post_form(
+            "/companies/confirm",
+            &t,
+            &[("action", "request"), ("domain", "shop.de")],
+        )
+        .await;
+    assert!(r.body.contains("deletion request already sent"));
+    assert!(!r.body.contains(r#"name="domain" value="shop.de""#));
+    let r = h
+        .post_form(
+            "/companies/execute",
+            &t,
+            &[
+                ("action", "request"),
+                ("confirmed", "yes"),
+                ("domain", "shop.de"),
+            ],
+        )
+        .await;
+    assert_eq!(location(&r), "/companies?error=Nothing+to+send");
+    assert!(h.mail.0.lock().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn nav_collapses_below_desktop_width() {
+    let mut h = harness(Some(ready()), None);
+    let body = h.get("/settings").await.body;
+    assert!(body.contains(r#"class="hidden lg:flex items-center gap-1 desktop-nav""#));
+    assert!(body.contains(r#"class="mobile-menu lg:hidden theme-toggle""#));
+    assert!(body.contains("@media (max-width: 1023px)"));
 }

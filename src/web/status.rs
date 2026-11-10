@@ -19,6 +19,23 @@ pub(super) fn chip(states: &States, id: &str, now: DateTime<Local>) -> Chip {
         .map_or_else(Chip::not_contacted, |s| s.chip(now))
 }
 
+/// Label of a broker's send button; None hides it (no email, deleted, or open and recent).
+pub(super) fn send_label(
+    states: &States,
+    b: &Broker,
+    now: DateTime<Local>,
+    reminder_days: i64,
+) -> Option<&'static str> {
+    if b.email.is_empty() {
+        return None;
+    }
+    match states.get(&b.id) {
+        None => Some("Send request"),
+        Some(s) if s.can_resend(now, reminder_days) => Some("Send again"),
+        Some(_) => None,
+    }
+}
+
 /// Short open/receipt summary for one tracked request (history rows).
 pub(super) fn opens(t: Tracking) -> Value {
     let when = |d: Option<DateTime<Local>>| d.map(|d| d.format("%b %-d").to_string());
@@ -145,7 +162,7 @@ pub(super) fn regions(brokers: &[Broker], states: &States) -> Vec<Value> {
         c.0 += 1;
         if let Some(s) = states.get(&b.id).filter(|s| s.is_sent()) {
             c.1 += 1;
-            c.2 += s.matches_stage("deleted") as i64;
+            c.2 += i64::from(s.matches_stage("deleted"));
         }
     }
     REGIONS
@@ -309,6 +326,40 @@ mod tests {
         done.pipeline = Some(PipelineStatus::Confirmed);
         assert_eq!(deadline(Some(&done), now, 20), None);
         assert_eq!(deadline(None, now, 20), None);
+    }
+
+    #[test]
+    fn send_label_per_state() {
+        let now = Local::now();
+        let b = Broker {
+            id: "b".into(),
+            email: "privacy@b.example".into(),
+            ..Default::default()
+        };
+        let label = |s: Option<RequestState>| {
+            let states: States = s.into_iter().map(|s| (s.broker_id.clone(), s)).collect();
+            send_label(&states, &b, now, 20)
+        };
+        assert_eq!(label(None), Some("Send request"));
+        assert_eq!(label(Some(state(5, false))), None, "open, recent");
+        assert_eq!(
+            label(Some(state(25, false))),
+            Some("Send again"),
+            "open, past reminder"
+        );
+        let mut s = state(40, false);
+        s.pipeline = Some(PipelineStatus::Confirmed);
+        assert_eq!(label(Some(s.clone())), None, "deleted");
+        s.pipeline = Some(PipelineStatus::Rejected);
+        assert_eq!(label(Some(s.clone())), Some("Send again"));
+        s.status = Status::Failed;
+        s.pipeline = None;
+        assert_eq!(label(Some(s)), Some("Send again"));
+        let no_email = Broker {
+            email: String::new(),
+            ..b.clone()
+        };
+        assert_eq!(send_label(&States::new(), &no_email, now, 20), None);
     }
 
     #[test]

@@ -7,9 +7,8 @@ use super::handlers::{
     FormValues, INBOX_NOT_CONFIGURED, St, error_box, fragment, html_escape, http_error,
     inbox_config, job_item, needs_setup, query, redirect, render, spawn_send_job, within,
 };
-use super::job::{JobKind, JobStatus, PersistentJobState, go_json_time};
+use super::job::{JobKind, JobStatus, PersistentJobState, json_time};
 use super::status;
-use crate::config;
 use crate::history::{Chip, Company, stage_label};
 use crate::inbox::monitor::Monitor;
 use crate::scanner::actions::{Unsubscribe, request_target};
@@ -69,6 +68,18 @@ fn request_id(c: &Company) -> String {
     format!("{}{}", scanner::BROKER_PREFIX, c.agg.domain)
 }
 
+/// Request blocker: no usable contact, or a request was already sent / is still open.
+fn request_check(c: &Company, states: &status::States) -> Result<String, &'static str> {
+    if c.requested_at.is_some()
+        || states
+            .get(&request_id(c))
+            .is_some_and(crate::history::RequestState::is_open)
+    {
+        return Err("deletion request already sent");
+    }
+    request_target(c)
+}
+
 fn row(c: Company, states: &status::States) -> Row {
     let plan = Unsubscribe::for_company(&c);
     let (kind, target) = plan.describe();
@@ -98,7 +109,7 @@ pub async fn companies_page(
     uri: Uri,
 ) -> Response {
     let cfg = st.config();
-    if needs_setup(&cfg) {
+    if needs_setup(cfg.as_ref()) {
         return redirect(&method, "/setup");
     }
     let q = query(&uri);
@@ -171,14 +182,11 @@ pub async fn company_detail(
         return company_not_found();
     };
     let actions = st.history.company_actions(&domain).unwrap_or_default();
-    let request = request_target(&c);
     let states = st.history.request_states().unwrap_or_default();
+    let request = request_check(&c, &states);
     let id = request_id(&c);
     let now = Local::now();
-    let reminder_days = st
-        .config()
-        .map_or(config::DEFAULT_REMINDER_DAYS, |c| c.autopilot.reminder_days);
-    let deadline_bar = status::deadline(states.get(&id), now, reminder_days);
+    let deadline_bar = status::deadline(states.get(&id), now, st.reminder_days());
     let timeline = st.history.broker_timeline(&id).unwrap_or_default();
     render(
         &st,
@@ -190,7 +198,6 @@ pub async fn company_detail(
             "deadline_bar": deadline_bar,
             "timeline": timeline,
             "actions": actions,
-            "request_target": request.clone().unwrap_or_default(),
             "request_blocker": request.err().unwrap_or_default(),
         }),
     )
@@ -264,7 +271,7 @@ struct PlanRow {
     note: String,
 }
 
-fn plan_for(c: &Company, action: &str) -> PlanRow {
+fn plan_for(c: &Company, action: &str, states: &status::States) -> PlanRow {
     let mut p = PlanRow {
         domain: c.agg.domain.clone(),
         name: c.agg.display_name.clone(),
@@ -273,7 +280,7 @@ fn plan_for(c: &Company, action: &str) -> PlanRow {
         note: String::new(),
     };
     if action == "request" {
-        match request_target(c) {
+        match request_check(c, states) {
             Ok(to) => {
                 p.kind = "email";
                 p.note = format!("source: {}", c.contact_source);
@@ -314,10 +321,11 @@ fn executable(p: &PlanRow) -> bool {
 }
 
 fn plans(st: &AppState, domains: &[String], action: &str) -> Vec<PlanRow> {
+    let states = st.history.request_states().unwrap_or_default();
     domains
         .iter()
         .filter_map(|d| st.history.get_company(d).ok().flatten())
-        .map(|c| plan_for(&c, action))
+        .map(|c| plan_for(&c, action, &states))
         .collect()
 }
 
@@ -387,10 +395,11 @@ pub async fn companies_execute(
         return redirect(&method, "/companies?error=Email+is+not+configured");
     };
     // Re-plan server side: only what is executable right now is sent.
+    let states = st.history.request_states().unwrap_or_default();
     let items: Vec<_> = form_list(&body, "domain")
         .iter()
         .filter_map(|d| st.history.get_company(d).ok().flatten())
-        .filter(|c| executable(&plan_for(c, action)))
+        .filter(|c| executable(&plan_for(c, action, &states)))
         .map(|c| job_item(scanner::company_broker(&c)))
         .collect();
     if items.is_empty() {
@@ -415,7 +424,7 @@ pub async fn companies_execute(
         id: id.clone(),
         status: JobStatus::Running,
         total,
-        started_at: go_json_time(&started_at),
+        started_at: json_time(started_at.as_ref()),
         remaining_brokers: items.iter().map(|b| b.broker.id.clone()).collect(),
         kind,
         ..Default::default()
@@ -429,7 +438,7 @@ pub async fn companies_execute(
 
 // ==================== HTMX: scan + discovery (chained requests) ====================
 
-fn chain(endpoint: &str, vals: serde_json::Value) -> String {
+fn chain(endpoint: &str, vals: &serde_json::Value) -> String {
     format!(
         r##"<div hx-post="{endpoint}" hx-trigger="load delay:300ms" hx-vals='{vals}' hx-target="#scan-result" hx-swap="innerHTML"></div>"##
     )
@@ -467,7 +476,7 @@ pub async fn api_scan(
 
     let mut inbox = Monitor::new(icfg.clone(), &[]);
     if let Err(e) = within(deadline, inbox.connect()).await {
-        return error_box("\t\t\t", "Failed to connect to inbox:", &format!("{e:#}"));
+        return error_box("Failed to connect to inbox:", &format!("{e:#}"));
     }
     let result = async {
         let existing = within(deadline, inbox.list_folders()).await?;
@@ -486,7 +495,7 @@ pub async fn api_scan(
     let _ = inbox.disconnect().await;
     let (folders, window) = match result {
         Ok(v) => v,
-        Err(e) => return error_box("\t\t\t", "Scan failed:", &format!("{e:#}")),
+        Err(e) => return error_box("Scan failed:", &format!("{e:#}")),
     };
     if let Some((folder, r)) = window {
         let (next_fi, next_off) = if off + WINDOW < r.total {
@@ -507,7 +516,7 @@ pub async fn api_scan(
                     r.new,
                     chain(
                         "/api/companies/scan",
-                        json!({ "days": days.to_string(), "fi": next_fi.to_string(), "off": next_off.to_string() })
+                        &json!({ "days": days.to_string(), "fi": next_fi.to_string(), "off": next_off.to_string() })
                     )
                 ),
             );
@@ -548,7 +557,7 @@ pub async fn api_discover(State(st): St) -> Response {
     let batch: Vec<String> = pending.iter().take(CONCURRENCY).cloned().collect();
     let d = match Discoverer::new() {
         Ok(d) => d,
-        Err(e) => return error_box("\t\t\t", "Discovery failed:", &format!("{e:#}")),
+        Err(e) => return error_box("Discovery failed:", &format!("{e:#}")),
     };
     let found = d
         .discover_and_store(&st.history, &st.brokers.brokers, &batch)
@@ -582,7 +591,7 @@ pub async fn api_discover(State(st): St) -> Response {
         &format!(
             "<strong>Finding privacy contacts…</strong> {left} remaining.<div class=\"mt-1 text-xs\">{}</div>{}",
             summary.join("<br>"),
-            chain("/api/companies/discover", json!({}))
+            chain("/api/companies/discover", &json!({}))
         ),
     )
 }

@@ -45,6 +45,7 @@
                 </td>
                 <td class="text-right">
                     <div class="flex items-center justify-end gap-2">
+                        {% if it.send_label %}
                         <button
                             class="btn btn-ghost text-sm py-1 px-3"
                             hx-post="/api/send/{{ it.id }}"
@@ -52,11 +53,12 @@
                             hx-swap="innerHTML"
                             hx-indicator="#spinner-{{ it.id }}"
                         >
-                            Send
+                            {{ it.send_label }}
                             <span id="spinner-{{ it.id }}" class="htmx-indicator ml-1">
                                 <span class="spinner"></span>
                             </span>
                         </button>
+                        {% endif %}
                         {% if it.opt_out_url %}
                         <a href="{{ it.opt_out_url|safe_url }}" target="_blank" class="btn btn-ghost text-sm py-1 px-3">
                             Opt-out
@@ -106,14 +108,16 @@
             {% endif %}
         </div>
         <div class="flex gap-2">
+            {% if it.send_label %}
             <button
                 class="btn btn-primary flex-1 py-2"
                 hx-post="/api/send/{{ it.id }}"
                 hx-target="#status-mobile-{{ it.id }}"
                 hx-swap="innerHTML"
             >
-                Send Request
+                {{ it.send_label }}
             </button>
+            {% endif %}
             {% if it.opt_out_url %}
             <a href="{{ it.opt_out_url|safe_url }}" target="_blank" class="btn btn-secondary py-2">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

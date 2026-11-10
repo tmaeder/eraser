@@ -121,8 +121,7 @@ impl RequestState {
     /// Calendar days since sending (at least 1).
     pub fn day(&self, now: DateTime<Local>) -> i64 {
         self.sent_at
-            .map(|s| (now.date_naive() - s.date_naive()).num_days())
-            .unwrap_or(0)
+            .map_or(0, |s| (now.date_naive() - s.date_naive()).num_days())
             .max(1)
     }
 
@@ -165,21 +164,31 @@ impl RequestState {
         )
     }
 
-    pub fn receipt(&self) -> bool {
+    /// Whether sending another request makes sense now: never once deleted, and only after
+    /// `reminder_days` while the request is still open.
+    pub fn can_resend(&self, now: DateTime<Local>, reminder_days: i64) -> bool {
+        match self.kind() {
+            ChipKind::Deleted => false,
+            _ if self.is_open() => self.day(now) >= reminder_days,
+            _ => true,
+        }
+    }
+
+    fn receipt(&self) -> bool {
         self.tracking
             .as_ref()
             .is_some_and(|t| t.read_receipt_at.is_some())
     }
 
     /// Opened by a regular client (proxy prefetches do not count).
-    pub fn opened(&self) -> bool {
+    fn opened(&self) -> bool {
         self.tracking
             .as_ref()
             .is_some_and(|t| t.client == CLIENT_OTHER)
     }
 
     /// Only image-proxy opens (Apple Mail Privacy Protection, Google image proxy).
-    pub fn proxy_only(&self) -> bool {
+    fn proxy_only(&self) -> bool {
         self.tracking
             .as_ref()
             .is_some_and(|t| t.open_count > 0 && t.client != CLIENT_OTHER)
@@ -259,7 +268,7 @@ impl Funnel {
     pub fn of<'a>(states: impl IntoIterator<Item = &'a RequestState>) -> Self {
         let mut f = Self::default();
         for s in states {
-            let add = |stage: &str, n: &mut i64| *n += s.matches_stage(stage) as i64;
+            let add = |stage: &str, n: &mut i64| *n += i64::from(s.matches_stage(stage));
             add("sent", &mut f.sent);
             add("opened", &mut f.opened);
             add("proxy_opened", &mut f.proxy_opened);

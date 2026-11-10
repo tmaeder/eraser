@@ -1,10 +1,10 @@
-//! gorilla/csrf v1.7.3 equivalent: a random 32-byte secret lives in the `_gorilla_csrf` cookie;
-//! every request gets a fresh masked token (one-time pad || pad XOR secret, base64) for the hidden
-//! field `gorilla.csrf.Token` or the `X-CSRF-Token` header. Unsafe methods must pass the
-//! Origin/Referer checks against the trusted origins and present a token that unmasks to the secret.
+//! CSRF protection: a random 32-byte secret lives in the `eraser_csrf` cookie; every request
+//! gets a fresh masked token (one-time pad || pad XOR secret, base64) for the hidden field
+//! `csrf_token` or the `X-CSRF-Token` header. Unsafe methods must pass the Origin/Referer checks
+//! against the trusted origins and present a token that unmasks to the secret.
 //!
-//! Unlike gorilla the cookie is not HMAC-signed (no MAC crate in the dependency set). Forging it
-//! requires cookie-write access to the host and still fails the Origin/Referer checks.
+//! The cookie is not HMAC-signed (no MAC crate in the dependency set). Forging it requires
+//! cookie-write access to the host and still fails the Origin/Referer checks.
 
 use axum::body::Body;
 use axum::extract::{Request, State};
@@ -16,8 +16,8 @@ use base64::Engine;
 use base64::engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD};
 use std::sync::Arc;
 
-pub const COOKIE_NAME: &str = "_gorilla_csrf";
-pub const FIELD_NAME: &str = "gorilla.csrf.Token";
+pub const COOKIE_NAME: &str = "eraser_csrf";
+pub const FIELD_NAME: &str = "csrf_token";
 pub const HEADER_NAME: &str = "X-CSRF-Token";
 const TOKEN_LEN: usize = 32;
 const MAX_AGE_SECS: u32 = 12 * 3600;
@@ -53,7 +53,7 @@ pub(super) fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
     a.len() == b.len() && a.iter().zip(b).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
 }
 
-/// (scheme, host[:port]) like Go's url.Parse; unparsable input yields empty parts.
+/// (scheme, host[:port]); unparsable input yields empty parts.
 fn scheme_host(raw: &str) -> (String, String) {
     match url::Url::parse(raw) {
         Ok(u) => {
@@ -80,7 +80,7 @@ impl Csrf {
         let req_host = header_str(headers, header::HOST);
         let origin = header_str(headers, header::ORIGIN);
         if !origin.is_empty() {
-            // gorilla assumes https unless told the request is plaintext.
+            // Same-origin only counts over https; plain-http origins must be trusted explicitly.
             let (scheme, host) = scheme_host(origin);
             let same = scheme == "https" && host == req_host;
             if !same && !self.trusted_origins.contains(&host) {
@@ -130,12 +130,11 @@ pub async fn protect(State(csrf): State<Arc<Csrf>>, req: Request, next: Next) ->
         .get(COOKIE_NAME)
         .and_then(|c| URL_SAFE_NO_PAD.decode(c.value()).ok())
         .filter(|t| t.len() == TOKEN_LEN);
-    let (real, set_cookie) = match existing {
-        Some(t) => (t, None),
-        None => {
-            let t: [u8; TOKEN_LEN] = rand::random();
-            (t.to_vec(), Some(csrf.cookie(&t)))
-        }
+    let (real, set_cookie) = if let Some(t) = existing {
+        (t, None)
+    } else {
+        let t: [u8; TOKEN_LEN] = rand::random();
+        (t.to_vec(), Some(csrf.cookie(&t)))
     };
     parts.extensions.insert(CsrfToken(mask(&real)));
 

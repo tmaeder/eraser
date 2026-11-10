@@ -121,5 +121,5 @@ async fn autopilot_tick_rejected_without_server_token() {
     headers.insert(today::TOKEN_HEADER, "".parse().unwrap());
     let r = today::tick(State(st.clone()), headers).await;
     assert_eq!(r.status(), axum::http::StatusCode::UNAUTHORIZED);
-    assert!(st.history.recent_rounds(1).unwrap().is_empty());
+    assert_eq!(st.history.recent_rounds(1).unwrap(), []);
 }

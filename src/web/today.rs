@@ -192,7 +192,7 @@ pub async fn today(
     uri: Uri,
 ) -> Response {
     let cfg = st.config();
-    if needs_setup(&cfg) {
+    if needs_setup(cfg.as_ref()) {
         return redirect(&method, "/setup");
     }
     let cfg = cfg.unwrap();

@@ -1,4 +1,4 @@
-//! Port of internal/web/job.go: background send jobs and their on-disk persistence.
+//! Background send jobs and their on-disk persistence.
 
 use chrono::{DateTime, Local};
 use serde::{Deserialize, Serialize};
@@ -58,20 +58,10 @@ pub struct Job {
     cancel: watch::Sender<bool>,
 }
 
-/// Go's time.Time JSON encoding (RFC 3339 with trimmed nanoseconds; zero time for None).
-pub fn go_json_time(t: &Option<DateTime<Local>>) -> String {
-    let Some(t) = t else {
-        return "0001-01-01T00:00:00Z".into();
-    };
-    let mut s = t.format("%Y-%m-%dT%H:%M:%S").to_string();
-    let nanos = t.timestamp_subsec_nanos();
-    if nanos > 0 {
-        s.push('.');
-        s.push_str(format!("{nanos:09}").trim_end_matches('0'));
-    }
-    let off = t.format("%:z").to_string();
-    s.push_str(if off == "+00:00" { "Z" } else { &off });
-    s
+/// RFC 3339 timestamp, empty for None.
+pub fn json_time(t: Option<&DateTime<Local>>) -> String {
+    t.map(|t| t.to_rfc3339_opts(chrono::SecondsFormat::AutoSi, false))
+        .unwrap_or_default()
 }
 
 impl Job {
@@ -134,7 +124,7 @@ impl Job {
         self.status() == JobStatus::Cancelled
     }
 
-    /// Resolves once the job is cancelled (Go: `<-ctx.Done()`).
+    /// Resolves once the job is cancelled.
     pub async fn cancelled(&self) {
         let mut rx = self.cancel.subscribe();
         let _ = rx.wait_for(|c| *c).await;
@@ -151,8 +141,8 @@ impl Job {
             "failed": j.failed,
             "total": j.total,
             "current_broker": j.current_broker,
-            "started_at": go_json_time(&j.started_at),
-            "completed_at": go_json_time(&j.completed_at),
+            "started_at": json_time(j.started_at.as_ref()),
+            "completed_at": json_time(j.completed_at.as_ref()),
             "error": j.error,
             "error_type": j.error_type,
             "daily_limit": j.daily_limit,
@@ -225,7 +215,7 @@ pub struct PersistentJobState {
     pub sent: i64,
     pub failed: i64,
     pub total: i64,
-    /// Go time.Time JSON
+    /// RFC 3339
     pub started_at: String,
     /// Broker IDs still to process
     pub remaining_brokers: Vec<String>,
@@ -233,7 +223,7 @@ pub struct PersistentJobState {
     pub category: String,
     pub region: String,
     pub status_filter: String,
-    /// Absent in Go-written files (= broker job).
+    /// Absent in older files (= broker job).
     pub kind: JobKind,
 }
 
@@ -304,6 +294,6 @@ mod tests {
         job.cancel();
         assert!(job.is_cancelled() && jm.get_active().is_none());
         assert_eq!(job.to_json()["status"], "cancelled");
-        assert_eq!(go_json_time(&None), "0001-01-01T00:00:00Z");
+        assert_eq!(json_time(None), "");
     }
 }

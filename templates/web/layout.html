@@ -24,7 +24,7 @@
             }
         }
     </script>
-    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="/static/js/htmx.min.js"></script>
 
     <style>
         /* ============================================
@@ -585,9 +585,10 @@
             display: none;
         }
 
-        @media (max-width: 640px) {
+        /* 7 links + logo + toggle need ~880px: the hamburger menu covers everything narrower */
+        @media (max-width: 1023px) {
             .desktop-nav { display: none; }
-            .mobile-menu { display: block; }
+            .mobile-menu { display: flex; }
         }
     </style>
 
@@ -638,7 +639,7 @@
                     </a>
 
                     <!-- Desktop Navigation -->
-                    <div class="hidden sm:flex items-center gap-1 desktop-nav">
+                    <div class="hidden lg:flex items-center gap-1 desktop-nav">
                         <a href="/" class="nav-link {% if title == "Today" %}active{% endif %}">Today</a>
                         <a href="/dashboard" class="nav-link {% if title == "Dashboard" %}active{% endif %}">Dashboard</a>
                         <a href="/brokers" class="nav-link {% if title == "Data Brokers" %}active{% endif %}">Brokers</a>
@@ -648,6 +649,7 @@
                         <a href="/settings" class="nav-link {% if title == "Settings" %}active{% endif %}">Settings</a>
                     </div>
 
+                    <div class="flex items-center gap-2">
                     <!-- Theme Toggle -->
                     <button id="theme-toggle" class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
                         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -656,15 +658,16 @@
                     </button>
 
                     <!-- Mobile Menu Button -->
-                    <button class="mobile-menu sm:hidden theme-toggle" onclick="document.getElementById('mobile-nav').classList.toggle('hidden')">
+                    <button class="mobile-menu lg:hidden theme-toggle" aria-label="Menu" aria-controls="mobile-nav" onclick="document.getElementById('mobile-nav').classList.toggle('hidden')">
                         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
                         </svg>
                     </button>
+                    </div>
                 </div>
 
                 <!-- Mobile Navigation -->
-                <div id="mobile-nav" class="hidden sm:hidden mt-4 pt-4 border-t border-[var(--border)]">
+                <div id="mobile-nav" class="hidden lg:hidden mt-4 pt-4 border-t border-[var(--border)]">
                     <div class="flex flex-col gap-2">
                         <a href="/" class="nav-link {% if title == "Today" %}active{% endif %}">Today</a>
                         <a href="/dashboard" class="nav-link {% if title == "Dashboard" %}active{% endif %}">Dashboard</a>

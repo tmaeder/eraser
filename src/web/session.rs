@@ -1,4 +1,4 @@
-//! Port of internal/web/session.go: server-side wizard sessions. The cookie only carries an
+//! Server-side wizard sessions. The cookie only carries an
 //! opaque 256-bit id; profile and credentials stay in memory on the server.
 
 use crate::config::{EmailConfig, Profile};

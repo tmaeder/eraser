@@ -1,4 +1,4 @@
-//! Port of internal/web: the browser UI (`eraser serve`).
+//! The browser UI (`eraser serve`).
 
 mod companies;
 mod csrf;
@@ -51,7 +51,7 @@ pub struct AppOptions {
     pub config_path: PathBuf,
     pub brokers: BrokerDatabase,
     pub history: Store,
-    /// Holds pending_job.json (Go: ~/.eraser).
+    /// Holds pending_job.json (~/.eraser).
     pub data_dir: PathBuf,
     pub port: u16,
     pub public_origin: Option<String>,
@@ -261,7 +261,7 @@ pub fn app(opts: AppOptions) -> Result<(Router, Arc<AppState>)> {
 }
 
 const CSP: &str = "default-src 'self'; \
-script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://unpkg.com; \
+script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com; \
 style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; \
 img-src 'self' data:; \
 font-src 'self' https://fonts.gstatic.com; \

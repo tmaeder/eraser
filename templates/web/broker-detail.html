@@ -30,8 +30,8 @@
                 {% if broker.website %}<dt class="text-muted">Website</dt><dd class="min-w-0"><a href="{{ broker.website|safe_url }}" target="_blank" rel="noopener noreferrer" class="text-primary underline underline-offset-2 break-all">{{ broker.website }}</a></dd>{% endif %}
                 {% if broker.opt_out_url %}<dt class="text-muted">Opt-out</dt><dd><a href="{{ broker.opt_out_url|safe_url }}" target="_blank" rel="noopener noreferrer" class="text-primary underline underline-offset-2">Open form</a></dd>{% endif %}
             </dl>
-            {% if can_send %}
-            <button class="btn btn-primary w-full" hx-post="/api/send/{{ broker.id }}" hx-target="#status-{{ broker.id }}" hx-swap="innerHTML">Send deletion request</button>
+            {% if send_label %}
+            <button class="btn btn-primary w-full" hx-post="/api/send/{{ broker.id }}" hx-target="#status-{{ broker.id }}" hx-swap="innerHTML">{{ send_label }}</button>
             {% endif %}
         </section>
 

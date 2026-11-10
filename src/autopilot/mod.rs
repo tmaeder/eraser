@@ -3,6 +3,7 @@
 //! 3. one reminder after `reminder_days` plus new broker requests up to the daily limit,
 //! 4. incremental inbox company scan, 5. RFC 8058 one-click unsubscribes,
 //! 6. requests to inactive / newsletter-only companies with a verified contact.
+//!
 //! Whatever needs a human becomes a to-do (pending_tasks). A dry run contacts no one (no email,
 //! no link click, no unsubscribe, no IMAP move) but still records what it read.
 
@@ -13,10 +14,10 @@ use crate::browser::{ConfirmationHandler, detect_captcha_from_html, extract_conf
 use crate::config::Config;
 use crate::email::{self, Message, SendResult, Sender};
 use crate::history::{Company, PendingTask, PipelineStatus, Record, Store, TaskType};
-use crate::inbox::classifier::ResponseType;
+use crate::inbox::classifier::{ResponseType, classify_response};
 use crate::inbox::monitor::Monitor;
 use crate::scanner::actions::{self, Unsubscribe};
-use crate::scanner::{self, discovery::Discoverer, domain};
+use crate::scanner::{self, Identity, discovery::Discoverer, domain};
 use crate::template::Engine;
 use chrono::{DateTime, Datelike, Local, TimeDelta, TimeZone, Timelike, Utc};
 use serde::{Deserialize, Serialize};
@@ -24,6 +25,12 @@ use std::time::Duration;
 
 /// Hours between hosted rounds (Worker cron `0 */6 * * *`, UTC).
 pub const ROUND_HOURS: u32 = 6;
+/// Inbox look-back per round (a week covers missed rounds).
+const INBOX_DAYS: i64 = 7;
+/// Company scan window once a first scan exists.
+const SCAN_DAYS: i64 = 7;
+/// ponytail: contact discovery capped per round so a first scan cannot run for hours.
+const MAX_DISCOVER: usize = 50;
 const SEND_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Everything a round uses; the web server and the CLI fill it from their own state.
@@ -423,6 +430,128 @@ async fn confirm_links(d: &Deps<'_>, dry_run: bool, r: &mut RoundReport) {
     }
 }
 
+/// Step 1: new broker replies from the inbox and archive folder (PEEK: nothing marked read).
+async fn check_inbox(d: &Deps<'_>, m: &mut Monitor, dry_run: bool, r: &mut RoundReport) {
+    let inbox = &d.cfg.inbox;
+    let existing = match m.list_folders().await {
+        Ok(f) => f,
+        Err(e) => {
+            r.errors.push(format!("inbox: {e:#}"));
+            return;
+        }
+    };
+    let mut archive_uids = Vec::new();
+    for folder in [&inbox.folder, &inbox.archive_folder] {
+        if !existing.iter().any(|f| f.eq_ignore_ascii_case(folder)) {
+            continue;
+        }
+        let emails = match m.fetch_broker_emails_from_folder(folder, INBOX_DAYS).await {
+            Ok(e) => e,
+            Err(e) => {
+                r.errors.push(format!("inbox {folder}: {e:#}"));
+                continue;
+            }
+        };
+        for email in emails {
+            if matches!(
+                d.store
+                    .find_broker_response_by_subject(&email.broker_id, &email.subject),
+                Ok(Some(_))
+            ) {
+                continue;
+            }
+            let c = classify_response(&email);
+            let mut resp = crate::inbox::response_record(&email, &c);
+            if let Err(e) = d.store.add_broker_response(&mut resp) {
+                r.errors
+                    .push(format!("reply from {}: {e:#}", email.broker_id));
+                continue;
+            }
+            r.replies += 1;
+            let _ = d.store.update_pipeline_status(
+                &email.broker_id,
+                crate::inbox::pipeline_status_for(c.r#type),
+            );
+            if asks_for_id(&resp.email_body) {
+                add_todo(
+                    d.store,
+                    r,
+                    PendingTask {
+                        broker_id: email.broker_id.clone(),
+                        broker_name: email.broker_name.clone(),
+                        task_type: TaskType::IdRequired,
+                        notes: email.subject.clone(),
+                        ..Default::default()
+                    },
+                );
+            }
+            if folder == &inbox.folder {
+                archive_uids.push(email.uid);
+            }
+        }
+    }
+    if inbox.auto_archive
+        && !dry_run
+        && !archive_uids.is_empty()
+        && !inbox.archive_folder.is_empty()
+    {
+        if let Err(e) = m.ensure_folder_exists(&inbox.archive_folder).await {
+            r.errors.push(format!("archive: {e:#}"));
+        } else if let Err(e) = m.archive_emails(&archive_uids, &inbox.archive_folder).await {
+            r.errors.push(format!("archive: {e:#}"));
+        }
+    }
+}
+
+/// Step 4: incremental header-only company scan, then contact discovery for new companies.
+async fn scan_companies(d: &Deps<'_>, m: &mut Monitor, r: &mut RoundReport) {
+    let first = d
+        .store
+        .list_companies()
+        .map(|c| c.is_empty())
+        .unwrap_or(true);
+    let days = if first {
+        scanner::DEFAULT_DAYS
+    } else {
+        SCAN_DAYS
+    };
+    let existing = match m.list_folders().await {
+        Ok(f) => f,
+        Err(e) => {
+            r.errors.push(format!("scan: {e:#}"));
+            return;
+        }
+    };
+    let folders = scanner::pick_folders(&existing, &d.cfg.inbox, &[]);
+    let id = Identity::from_config(d.cfg);
+    match scanner::scan_folders(m, d.store, &id, &folders, days, |_, _, _| {}).await {
+        Ok(w) => r.new_messages += w.new,
+        Err(e) => {
+            r.errors.push(format!("scan: {e:#}"));
+            return;
+        }
+    }
+    let pending: Vec<String> = d
+        .store
+        .list_companies()
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|c| active(c) && c.contact_status.is_empty())
+        .filter(|c| keep::keep_reason(&c.agg.domain, &c.agg.display_name, d.cfg).is_none())
+        .take(MAX_DISCOVER)
+        .map(|c| c.agg.domain)
+        .collect();
+    for (_, contact) in d
+        .discoverer
+        .discover_and_store(d.store, &d.brokers.brokers, &pending)
+        .await
+    {
+        if !contact.email.is_empty() {
+            r.contacts_found += 1;
+        }
+    }
+}
+
 fn active(c: &Company) -> bool {
     c.excluded_reason.is_empty() && c.decision != "ignored"
 }
@@ -595,12 +724,24 @@ pub async fn run_round(
         _ => false,
     };
 
+    if connected
+        && steps.check_inbox
+        && let Some(m) = monitor.as_mut()
+    {
+        check_inbox(d, m, dry_run, &mut r).await;
+    }
     if steps.confirm_links {
         confirm_links(d, dry_run, &mut r).await;
     }
     if steps.broker_requests {
         reminders(d, dry_run, &mut budget, &mut r).await;
         broker_requests(d, dry_run, &mut budget, &mut r).await;
+    }
+    if connected
+        && steps.scan_inbox
+        && let Some(m) = monitor.as_mut()
+    {
+        scan_companies(d, m, &mut r).await;
     }
     let cands = if steps.unsubscribe || steps.company_requests {
         candidates(d, &mut r)

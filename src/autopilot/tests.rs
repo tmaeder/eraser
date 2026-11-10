@@ -495,3 +495,111 @@ async fn plain_unsubscribe_links_become_todos_once() {
             .is_none()
     );
 }
+
+// Run: ERASER_IMAP_IT=1 cargo test --lib autopilot::tests::greenmail -- --nocapture
+// Requires docker (greenmail/standalone:2.1.3).
+#[tokio::test]
+async fn greenmail_round_end_to_end() {
+    if std::env::var("ERASER_IMAP_IT").as_deref() != Ok("1") {
+        eprintln!("skipping greenmail test (set ERASER_IMAP_IT=1)");
+        return;
+    }
+    use crate::inbox::monitor::tests::{connect_with_retry, crlf, it_monitor, start_greenmail};
+    let (_container, port) = start_greenmail();
+    let (origin, hits) = fake_broker_site().await;
+
+    let mut c = cfg();
+    c.profile.email = "test@localhost".into();
+    c.email.from = "test@localhost".into();
+    c.inbox = crate::config::InboxConfig {
+        enabled: true,
+        provider: "imap".into(),
+        server: "localhost".into(),
+        port: port.into(),
+        email: "test@localhost".into(),
+        password: "secret".into(),
+        folder: "INBOX".into(),
+        auto_archive: true,
+        archive_folder: "Eraser".into(),
+        ..Default::default()
+    };
+    let brokers = vec![broker("acme", &origin), broker("other", "")];
+    let f = fixture(c, brokers.clone());
+    sent_record(&f.store, "acme", 2);
+
+    let mut seed = it_monitor(port, &[]);
+    connect_with_retry(&mut seed).await;
+    let now = Utc::now().to_rfc2822();
+    let mail = |headers: &str, id: &str, body: &str| {
+        crlf(&format!(
+            "{headers}\nTo: test@localhost\nDate: {now}\nMessage-ID: <{id}@test>\nContent-Type: text/plain; charset=utf-8\n\n{body}\n"
+        ))
+    };
+    for raw in [
+        mail(
+            "From: Acme <privacy@acme.test>\nSubject: Confirm your email",
+            "c1",
+            &format!(
+                "Please confirm your email address. Click here to confirm: {origin}/confirm?t=1"
+            ),
+        ),
+        mail(
+            "From: Acme <privacy@acme.test>\nSubject: Identity check",
+            "i1",
+            "Before we can proceed, please send us a copy of your passport.",
+        ),
+        mail(
+            "From: Shop <news@shop.test>\nSubject: Deals\nList-Unsubscribe: <https://shop.test/unsub?u=1>",
+            "n1",
+            "deals",
+        ),
+    ] {
+        seed.append_raw("INBOX", &raw).await.unwrap();
+    }
+    seed.disconnect().await.unwrap();
+
+    let monitor = || it_monitor(port, &scanner::inbox_brokers(&brokers, &f.store));
+    let r = f.round(false, Some(monitor())).await;
+    assert!(r.errors.is_empty(), "{:?}", r.errors);
+    assert_eq!(r.replies, 2);
+    assert_eq!(r.links_confirmed, 1);
+    assert_eq!(*hits.lock().unwrap(), ["/confirm"]);
+    assert_eq!(r.requests_sent, 1, "only the broker never contacted");
+    assert_eq!(f.sent()[0].to, "privacy@other.test");
+    assert_eq!(
+        r.new_messages, 3,
+        "headers scanned from INBOX and the archive folder"
+    );
+    let kinds: Vec<TaskType> = f
+        .store
+        .todo_tasks(Local::now())
+        .unwrap()
+        .iter()
+        .map(|t| t.task_type)
+        .collect();
+    assert!(kinds.contains(&TaskType::IdRequired), "{kinds:?}");
+    assert!(kinds.contains(&TaskType::UnsubscribeLink), "{kinds:?}");
+    assert_eq!(
+        f.store
+            .get_company("acme.test")
+            .unwrap()
+            .unwrap()
+            .contact_status,
+        "broker",
+        "contact discovery for new companies"
+    );
+
+    let r = f.round(false, Some(monitor())).await;
+    assert!(r.errors.is_empty(), "{:?}", r.errors);
+    assert_eq!(
+        (
+            r.replies,
+            r.links_confirmed,
+            r.requests_sent,
+            r.new_messages
+        ),
+        (0, 0, 0, 0),
+        "second round: nothing new"
+    );
+    assert_eq!(hits.lock().unwrap().len(), 1);
+}

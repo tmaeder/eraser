@@ -1,10 +1,10 @@
 //! Read-only status queries for the web UI: the state of each broker's latest request (status
-//! chips, deadline bars, stage filters), the Sent → Replied → Deleted funnel and per-broker
+//! chips, deadline bars, stage filters), the Sent → Opened → Replied → Deleted funnel and per-broker
 //! event timelines.
 
 use super::{
-    INTERRUPTED, PipelineStatus, RECORD_COLUMNS, RESPONSE_COLUMNS, Status, Store, TASK_COLUMNS,
-    TODO_TYPES, scan_record, scan_response, scan_task, str_col, time_col,
+    CLIENT_OTHER, INTERRUPTED, PipelineStatus, RECORD_COLUMNS, RESPONSE_COLUMNS, Status, Store,
+    TASK_COLUMNS, TODO_TYPES, Tracking, scan_record, scan_response, scan_task, str_col, time_col,
 };
 use anyhow::{Context, Result};
 use chrono::{DateTime, Local};
@@ -25,6 +25,10 @@ pub enum ChipKind {
     Rejected,
     Action,
     Failed,
+    /// Opened by a regular mail client (tracking pixel), no reply yet.
+    Opened,
+    /// Read receipt (MDN) received, no reply yet.
+    Receipt,
     /// Recorded as pending before sending, result never stored (crash mid-send).
     Interrupted,
     NotContacted,
@@ -40,6 +44,8 @@ impl ChipKind {
             Self::Rejected => "rejected",
             Self::Action => "action",
             Self::Failed => "failed",
+            Self::Opened => "opened",
+            Self::Receipt => "receipt",
             Self::Interrupted => "interrupted",
             Self::NotContacted => "none",
         }
@@ -93,6 +99,8 @@ pub struct RequestState {
     pub replies: i64,
     /// Pending to-dos (Today types) for this broker.
     pub open_tasks: i64,
+    /// Opens / read receipts of the latest request (None: not tracked).
+    pub tracking: Option<Tracking>,
 }
 
 impl RequestState {
@@ -103,6 +111,8 @@ impl RequestState {
             (_, Some(PipelineStatus::Confirmed)) => ChipKind::Deleted,
             (_, Some(PipelineStatus::Rejected)) => ChipKind::Rejected,
             _ if self.open_tasks > 0 => ChipKind::Action,
+            _ if self.receipt() => ChipKind::Receipt,
+            _ if self.opened() => ChipKind::Opened,
             _ if self.reminder_sent_at.is_some() => ChipKind::Reminder,
             _ => ChipKind::Waiting,
         }
@@ -120,11 +130,16 @@ impl RequestState {
         let kind = self.kind();
         let label = match kind {
             ChipKind::Deleted => "Deleted".into(),
-            ChipKind::Waiting => format!("Waiting · day {}/{DEADLINE_DAYS}", self.day(now)),
+            ChipKind::Waiting => match self.day(now) {
+                d if d > DEADLINE_DAYS => format!("Overdue · day {d}"),
+                d => format!("Waiting · day {d}/{DEADLINE_DAYS}"),
+            },
             ChipKind::Reminder => "Reminder sent".into(),
             ChipKind::Rejected => "Rejected".into(),
             ChipKind::Action => "Needs action".into(),
             ChipKind::Failed => "Failed".into(),
+            ChipKind::Opened => "Opened".into(),
+            ChipKind::Receipt => "Read receipt".into(),
             ChipKind::Interrupted => INTERRUPTED_LABEL.into(),
             ChipKind::NotContacted => "Not contacted".into(),
         };
@@ -142,8 +157,32 @@ impl RequestState {
     pub fn is_open(&self) -> bool {
         matches!(
             self.kind(),
-            ChipKind::Waiting | ChipKind::Reminder | ChipKind::Action
+            ChipKind::Waiting
+                | ChipKind::Reminder
+                | ChipKind::Action
+                | ChipKind::Opened
+                | ChipKind::Receipt
         )
+    }
+
+    pub fn receipt(&self) -> bool {
+        self.tracking
+            .as_ref()
+            .is_some_and(|t| t.read_receipt_at.is_some())
+    }
+
+    /// Opened by a regular client (proxy prefetches do not count).
+    pub fn opened(&self) -> bool {
+        self.tracking
+            .as_ref()
+            .is_some_and(|t| t.client == CLIENT_OTHER)
+    }
+
+    /// Only image-proxy opens (Apple Mail Privacy Protection, Google image proxy).
+    pub fn proxy_only(&self) -> bool {
+        self.tracking
+            .as_ref()
+            .is_some_and(|t| t.open_count > 0 && t.client != CLIENT_OTHER)
     }
 
     fn resolved(&self) -> bool {
@@ -164,6 +203,9 @@ impl RequestState {
         match stage {
             "" => true,
             "sent" => self.is_sent(),
+            "opened" => self.is_sent() && (self.opened() || self.receipt()),
+            "proxy_opened" => self.is_sent() && self.proxy_only() && !self.receipt(),
+            "receipt" => self.is_sent() && self.receipt(),
             "replied" => self.is_sent() && self.replies > 0,
             "deleted" => self.is_sent() && k == ChipKind::Deleted,
             "rejected" => self.is_sent() && k == ChipKind::Rejected,
@@ -181,6 +223,9 @@ impl RequestState {
 /// Stage filters the funnel links to, with their human labels.
 pub const STAGES: &[(&str, &str)] = &[
     ("sent", "Sent"),
+    ("opened", "Opened"),
+    ("proxy_opened", "Proxy open only"),
+    ("receipt", "Read receipt"),
     ("replied", "Replied"),
     ("deleted", "Deleted"),
     ("rejected", "Rejected"),
@@ -199,6 +244,10 @@ pub fn stage_label(stage: &str) -> Option<&'static str> {
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
 pub struct Funnel {
     pub sent: i64,
+    /// Opened by a regular client or read receipt.
+    pub opened: i64,
+    pub proxy_opened: i64,
+    pub receipts: i64,
     pub replied: i64,
     pub deleted: i64,
     pub rejected: i64,
@@ -212,6 +261,9 @@ impl Funnel {
         for s in states {
             let add = |stage: &str, n: &mut i64| *n += s.matches_stage(stage) as i64;
             add("sent", &mut f.sent);
+            add("opened", &mut f.opened);
+            add("proxy_opened", &mut f.proxy_opened);
+            add("receipt", &mut f.receipts);
             add("replied", &mut f.replied);
             add("deleted", &mut f.deleted);
             add("rejected", &mut f.rejected);
@@ -286,11 +338,20 @@ impl Store {
                 error: str_col(r, 6)?,
                 replies: r.get(7)?,
                 open_tasks: r.get(8)?,
+                tracking: None,
             })
         })?;
-        rows.map(|s| s.map(|s| (s.broker_id.clone(), s)))
+        let mut states: HashMap<String, RequestState> = rows
+            .map(|s| s.map(|s| (s.broker_id.clone(), s)))
             .collect::<rusqlite::Result<_>>()
-            .context("failed to read request states")
+            .context("failed to read request states")?;
+        drop(stmt);
+        drop(db);
+        let mut tracking = self.request_tracking()?;
+        for s in states.values_mut() {
+            s.tracking = tracking.remove(&s.record_id);
+        }
+        Ok(states)
     }
 
     /// Requests, reminders, replies and to-dos of one broker id, oldest first.
@@ -324,6 +385,55 @@ impl Store {
                     at: Some(at),
                     kind: "reminder",
                     title: "Reminder sent".into(),
+                    detail: String::new(),
+                });
+            }
+        }
+
+        let mut stmt = db.prepare(
+            "SELECT t.first_opened_at, t.open_count, t.client, t.read_receipt_at
+             FROM mail_tracking t JOIN removal_requests r ON r.id = t.request_id
+             WHERE r.broker_id = ?",
+        )?;
+        let rows = stmt.query_map([broker_id], |r| {
+            Ok((
+                time_col(r, 0)?,
+                r.get::<_, i64>(1)?,
+                str_col(r, 2)?,
+                time_col(r, 3)?,
+            ))
+        })?;
+        for row in rows {
+            let (opened, count, client, receipt) = row.context("failed to read tracking")?;
+            if let Some(at) = opened.filter(|_| count > 0) {
+                let times = if count == 1 {
+                    "once".to_string()
+                } else {
+                    format!("{count} times")
+                };
+                let (title, detail) = if client == CLIENT_OTHER {
+                    ("Opened", format!("Opened {times}"))
+                } else {
+                    (
+                        "Opened by an image proxy",
+                        format!(
+                            "Loaded {times} via {client}: a privacy proxy fetches images \
+                             automatically, so this does not prove anyone read it"
+                        ),
+                    )
+                };
+                events.push(TimelineEvent {
+                    at: Some(at),
+                    kind: "opened",
+                    title: title.into(),
+                    detail,
+                });
+            }
+            if let Some(at) = receipt {
+                events.push(TimelineEvent {
+                    at: Some(at),
+                    kind: "receipt",
+                    title: "Read receipt received".into(),
                     detail: String::new(),
                 });
             }
@@ -463,6 +573,11 @@ mod tests {
         let now = Local::now();
         let chip = |id: &str| s[id].chip(now);
         assert_eq!(chip("waiting").label, "Waiting · day 12/30");
+        send(&store, "late", Status::Sent, 42);
+        assert_eq!(
+            store.request_states().unwrap()["late"].chip(now).label,
+            "Overdue · day 42"
+        );
         assert_eq!(chip("deleted").kind, "deleted");
         assert_eq!(chip("rejected").kind, "rejected");
         assert_eq!(chip("silent").label, "Reminder sent");
@@ -484,6 +599,7 @@ mod tests {
                 rejected: 1,
                 needs_you: 1,
                 no_response: 1,
+                ..Default::default()
             }
         );
         let companies = Funnel::of(s.values().filter(|x| x.broker_id.starts_with("company:")));
@@ -499,5 +615,64 @@ mod tests {
         assert_eq!(t.last().unwrap().kind, "reminder");
         let t = store.broker_timeline("retry").unwrap();
         assert_eq!(t[0].kind, "failed");
+    }
+
+    #[test]
+    fn opened_and_receipt_chips_funnel_and_timeline() {
+        use chrono::Utc;
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path().join("h.db")).unwrap();
+        let tok = |c: char| c.to_string().repeat(22);
+        for (id, c) in [("seen", 'a'), ("proxy", 'b'), ("mdn", 'c'), ("blind", 'd')] {
+            let r = send(&store, id, Status::Sent, 3);
+            store
+                .track_message(r.id, &format!("<{}@x.test>", tok(c)))
+                .unwrap();
+        }
+        store
+            .record_open(&tok('a'), CLIENT_OTHER, Utc::now())
+            .unwrap();
+        store
+            .record_open(&tok('b'), "apple-mpp", Utc::now())
+            .unwrap();
+        store
+            .record_open(&tok('c'), "apple-mpp", Utc::now())
+            .unwrap();
+        store
+            .record_read_receipt(&[format!("<{}@x.test>", tok('c'))], Utc::now())
+            .unwrap();
+
+        let s = store.request_states().unwrap();
+        let now = Local::now();
+        assert_eq!(s["seen"].chip(now).label, "Opened");
+        assert_eq!(
+            s["mdn"].chip(now).label,
+            "Read receipt",
+            "receipt beats opened"
+        );
+        assert_eq!(
+            s["proxy"].chip(now).kind,
+            "waiting",
+            "proxy opens prove nothing"
+        );
+        assert_eq!(s["blind"].chip(now).kind, "waiting");
+        assert!(s["seen"].is_open());
+        let f = Funnel::of(s.values());
+        assert_eq!((f.sent, f.opened, f.proxy_opened, f.receipts), (4, 2, 1, 1));
+        assert!(
+            s["proxy"].matches_stage("proxy_opened") && !s["mdn"].matches_stage("proxy_opened")
+        );
+
+        let kinds = |id: &str| -> Vec<_> {
+            store
+                .broker_timeline(id)
+                .unwrap()
+                .iter()
+                .map(|e| (e.kind, e.title.clone()))
+                .collect()
+        };
+        assert_eq!(kinds("seen")[1], ("opened", "Opened".to_string()));
+        assert_eq!(kinds("proxy")[1].1, "Opened by an image proxy");
+        assert_eq!(kinds("mdn").last().unwrap().0, "receipt");
     }
 }

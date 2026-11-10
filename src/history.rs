@@ -123,6 +123,32 @@ impl Default for Record {
     }
 }
 
+impl Record {
+    /// The history row for one send attempt to `broker`.
+    pub fn for_send(
+        broker: &crate::broker::Broker,
+        template: &str,
+        result: &crate::email::SendResult,
+    ) -> Self {
+        let mut r = Record {
+            broker_id: broker.id.clone(),
+            broker_name: broker.name.clone(),
+            email: broker.email.clone(),
+            template: template.into(),
+            sent_at: Some(Local::now()),
+            ..Default::default()
+        };
+        if result.success {
+            r.status = Status::Sent;
+            r.message_id = result.message_id.clone();
+        } else {
+            r.status = Status::Failed;
+            r.error = result.error.clone().unwrap_or_default();
+        }
+        r
+    }
+}
+
 /// A classified response from a broker.
 #[derive(Debug, Clone, Default, PartialEq, Serialize)]
 pub struct BrokerResponse {

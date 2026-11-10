@@ -3,13 +3,13 @@
 use super::commands::{Ctx, RULE, open_store, truncate};
 use anyhow::{Result, anyhow};
 use chrono::Local;
-use eraser::history::{BrokerResponse, PipelineStatus};
-use eraser::inbox::Email;
+use eraser::history::BrokerResponse;
 use eraser::inbox::classifier::{
     ClassifiedResponse, ResponseType, classify_response, summarize_responses,
 };
 use eraser::inbox::monitor::Monitor;
 use eraser::inbox::parser::extract_bounced_recipient;
+use eraser::inbox::{Email, pipeline_status_for};
 use tokio::sync::watch;
 
 fn print_inbox_setup_help() {
@@ -45,16 +45,6 @@ fn broker_response(email: &Email, c: &ClassifiedResponse) -> BrokerResponse {
         needs_review: c.needs_review,
         received_at: Some(email.received_at.with_timezone(&Local)),
         ..Default::default()
-    }
-}
-
-fn pipeline_status_for(t: ResponseType) -> PipelineStatus {
-    match t {
-        ResponseType::Success => PipelineStatus::Confirmed,
-        ResponseType::FormRequired => PipelineStatus::FormRequired,
-        ResponseType::ConfirmationRequired => PipelineStatus::AwaitingConfirmation,
-        ResponseType::Rejected => PipelineStatus::Rejected,
-        _ => PipelineStatus::AwaitingResponse,
     }
 }
 

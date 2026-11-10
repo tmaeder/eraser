@@ -7,10 +7,10 @@ use super::views::STATIC_FILES;
 use crate::broker::Broker;
 use crate::config::{Config, EmailConfig, InboxConfig, Options, Profile};
 use crate::email::{Message, SendResult, Sender};
-use crate::history::{BrokerResponse, PipelineStatus, Record, Status, TaskType};
-use crate::inbox::Email;
+use crate::history::{PipelineStatus, Record, Status, TaskType};
 use crate::inbox::classifier::{ResponseType, classify_by_subject_only, classify_response};
 use crate::inbox::monitor::Monitor as Inbox;
+use crate::inbox::{Email, body_of, response_record};
 use crate::scanner::{self, actions};
 use axum::Extension;
 use axum::body::{Body, Bytes};
@@ -18,7 +18,6 @@ use axum::extract::{Path, State};
 use axum::http::{HeaderMap, HeaderValue, Method, StatusCode, Uri, header};
 use axum::response::{IntoResponse, Response};
 use axum_extra::extract::cookie::CookieJar;
-use chrono::Local;
 use minijinja::value::{Serde, Value};
 use serde::Serialize;
 use serde_json::json;
@@ -33,11 +32,6 @@ pub(super) type St = State<Arc<AppState>>;
 
 const SESSION_COOKIE: &str = "eraser_session";
 const SEND_TIMEOUT: Duration = Duration::from_secs(30);
-
-// Daily send limits by provider to avoid rate limiting
-const DAILY_LIMIT_SMTP: i64 = 250; // iCloud allows ~1000/day, Gmail ~500/day; stay well under both
-const DAILY_LIMIT_SENDGRID: i64 = 500;
-const DAILY_LIMIT_RESEND: i64 = 500;
 
 // ==================== response helpers (net/http equivalents) ====================
 
@@ -1162,25 +1156,6 @@ pub async fn api_delete_failed(State(st): St) -> Response {
     }
 }
 
-fn record_for(b: &Broker, template: &str, result: &SendResult) -> Record {
-    let mut r = Record {
-        broker_id: b.id.clone(),
-        broker_name: b.name.clone(),
-        email: b.email.clone(),
-        template: template.into(),
-        sent_at: Some(Local::now()),
-        ..Default::default()
-    };
-    if result.success {
-        r.status = Status::Sent;
-        r.message_id = result.message_id.clone();
-    } else {
-        r.status = Status::Failed;
-        r.error = result.error.clone().unwrap_or_default();
-    }
-    r
-}
-
 pub async fn api_send_one(State(st): St, Path(broker_id): Path<String>) -> Response {
     if !st.rate_limiter.allow("send") {
         return fragment(
@@ -1233,7 +1208,7 @@ pub async fn api_send_one(State(st): St, Path(broker_id): Path<String>) -> Respo
     let result = send_with_timeout(sender.as_ref(), &msg).await;
     let _ = st
         .history
-        .add(&mut record_for(&br, &rendered.template, &result));
+        .add(&mut Record::for_send(&br, &rendered.template, &result));
 
     if result.success {
         fragment(
@@ -1379,7 +1354,7 @@ async fn send_broker_item(
     let result = send_with_timeout(sender, &msg).await;
     let _ = st
         .history
-        .add(&mut record_for(broker, &rendered.template, &result));
+        .add(&mut Record::for_send(broker, &rendered.template, &result));
     Ok(result)
 }
 
@@ -1426,11 +1401,7 @@ async fn process_send_job(
     } else {
         cfg.options.rate_limit_ms
     };
-    let daily_limit = match cfg.email.provider.as_str() {
-        "sendgrid" => DAILY_LIMIT_SENDGRID,
-        "resend" => DAILY_LIMIT_RESEND,
-        _ => DAILY_LIMIT_SMTP,
-    };
+    let daily_limit = crate::email::daily_limit(&cfg.email.provider);
     job.data.lock().unwrap().daily_limit = daily_limit;
     let ids: Vec<String> = to_send.iter().map(|b| b.broker.id.clone()).collect();
 
@@ -1688,34 +1659,6 @@ pub(super) async fn within<T>(
     tokio::time::timeout_at(deadline, fut)
         .await
         .unwrap_or_else(|_| Err(anyhow::anyhow!("context deadline exceeded")))
-}
-
-fn body_of(email: &Email) -> String {
-    if email.body.is_empty() {
-        email.html_body.clone()
-    } else {
-        email.body.clone()
-    }
-}
-
-fn response_record(
-    email: &Email,
-    c: &crate::inbox::classifier::ClassifiedResponse,
-) -> BrokerResponse {
-    BrokerResponse {
-        broker_id: email.broker_id.clone(),
-        broker_name: email.broker_name.clone(),
-        response_type: c.r#type.as_str().into(),
-        email_from: email.from.clone(),
-        email_subject: email.subject.clone(),
-        email_body: body_of(email),
-        form_url: c.form_url.clone(),
-        confirm_url: c.confirm_url.clone(),
-        confidence: c.confidence,
-        needs_review: c.needs_review,
-        received_at: Some(email.received_at.with_timezone(&Local)),
-        ..Default::default()
-    }
 }
 
 #[derive(Default)]

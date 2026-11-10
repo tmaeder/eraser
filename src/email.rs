@@ -41,6 +41,14 @@ pub trait Sender: Send + Sync {
     fn name(&self) -> &'static str;
 }
 
+/// Emails per day per provider (iCloud allows ~1000/day, Gmail ~500/day; stay well under both).
+pub fn daily_limit(provider: &str) -> i64 {
+    match provider {
+        "sendgrid" | "resend" => 500,
+        _ => 250,
+    }
+}
+
 pub fn new_sender(cfg: &EmailConfig) -> Result<Box<dyn Sender>> {
     if cfg.provider.is_empty() || cfg.provider == "smtp" {
         return Ok(Box::new(SmtpSender::new(
@@ -371,5 +379,11 @@ mod tests {
         assert!(data.contains("To: privacy@broker.com\n"));
         assert!(data.contains("Subject: Personal Data Removal Request\n"));
         assert!(data.contains("Content-Type: text/plain; charset=utf-8\n"));
+    }
+    #[test]
+    fn daily_limits() {
+        assert_eq!(daily_limit("smtp"), 250);
+        assert_eq!(daily_limit(""), 250);
+        assert_eq!(daily_limit("sendgrid"), 500);
     }
 }

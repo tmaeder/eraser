@@ -1,5 +1,6 @@
 {% extends "layout.html" %}
 {% from "partials/status.html" import chip, deadline %}
+{% from "partials/logo.html" import broker_logo %}
 {% block content %}
 <div class="fade-in-up space-y-6">
     <a href="/brokers" class="inline-flex items-center gap-1 text-sm text-secondary hover:text-primary">
@@ -8,9 +9,13 @@
     </a>
 
     <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-        <div class="min-w-0">
+        <div class="min-w-0 flex items-start gap-4">
+            {{ broker_logo(broker, 56) }}
+            <div class="min-w-0">
             <h1 class="font-display text-3xl font-bold text-primary break-words">{{ broker.name }}</h1>
             <p class="text-secondary mt-1 break-all">{{ broker.email or "No email address: web form only" }}</p>
+            {% if info.description %}<p class="text-primary mt-2 max-w-prose">{{ info.description }}</p>{% endif %}
+            </div>
         </div>
         <div class="shrink-0" id="status-{{ broker.id }}">{{ chip(status_chip) }}</div>
     </div>
@@ -28,8 +33,23 @@
                 <dt class="text-muted">Region</dt><dd class="text-primary uppercase">{{ broker.region or "—" }}</dd>
                 <dt class="text-muted">Category</dt><dd class="text-primary">{{ broker.category or "—" }}</dd>
                 {% if broker.website %}<dt class="text-muted">Website</dt><dd class="min-w-0"><a href="{{ broker.website|safe_url }}" target="_blank" rel="noopener noreferrer" class="text-primary underline underline-offset-2 break-all">{{ broker.website }}</a></dd>{% endif %}
-                {% if broker.opt_out_url %}<dt class="text-muted">Opt-out</dt><dd><a href="{{ broker.opt_out_url|safe_url }}" target="_blank" rel="noopener noreferrer" class="text-primary underline underline-offset-2">Open form</a></dd>{% endif %}
+                {% set opt_out = broker.opt_out_url or info.opt_out_url %}
+                {% if opt_out %}<dt class="text-muted">Opt-out</dt><dd><a href="{{ opt_out|safe_url }}" target="_blank" rel="noopener noreferrer" class="text-primary underline underline-offset-2">Open form</a></dd>{% endif %}
+                {% if info.hq or info.country %}<dt class="text-muted">Seat</dt><dd class="text-primary">{{ info.hq }}{% if info.hq and info.country %}, {% endif %}{% if info.country %}<span aria-hidden="true">{{ info.country|flag }}</span> {{ info.country }}{% endif %}</dd>{% endif %}
+                {% if info.legal_name %}<dt class="text-muted">Legal name</dt><dd class="text-primary break-words">{{ info.legal_name }}</dd>{% endif %}
+                {% if info and info.requires_id is not none %}<dt class="text-muted">ID required</dt><dd class="text-primary">{% if info.requires_id %}Yes{% else %}No{% endif %}</dd>{% endif %}
+                {% if info and info.response_days is not none %}<dt class="text-muted">Typical response</dt><dd class="text-primary num">{{ info.response_days }} days</dd>{% endif %}
+                {% if info.status %}<dt class="text-muted">Status</dt><dd class="text-primary">{{ info.status }}</dd>{% endif %}
             </dl>
+            {% if info.data_types %}
+            <div>
+                <p class="text-sm text-muted mb-2">Data collected</p>
+                <ul class="flex flex-wrap gap-1.5" aria-label="Data types">
+                    {% for d in info.data_types %}<li class="badge badge-neutral">{{ d }}</li>{% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+            {% if info.source %}<p class="text-xs text-muted">Source: <a href="{{ info.source|safe_url }}" target="_blank" rel="noopener noreferrer" class="underline underline-offset-2 break-all">{{ info.source }}</a></p>{% endif %}
             {% if send_label %}
             <button class="btn btn-primary w-full" hx-post="/api/send/{{ broker.id }}" hx-target="#status-{{ broker.id }}" hx-swap="innerHTML">{{ send_label }}</button>
             {% endif %}

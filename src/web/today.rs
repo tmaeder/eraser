@@ -98,6 +98,8 @@ const SKIP_DAYS: i64 = 30;
 struct TodoItem {
     id: i64,
     label: &'static str,
+    /// Logo: broker id, or the domain for company tasks.
+    logo: serde_json::Value,
     name: String,
     notes: String,
     action_url: String,
@@ -126,9 +128,14 @@ fn todo_item(t: &PendingTask, deadline_days: i64) -> TodoItem {
         }
         TaskType::Review => ("Review", "Show", page("")),
     };
+    let logo = match t.broker_id.strip_prefix(scanner::BROKER_PREFIX) {
+        Some(domain) => json!({ "domain": domain, "name": t.broker_name }),
+        None => json!({ "id": t.broker_id, "name": t.broker_name }),
+    };
     TodoItem {
         id: t.id,
         label,
+        logo,
         name: t.broker_name.clone(),
         notes: t.notes.clone(),
         action_url,

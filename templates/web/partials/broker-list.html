@@ -1,4 +1,5 @@
 {% from "partials/status.html" import chip, deadline %}
+{% from "partials/logo.html" import broker_logo %}
 <!-- Count header -->
 <div class="px-4 py-3 border-b border-[var(--border)] bg-elevated">
     <p class="text-sm text-secondary">Showing <span class="font-medium text-primary">{{ filtered }}</span> of <span class="font-medium text-primary">{{ total }}</span> brokers</p>
@@ -20,9 +21,13 @@
             {% for it in brokers %}
             <tr>
                 <td>
-                    <div class="flex flex-col">
-                        <a href="/brokers/{{ it.id }}" class="font-medium text-primary hover:underline">{{ it.name }}</a>
-                        <span class="text-sm text-muted">{{ it.email }}</span>
+                    <div class="flex items-center gap-3">
+                        {{ broker_logo(it, 32) }}
+                        <div class="flex flex-col min-w-0">
+                            <a href="/brokers/{{ it.id }}" class="font-medium text-primary hover:underline">{{ it.name }}</a>
+                            <span class="text-sm text-muted">{{ it.email }}</span>
+                            {% if it.info.description %}<span class="text-xs text-secondary truncate max-w-[28rem]" title="{{ it.info.description }}">{{ it.info.description }}</span>{% endif %}
+                        </div>
                     </div>
                 </td>
                 <td>
@@ -38,6 +43,7 @@
                     {% else %}
                     <span class="text-muted">—</span>
                     {% endif %}
+                    {% if it.info.country %}<div class="text-xs text-muted" title="Seat">{{ it.info.country|flag }} {{ it.info.country }}</div>{% endif %}
                 </td>
                 <td>
                     <div id="status-{{ it.id }}">{{ chip(it.chip) }}</div>
@@ -92,9 +98,13 @@
     {% for it in brokers %}
     <div class="p-4">
         <div class="flex items-start justify-between gap-3 mb-3">
-            <div class="min-w-0">
+            <div class="min-w-0 flex items-start gap-3">
+                {{ broker_logo(it, 32) }}
+                <div class="min-w-0">
                 <h3 class="font-medium text-primary"><a href="/brokers/{{ it.id }}" class="hover:underline">{{ it.name }}</a></h3>
                 <p class="text-sm text-muted truncate">{{ it.email }}</p>
+                {% if it.info.description %}<p class="text-xs text-secondary truncate">{{ it.info.description }}</p>{% endif %}
+                </div>
             </div>
             <div id="status-mobile-{{ it.id }}" class="shrink-0">{{ chip(it.chip) }}</div>
         </div>
@@ -106,6 +116,7 @@
             {% if it.region %}
             <span class="text-muted uppercase">{{ it.region }}</span>
             {% endif %}
+            {% if it.info.country %}<span class="text-muted">{{ it.info.country|flag }} {{ it.info.country }}</span>{% endif %}
         </div>
         <div class="flex gap-2">
             {% if it.send_label %}

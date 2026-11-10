@@ -28,10 +28,11 @@ src/
 ├── inbox/               # IMAP monitor, response classifier, URL parser
 ├── scanner/             # Inbox company scanner, privacy-contact discovery, unsubscribe
 ├── browser/             # Opt-out form filler, captcha detection (detection only), confirm links
-└── web/                 # Router, CSRF, sessions, send jobs, companies UI
+└── web/                 # Router, CSRF, sessions, send jobs, companies UI, logos (server-side fetch + cache in ~/.eraser/logos)
 templates/email/          # gdpr, ccpa, fadp, generic request texts
 templates/web/            # Web UI templates
 data/brokers.yaml         # Broker database
+data/broker_info.yaml     # Optional extra broker facts (description, seat, data types); schema in its header
 docs/manual-optouts.md    # Brokers that only accept web forms
 deploy/                   # Cloudflare Containers (Worker with basic auth, R2 state sync, Dockerfile)
 tests/                    # Integration tests; tests/golden holds fixtures generated from the original Go version

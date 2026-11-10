@@ -26,6 +26,7 @@ fn state_with(cfg: Config, dir: &std::path::Path, mail: Box<dyn SenderClone>) ->
         config_error: None,
         config_path: dir.join("config.yaml"),
         brokers: BrokerDatabase { brokers },
+        broker_info: Default::default(),
         history: Store::new(dir.join("h.db")).unwrap(),
         data_dir: dir.join("data"),
         port: 8080,

@@ -18,7 +18,7 @@ const TEMPLATES: &[(&str, &str)] = embed!("templates/web":
     "setup/test.html", "setup/complete.html", "partials/broker-list.html",
     "partials/history-list.html", "partials/response-list.html", "partials/task-list.html",
     "companies.html", "company-detail.html", "companies-confirm.html", "today.html",
-    "partials/status.html", "partials/account-blocked.html", "broker-detail.html", "config-locked.html",
+    "partials/status.html", "partials/account-blocked.html", "partials/logo.html", "broker-detail.html", "config-locked.html",
 );
 
 pub const STATIC_FILES: &[(&str, &[u8], &str)] = &[(
@@ -57,6 +57,25 @@ fn number(value: Value) -> String {
     }
 }
 
+/// Stable hue (0..360) for a logo badge, hashed (FNV-1a) from a broker id or domain.
+fn logo_hue(value: Value) -> u32 {
+    let hash = value.to_string().bytes().fold(0x811c_9dc5u32, |h, b| {
+        (h ^ u32::from(b)).wrapping_mul(0x0100_0193)
+    });
+    hash % 360
+}
+
+/// ISO 3166-1 alpha-2 code -> flag emoji (regional indicators); anything else renders empty.
+fn flag(value: Value) -> String {
+    let code = value.to_string().to_ascii_uppercase();
+    if code.len() != 2 || !code.bytes().all(|b| b.is_ascii_uppercase()) {
+        return String::new();
+    }
+    code.bytes()
+        .filter_map(|b| char::from_u32(0x1F1E6 + u32::from(b - b'A')))
+        .collect()
+}
+
 /// URL attributes: unsafe schemes become "#", and characters outside the URL set are
 /// percent-encoded (the result is then HTML-escaped as usual).
 pub fn safe_url(value: Value) -> String {
@@ -92,6 +111,8 @@ pub fn environment() -> Environment<'static> {
     env.add_filter("format_date", format_date);
     env.add_filter("number", number);
     env.add_filter("safe_url", safe_url);
+    env.add_filter("logo_hue", logo_hue);
+    env.add_filter("flag", flag);
     for (name, src) in TEMPLATES {
         env.add_template(name, src)
             .unwrap_or_else(|e| panic!("template {name}: {e}"));
@@ -120,6 +141,32 @@ mod tests {
             "https://x.com/a%20b?q=1"
         );
         assert_eq!(safe_url(Value::from("/rel/path")), "/rel/path");
+        assert_eq!(flag(Value::from("ch")), "\u{1F1E8}\u{1F1ED}");
+        assert_eq!(flag(Value::from("CHE")), "");
+        assert!(logo_hue(Value::from("spokeo")) < 360);
+    }
+
+    #[test]
+    fn logo_macro_badge_and_routes() {
+        let env = environment();
+        let render = |b: serde_json::Value| {
+            env.render_named_str(
+                "logo.html",
+                r#"{% from "partials/logo.html" import broker_logo %}{{ broker_logo(b, 40) }}"#,
+                minijinja::context! { b => minijinja::value::Serde(b) },
+            )
+            .unwrap()
+        };
+        let html = render(serde_json::json!({"id": "acme", "name": "<acme>"}));
+        assert!(html.contains(r#"src="/logo/acme""#), "{html}");
+        assert!(html.contains("<span>&lt;</span>") && html.contains(r#"width="40""#));
+        assert!(html.contains(r#"alt="""#) && html.contains("onerror"));
+        let html = render(serde_json::json!({"domain": "shop.example", "display_name": "Shop"}));
+        assert!(
+            html.contains(r#"src="/logo/domain/shop.example""#),
+            "{html}"
+        );
+        assert!(html.contains("<span>S</span>"));
     }
 
     #[test]

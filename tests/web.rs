@@ -3,7 +3,7 @@
 use axum::Router;
 use axum::body::Body;
 use axum::http::{Request, StatusCode, header};
-use eraser::broker::{Broker, BrokerDatabase};
+use eraser::broker::{Broker, BrokerDatabase, BrokerInfo};
 use eraser::config::{self, Config};
 use eraser::email::{Message, SendResult, Sender};
 use eraser::history::{PendingTask, Record, Status, Store, TaskType};
@@ -64,6 +64,36 @@ fn broker(id: &str, name: &str, category: &str, region: &str) -> Broker {
     }
 }
 
+/// Made-up broker info (tests only).
+fn test_info() -> HashMap<String, BrokerInfo> {
+    HashMap::from([
+        (
+            "acme".to_string(),
+            BrokerInfo {
+                description: "Test people-search site <b>".into(),
+                country: "US".into(),
+                hq: "Testville".into(),
+                legal_name: "Acme Test Inc.".into(),
+                data_types: vec!["phone".into(), "address".into()],
+                opt_out_url: "https://acme.example/optout".into(),
+                requires_id: Some(true),
+                response_days: Some(45),
+                source: "https://acme.example/privacy".into(),
+                status: "active".into(),
+            },
+        ),
+        (
+            "swissdata".to_string(),
+            BrokerInfo {
+                description: "Test marketing lists".into(),
+                country: "CH".into(),
+                data_types: vec!["email".into()],
+                ..Default::default()
+            },
+        ),
+    ])
+}
+
 struct Harness {
     router: Router,
     dir: tempfile::TempDir,
@@ -110,6 +140,7 @@ fn harness_with(
                 broker("eurolist", "EuroList", "marketing", "eu"),
             ],
         },
+        broker_info: test_info(),
         history: history.clone(),
         data_dir: dir.path().join(".eraser"),
         port: 8080,
@@ -382,6 +413,96 @@ async fn broker_filters() {
     assert!(!r.body.contains("Acme People Search") && r.body.contains("EuroList"));
     let r = h.get("/api/stats").await;
     assert_eq!(r.body, r#"{"total_brokers":3,"sent":1,"failed":0}"#);
+}
+
+#[tokio::test]
+async fn broker_info_rendering_and_filters() {
+    let mut h = harness(Some(configured()), None);
+    let r = h.get("/brokers").await;
+    assert!(
+        r.body.contains("Test people-search site &lt;b&gt;"),
+        "description escaped"
+    );
+    assert!(r.body.contains(r#"<option value="CH" >"#) || r.body.contains(r#"value="CH""#));
+    assert!(r.body.contains(r#"value="phone""#) && r.body.contains(r#"name="data_type""#));
+    assert!(r.body.contains(r#"src="/logo/acme""#), "logo in list rows");
+
+    let r = h.get("/api/brokers?country=ch").await;
+    assert!(r.body.contains("Swiss Data AG") && !r.body.contains("Acme People Search"));
+    assert!(
+        !r.body.contains("EuroList"),
+        "brokers without info drop out of a country filter"
+    );
+    let r = h.get("/api/brokers?data_type=PHONE").await;
+    assert!(r.body.contains("Acme People Search") && !r.body.contains("Swiss Data AG"));
+    let r = h.get("/brokers?country=us&data_type=email").await;
+    assert!(
+        r.body
+            .contains("Showing <span class=\"font-medium text-primary\">0</span>")
+    );
+
+    let r = h.get("/brokers/acme").await;
+    for want in [
+        "Testville, ",
+        "\u{1F1FA}\u{1F1F8}",
+        "Acme Test Inc.",
+        ">phone</li>",
+        ">address</li>",
+        "Typical response",
+        "45 days",
+        "ID required",
+        "Source: <a href=",
+        r#"src="/logo/acme""#,
+    ] {
+        assert!(r.body.contains(want), "{want}");
+    }
+    // No info: none of the info rows.
+    let r = h.get("/brokers/eurolist").await;
+    assert_eq!(r.status, StatusCode::OK);
+    assert!(!r.body.contains("ID required") && !r.body.contains("Typical response"));
+}
+
+#[tokio::test]
+async fn logo_routes() {
+    let mut h = harness(Some(configured()), None);
+    // Unknown broker / invalid domain: 404, no fetch.
+    assert_eq!(h.get("/logo/nope").await.status, StatusCode::NOT_FOUND);
+    assert_eq!(
+        h.get("/logo/domain/127.0.0.1").await.status,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        h.get("/logo/domain/localhost").await.status,
+        StatusCode::NOT_FOUND
+    );
+    // Cached files are served without network access.
+    let logos = h.dir.path().join(".eraser/logos");
+    std::fs::create_dir_all(&logos).unwrap();
+    std::fs::write(logos.join("broker_acme.png"), b"png").unwrap();
+    std::fs::write(logos.join("domain_shop.example.svg"), b"<svg/>").unwrap();
+    std::fs::write(logos.join("domain_none.example.none"), b"").unwrap();
+    let r = h.get("/logo/ACME").await;
+    assert_eq!(r.status, StatusCode::OK);
+    assert_eq!(r.headers.get(header::CONTENT_TYPE).unwrap(), "image/png");
+    assert_eq!(
+        r.headers.get(header::CACHE_CONTROL).unwrap(),
+        "private, max-age=604800"
+    );
+    let r = h.get("/logo/domain/shop.example").await;
+    assert_eq!(
+        r.headers.get(header::CONTENT_TYPE).unwrap(),
+        "image/svg+xml"
+    );
+    assert_eq!(
+        r.headers.get(header::CONTENT_SECURITY_POLICY).unwrap(),
+        "default-src 'none'; style-src 'unsafe-inline'"
+    );
+    assert_eq!(r.headers.get("x-content-type-options").unwrap(), "nosniff");
+    assert_eq!(
+        h.get("/logo/domain/none.example").await.status,
+        StatusCode::NOT_FOUND,
+        "negative cache"
+    );
 }
 
 #[tokio::test]

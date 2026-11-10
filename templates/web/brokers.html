@@ -61,7 +61,7 @@
                     hx-get="/api/brokers"
                     hx-trigger="keyup changed delay:300ms"
                     hx-target="#broker-list"
-                    hx-include="[name='status'],[name='category'],[name='region']"
+                    hx-include="#broker-search,[name='status'],[name='category'],[name='region'],[name='country'],[name='data_type']"
                 >
             </div>
 
@@ -73,7 +73,7 @@
                     hx-get="/api/brokers"
                     hx-trigger="change"
                     hx-target="#broker-list"
-                    hx-include="#broker-search,[name='category'],[name='region']"
+                    hx-include="#broker-search,[name='status'],[name='category'],[name='region'],[name='country'],[name='data_type']"
                 >
                     <option value="">All Statuses</option>
                     <option value="pending" {% if status == "pending" %}selected{% endif %}>Not contacted</option>
@@ -89,7 +89,7 @@
                     hx-get="/api/brokers"
                     hx-trigger="change"
                     hx-target="#broker-list"
-                    hx-include="#broker-search,[name='status'],[name='region']"
+                    hx-include="#broker-search,[name='status'],[name='category'],[name='region'],[name='country'],[name='data_type']"
                 >
                     <option value="">All Categories</option>
                     {% for it in categories %}
@@ -102,13 +102,45 @@
                     hx-get="/api/brokers"
                     hx-trigger="change"
                     hx-target="#broker-list"
-                    hx-include="#broker-search,[name='status'],[name='category']"
+                    hx-include="#broker-search,[name='status'],[name='category'],[name='region'],[name='country'],[name='data_type']"
                 >
                     <option value="">All Regions</option>
                     {% for it in regions %}
                     <option value="{{ it }}" {% if it == region %}selected{% endif %}>{{ it }}</option>
                     {% endfor %}
                 </select>
+                {% if countries %}
+                <select
+                    name="country"
+                    aria-label="Country"
+                    class="input w-auto min-w-[120px]"
+                    hx-get="/api/brokers"
+                    hx-trigger="change"
+                    hx-target="#broker-list"
+                    hx-include="#broker-search,[name='status'],[name='category'],[name='region'],[name='country'],[name='data_type']"
+                >
+                    <option value="">All Countries</option>
+                    {% for it in countries %}
+                    <option value="{{ it }}" {% if it|lower == country|lower %}selected{% endif %}>{{ it|flag }} {{ it }}</option>
+                    {% endfor %}
+                </select>
+                {% endif %}
+                {% if data_types %}
+                <select
+                    name="data_type"
+                    aria-label="Data type"
+                    class="input w-auto min-w-[140px]"
+                    hx-get="/api/brokers"
+                    hx-trigger="change"
+                    hx-target="#broker-list"
+                    hx-include="#broker-search,[name='status'],[name='category'],[name='region'],[name='country'],[name='data_type']"
+                >
+                    <option value="">All Data Types</option>
+                    {% for it in data_types %}
+                    <option value="{{ it }}" {% if it == data_type|lower %}selected{% endif %}>{{ it }}</option>
+                    {% endfor %}
+                </select>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -160,6 +192,8 @@ async function startSendAll() {
     const search = document.getElementById('broker-search').value;
     const category = document.querySelector('[name="category"]').value;
     const region = document.querySelector('[name="region"]').value;
+    const country = document.querySelector('[name="country"]')?.value || '';
+    const data_type = document.querySelector('[name="data_type"]')?.value || '';
 
     // Get CSRF token
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
@@ -171,7 +205,7 @@ async function startSendAll() {
                 'Content-Type': 'application/x-www-form-urlencoded',
                 'X-CSRF-Token': csrfToken
             },
-            body: new URLSearchParams({ search, category, region })
+            body: new URLSearchParams({ search, category, region, country, data_type })
         });
 
         const data = await resp.json();

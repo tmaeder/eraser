@@ -5,7 +5,7 @@ use super::csrf::CsrfToken;
 use super::job::{Job, JobKind, JobStatus, PersistentJobState, json_time};
 use super::status;
 use super::views::STATIC_FILES;
-use crate::broker::Broker;
+use crate::broker::{Broker, BrokerInfo};
 use crate::config::{Config, InboxConfig, Options, Profile};
 use crate::email::{Hold, Message, SendResult, Sender};
 use crate::history::{Chip, PipelineStatus, Record, Status, TaskType};
@@ -238,6 +238,7 @@ pub(super) struct BrokerWithStatus {
     deadline: Option<status::Deadline>,
     /// Send button label (None: no button).
     send_label: Option<&'static str>,
+    info: Option<BrokerInfo>,
 }
 
 #[derive(Serialize, Default)]
@@ -257,20 +258,16 @@ struct PipelineStats {
 }
 
 impl AppState {
-    fn brokers_with_status(
-        &self,
-        search: &str,
-        category: &str,
-        region: &str,
-        status_filter: &str,
-    ) -> Vec<BrokerWithStatus> {
+    /// Brokers matching the search/category/region/country/data_type filters in `q`, plus
+    /// `status_filter`.
+    fn brokers_with_status(&self, q: &FormValues, status_filter: &str) -> Vec<BrokerWithStatus> {
         let statuses = self.history.get_all_broker_statuses().unwrap_or_default();
         let states = self.history.request_states().unwrap_or_default();
         let reminder_days = self.reminder_days();
         let now = Local::now();
-        let search = search.trim().to_lowercase();
-        let category = category.trim().to_lowercase();
-        let region = region.trim().to_lowercase();
+        let f = |k| q.get(k).trim().to_lowercase();
+        let (search, category, region) = (f("search"), f("category"), f("region"));
+        let (country, data_type) = (f("country"), f("data_type"));
         let status_filter = status_filter.trim().to_lowercase();
 
         let mut result = Vec::new();
@@ -287,6 +284,15 @@ impl AppState {
             if !region.is_empty() && b.region.to_lowercase() != region {
                 continue;
             }
+            let info = self.broker_info.get(&b.id.to_lowercase());
+            if !country.is_empty() && info.is_none_or(|i| i.country.to_lowercase() != country) {
+                continue;
+            }
+            if !data_type.is_empty()
+                && info.is_none_or(|i| !i.data_types.iter().any(|d| d.to_lowercase() == data_type))
+            {
+                continue;
+            }
             let state = states.get(&b.id);
             let mut bws = BrokerWithStatus {
                 broker: b.clone(),
@@ -296,6 +302,7 @@ impl AppState {
                 chip: status::chip(&states, &b.id, now),
                 deadline: status::deadline(state, now, reminder_days),
                 send_label: status::send_label(&states, b, now, reminder_days),
+                info: info.cloned(),
             };
             if let Some(s) = statuses.get(&b.id) {
                 bws.status = s.status.as_str().to_string();
@@ -334,6 +341,19 @@ impl AppState {
             .filter(|v| !v.is_empty() && seen.insert(v.to_string()))
             .map(String::from)
             .collect()
+    }
+
+    /// Countries and data types used in the broker info, sorted.
+    fn info_values(&self) -> (Vec<String>, Vec<String>) {
+        let mut countries = std::collections::BTreeSet::new();
+        let mut types = std::collections::BTreeSet::new();
+        for i in self.broker_info.values() {
+            if !i.country.is_empty() {
+                countries.insert(i.country.clone());
+            }
+            types.extend(i.data_types.iter().map(|d| d.to_lowercase()));
+        }
+        (countries.into_iter().collect(), types.into_iter().collect())
     }
 
     fn stats(&self) -> Stats {
@@ -519,13 +539,8 @@ pub async fn dashboard(
 
 pub async fn brokers(State(st): St, Extension(t): Extension<CsrfToken>, uri: Uri) -> Response {
     let q = query(&uri);
-    let (search, category, region, status) = (
-        q.get("search"),
-        q.get("category"),
-        q.get("region"),
-        q.get("status"),
-    );
-    let brokers = st.brokers_with_status(&search, &category, &region, &status);
+    let brokers = st.brokers_with_status(&q, &q.get("status"));
+    let (countries, data_types) = st.info_values();
     render(
         &st,
         &t,
@@ -536,10 +551,14 @@ pub async fn brokers(State(st): St, Extension(t): Extension<CsrfToken>, uri: Uri
             "brokers": brokers,
             "categories": st.unique_values(|b| &b.category),
             "regions": st.unique_values(|b| &b.region),
-            "search": search,
-            "category": category,
-            "region": region,
-            "status": status,
+            "countries": countries,
+            "data_types": data_types,
+            "search": q.get("search"),
+            "category": q.get("category"),
+            "region": q.get("region"),
+            "country": q.get("country"),
+            "data_type": q.get("data_type"),
+            "status": q.get("status"),
             "stages": crate::history::STAGES,
             "total": st.brokers.brokers.len(),
         }),
@@ -564,6 +583,7 @@ pub async fn broker_detail(
         "broker-detail.html",
         json!({
             "title": "Data Brokers",
+            "info": st.broker_info.get(&b.id.to_lowercase()),
             "broker": b,
             "status_chip": status::chip(&states, &b.id, now),
             "deadline_bar": status::deadline(states.get(&b.id), now, st.reminder_days()),
@@ -1113,12 +1133,7 @@ pub async fn api_stats(State(st): St) -> Response {
 
 pub async fn api_brokers(State(st): St, uri: Uri) -> Response {
     let q = query(&uri);
-    let brokers = st.brokers_with_status(
-        &q.get("search"),
-        &q.get("category"),
-        &q.get("region"),
-        &q.get("status"),
-    );
+    let brokers = st.brokers_with_status(&q, &q.get("status"));
     render_partial(
         &st,
         "partials/broker-list.html",
@@ -1267,7 +1282,6 @@ pub async fn api_send_all(
         );
     };
     let f = FormValues::new(&method, &headers, &uri, &body);
-    let (search, category, region) = (f.get("search"), f.get("category"), f.get("region"));
     let mut status = f.get("status");
     if status.is_empty() {
         status = "pending".into(); // default: never sent
@@ -1279,7 +1293,7 @@ pub async fn api_send_all(
         );
     }
     let to_send: Vec<_> = st
-        .brokers_with_status(&search, &category, &region, &status)
+        .brokers_with_status(&f, &status)
         .into_iter()
         .filter(|b| b.send_label.is_some())
         .collect();
@@ -1311,9 +1325,9 @@ pub async fn api_send_all(
         total,
         started_at: json_time(started_at.as_ref()),
         remaining_brokers: to_send.iter().map(|b| b.broker.id.clone()).collect(),
-        search,
-        category,
-        region,
+        search: f.get("search"),
+        category: f.get("category"),
+        region: f.get("region"),
         status_filter: status,
         ..Default::default()
     };
@@ -1593,6 +1607,7 @@ pub(super) fn job_item(broker: Broker) -> BrokerWithStatus {
         status: "never".into(),
         last_sent: String::new(),
         total_sent: 0,
+        info: None,
     }
 }
 

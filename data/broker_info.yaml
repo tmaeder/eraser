@@ -1,0 +1,16 @@
+# Optional extra facts about brokers, shown in the web UI (broker list and detail page).
+# Keyed by the broker `id` from brokers.yaml; every field is optional. Only add facts taken
+# from the company's own pages or an official register, and link it in `source`.
+#
+# <broker-id>:
+#   description: One or two sentences on what the company does with personal data.
+#   country: US              # ISO 3166-1 alpha-2 code of the seat
+#   hq: City                 # seat (city)
+#   legal_name: Example Data Inc.
+#   data_types: [name, email, phone, address, purchase-history]
+#   opt_out_url: https://...  # web opt-out form (http/https only)
+#   requires_id: false       # true / false / null (unknown)
+#   response_days: 30        # typical response time in days, or null
+#   source: https://...       # where these facts come from
+#   status: active           # free text, e.g. active, acquired, defunct
+{}

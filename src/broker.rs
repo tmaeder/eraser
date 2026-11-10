@@ -2,7 +2,7 @@
 
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Deserializer, Serialize};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 fn nullable<'de, D, T>(d: D) -> std::result::Result<T, D::Error>
@@ -97,6 +97,61 @@ pub fn load_from_file(path: impl AsRef<Path>) -> Result<BrokerDatabase> {
     };
     db.brokers.iter_mut().for_each(sanitize_broker);
     Ok(db)
+}
+
+/// Optional extra facts about a broker, from `data/broker_info.yaml` (keyed by broker id).
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct BrokerInfo {
+    #[serde(deserialize_with = "nullable")]
+    pub description: String,
+    /// ISO 3166-1 alpha-2, upper case.
+    #[serde(deserialize_with = "nullable")]
+    pub country: String,
+    #[serde(deserialize_with = "nullable")]
+    pub hq: String,
+    #[serde(deserialize_with = "nullable")]
+    pub legal_name: String,
+    #[serde(deserialize_with = "nullable")]
+    pub data_types: Vec<String>,
+    #[serde(deserialize_with = "nullable")]
+    pub opt_out_url: String,
+    pub requires_id: Option<bool>,
+    pub response_days: Option<u32>,
+    #[serde(deserialize_with = "nullable")]
+    pub source: String,
+    #[serde(deserialize_with = "nullable")]
+    pub status: String,
+}
+
+pub type BrokerInfoMap = HashMap<String, BrokerInfo>;
+
+/// Loads the broker info file; a missing or empty file is an empty map. Keys are lower-cased,
+/// invalid URLs dropped and country codes upper-cased.
+pub fn load_info(path: impl AsRef<Path>) -> Result<BrokerInfoMap> {
+    let data = match std::fs::read_to_string(path) {
+        Ok(d) => d,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(BrokerInfoMap::new()),
+        Err(e) => return Err(e).context("failed to read broker info file"),
+    };
+    let map: Option<BrokerInfoMap> =
+        yaml_serde::from_str(&data).context("failed to parse broker info file")?;
+    Ok(map
+        .unwrap_or_default()
+        .into_iter()
+        .map(|(id, mut info)| {
+            for url in [&mut info.opt_out_url, &mut info.source] {
+                if !is_valid_url(url) {
+                    url.clear();
+                }
+            }
+            info.country = info.country.trim().to_uppercase();
+            if info.country.len() != 2 || !info.country.bytes().all(|b| b.is_ascii_uppercase()) {
+                info.country.clear();
+            }
+            (id.to_lowercase(), info)
+        })
+        .collect())
 }
 
 impl BrokerDatabase {
@@ -271,6 +326,31 @@ mod tests {
         db.save_with_backup(&path).unwrap();
         assert!(dir.path().join("brokers.yaml.bak").exists());
         assert_eq!(load_from_file(&path).unwrap(), db);
+    }
+
+    #[test]
+    fn loads_broker_info() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("broker_info.yaml");
+        assert!(load_info(&path).unwrap().is_empty(), "missing file is fine");
+        std::fs::write(
+            &path,
+            "Acme:\n  description: Test data\n  country: de\n  data_types: [email, phone]\n  \
+             opt_out_url: javascript:x\n  source: https://example.test/src\n  response_days: 30\n\
+             other:\n  country: Germany\n  requires_id: null\n",
+        )
+        .unwrap();
+        let m = load_info(&path).unwrap();
+        let a = &m["acme"];
+        assert_eq!(a.country, "DE");
+        assert_eq!(a.data_types, ["email", "phone"]);
+        assert_eq!(a.opt_out_url, "");
+        assert_eq!(a.source, "https://example.test/src");
+        assert_eq!(a.response_days, Some(30));
+        assert_eq!(a.requires_id, None);
+        assert_eq!(m["other"].country, "", "not an ISO-2 code");
+        // The shipped file parses.
+        load_info(Path::new(env!("CARGO_MANIFEST_DIR")).join("data/broker_info.yaml")).unwrap();
     }
 
     #[test]

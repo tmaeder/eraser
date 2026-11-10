@@ -5,13 +5,14 @@ mod companies;
 mod csrf;
 mod handlers;
 mod job;
+mod logo;
 mod pixel;
 mod session;
 mod status;
 mod today;
 mod views;
 
-use crate::broker::{self, BrokerDatabase};
+use crate::broker::{self, BrokerDatabase, BrokerInfoMap};
 use crate::config::{self, Config, EmailConfig};
 use crate::email::{self, Sender};
 use crate::history::{self, Store};
@@ -51,6 +52,8 @@ pub struct AppOptions {
     pub config_error: Option<String>,
     pub config_path: PathBuf,
     pub brokers: BrokerDatabase,
+    /// Optional extra broker facts (data/broker_info.yaml).
+    pub broker_info: BrokerInfoMap,
     pub history: Store,
     /// Holds pending_job.json (~/.eraser).
     pub data_dir: PathBuf,
@@ -93,7 +96,9 @@ pub struct AppState {
     config: RwLock<Option<Config>>,
     config_path: PathBuf,
     brokers: BrokerDatabase,
+    broker_info: BrokerInfoMap,
     history: Store,
+    logos: logo::Logos,
     engine: crate::template::Engine,
     views: minijinja::Environment<'static>,
     sessions: session::SessionStore,
@@ -163,7 +168,9 @@ pub fn app(opts: AppOptions) -> Result<(Router, Arc<AppState>)> {
         config: RwLock::new(opts.config),
         config_path: opts.config_path,
         brokers: opts.brokers,
+        broker_info: opts.broker_info,
         history: opts.history,
+        logos: logo::Logos::new(opts.data_dir.join("logos"), false),
         engine: crate::template::Engine::new()?,
         views: views::environment(),
         sessions: session::SessionStore::new(DEFAULT_SESSION_TTL),
@@ -218,6 +225,8 @@ pub fn app(opts: AppOptions) -> Result<(Router, Arc<AppState>)> {
         .route("/today/tasks/{task_id}/skip", post(today::todo_skip))
         .route("/brokers", get(h::brokers))
         .route("/brokers/{broker_id}", get(h::broker_detail))
+        .route("/logo/{broker_id}", get(logo::broker_logo))
+        .route("/logo/domain/{domain}", get(logo::domain_logo))
         .route("/history", get(h::history))
         .route("/settings", get(h::settings))
         .route("/settings/account", post(account::settings_account))
@@ -302,17 +311,20 @@ async fn security_headers(
     req: axum::extract::Request,
     next: axum::middleware::Next,
 ) -> axum::response::Response {
-    let is_static = req.uri().path().starts_with("/static/");
+    let path = req.uri().path();
+    let cacheable = path.starts_with("/static/") || path.starts_with("/logo/");
     let mut resp = next.run(req).await;
     let h = resp.headers_mut();
+    // Logos (SVG) bring their own stricter CSP.
+    h.entry(header::CONTENT_SECURITY_POLICY)
+        .or_insert(HeaderValue::from_static(CSP));
     let mut set = |k: header::HeaderName, v: &'static str| {
         h.insert(k, HeaderValue::from_static(v));
     };
     set(header::X_FRAME_OPTIONS, "DENY");
     set(header::X_CONTENT_TYPE_OPTIONS, "nosniff");
     set(header::REFERRER_POLICY, "strict-origin-when-cross-origin");
-    set(header::CONTENT_SECURITY_POLICY, CSP);
-    if !is_static {
+    if !cacheable {
         set(
             header::CACHE_CONTROL,
             "no-store, no-cache, must-revalidate, private",
@@ -388,6 +400,7 @@ pub async fn serve(opts: ServeOptions) -> Result<()> {
         (None, None)
     };
     let brokers = broker::load_from_file(&opts.broker_path).context("failed to load brokers")?;
+    let broker_info = broker::load_info(opts.broker_path.with_file_name("broker_info.yaml"))?;
     let history = Store::new(history::default_db_path()).context("failed to initialize history")?;
     let data_dir = dirs::home_dir().unwrap_or_default().join(".eraser");
 
@@ -396,6 +409,7 @@ pub async fn serve(opts: ServeOptions) -> Result<()> {
         config_error,
         config_path: opts.config_path,
         brokers,
+        broker_info,
         history,
         data_dir,
         port: opts.port,

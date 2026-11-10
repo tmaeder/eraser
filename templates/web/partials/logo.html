@@ -1,0 +1,9 @@
+{#- Logo served by /logo (fetched server-side). The letter badge sits under the image and shows
+    when the image fails (onerror removes it; alt="" keeps browsers from drawing a broken icon). -#}
+{% macro broker_logo(b, size=32) -%}
+{%- set name = b.name or b.display_name or b.domain or b.id or "?" -%}
+<span class="logo" style="width: {{ size }}px; height: {{ size }}px; font-size: {{ (size * 0.45)|int }}px; background: hsl({{ (b.domain or b.id)|logo_hue }} 55% 32%);" aria-hidden="true">
+    <span>{{ name[:1]|upper }}</span>
+    <img src="{% if b.domain %}/logo/domain/{{ b.domain|urlencode }}{% else %}/logo/{{ b.id|urlencode }}{% endif %}" loading="lazy" width="{{ size }}" height="{{ size }}" alt="" onerror="this.remove()">
+</span>
+{%- endmacro %}

@@ -7,7 +7,7 @@ Eraser sends GDPR / CCPA / Swiss FADP deletion requests to 1,350+ data brokers f
 ## Tech Stack
 
 - **Language**: Rust (edition 2024)
-- **CLI**: clap (derive); help/output mirrors the original Go/cobra version
+- **CLI**: clap (derive); help layout mirrors the original Go/cobra version
 - **Web UI**: axum + minijinja (templates and static files embedded in the binary), HTMX
 - **Email**: lettre (SMTP; port 587 = STARTTLS, otherwise implicit TLS)
 - **Inbox**: async-imap + mail-parser
@@ -56,7 +56,7 @@ Required fields in `data/brokers.yaml`: `id`, `name`, `email`, `region` (`us`, `
 
 ## Deployment
 
-`deploy/` runs the binary in a Cloudflare Container behind a Worker at https://erase.kampa.app: HTTP basic auth (`ERASER_PASSWORD` secret), `~/.eraser` restored from and synced to the R2 bucket `eraser-state` every 60 s and on SIGTERM. Deploy with `cd deploy && npx wrangler deploy` (Docker must be running).
+`deploy/` runs the binary in a Cloudflare Container behind a Worker at https://erase.kampa.app: login page with signed cookie (+ basic auth for scripts, rate-limited), `/internal/*` blocked publicly, `/p/<token>.gif` tracking pixel public, cron every 6 h calls `/internal/autopilot/tick`. `~/.eraser` is restored from and synced to the R2 bucket `eraser-state` every 60 s (only on change) and on SIGTERM. Worker secrets: `ERASER_PASSWORD`, `ERASER_AUTOPILOT_TOKEN`, `ERASER_CONFIG_KEY` (encrypts app passwords in the config); copies live in the macOS Keychain (`security find-generic-password -s erase.kampa.app -a <eraser|autopilot|config-key> -w`). Deploy with `cd deploy && npx wrangler deploy` (Docker must be running).
 
 ## Security Notes
 

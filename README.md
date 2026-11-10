@@ -75,6 +75,24 @@ Use your `@icloud.com` / `@me.com` address plus that password in the setup wizar
 
 **Still want Gmail?** Set `host: smtp.gmail.com`, `port: 465` in `~/.eraser/config.yaml` with a Google App Password.
 
+### Autopilot
+
+Eraser can run on its own. Turn it on under **Settings → Autopilot** (off until setup is complete). Every 6 hours on the hosted version (or `eraser autopilot` locally) one round:
+
+1. checks your inbox for broker replies,
+2. opens confirmation links (only on the broker's own domain, once per link),
+3. sends the next batch of broker requests within the daily limit, plus one reminder to brokers that haven't answered after 30 days,
+4. scans your inbox for companies and unsubscribes from one-click mailing lists,
+5. sends deletion requests to inbox companies that have been inactive for 12+ months or only send newsletters, never to anything on your keep list (banks, insurers, health insurers, government, your employer, plus your own entries).
+
+Anything it can't do (web forms, ID requests, captchas, plain unsubscribe links) lands on the **Today** page as a to-do. Use **Dry run now** to see what a round would do without contacting anyone, and **Pause** to stop it.
+
+### Status and tracking
+
+The **Today** page shows funnels (sent → opened → replied → deleted), a 30-day deadline bar per request, sending progress, a breakdown by region and the recent autopilot rounds. Each broker has a detail page with a timeline.
+
+Every mail asks for a read receipt. On the hosted version, mails also contain a tracking pixel; opens via Apple's or Google's image proxies are shown separately because they don't prove the mail was read. Legally, the 30-day deadline runs from receipt, not from opening.
+
 ### Inbox company scanner
 
 Eraser can find the companies that email you and help you get your data deleted or unsubscribe —

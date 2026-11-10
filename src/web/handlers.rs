@@ -1328,6 +1328,8 @@ pub async fn api_send_all(
         search: f.get("search"),
         category: f.get("category"),
         region: f.get("region"),
+        country: f.get("country"),
+        data_type: f.get("data_type"),
         status_filter: status,
         ..Default::default()
     };
@@ -1355,6 +1357,14 @@ pub(super) fn spawn_send_job(
 fn save_job_progress(st: &AppState, job: &Job, sent: i64, failed: i64, remaining: &[String]) {
     let state = {
         let d = job.data.lock().unwrap();
+        // keep the job's filters so a resume never widens it
+        let prev = st
+            .persistence
+            .load()
+            .ok()
+            .flatten()
+            .filter(|p| p.id == d.id)
+            .unwrap_or_default();
         PersistentJobState {
             id: d.id.clone(),
             status: d.status,
@@ -1364,7 +1374,7 @@ fn save_job_progress(st: &AppState, job: &Job, sent: i64, failed: i64, remaining
             started_at: json_time(d.started_at.as_ref()),
             remaining_brokers: remaining.to_vec(),
             kind: d.kind,
-            ..Default::default()
+            ..prev
         }
     };
     if let Err(e) = st.persistence.save(&state) {
@@ -1625,9 +1635,36 @@ pub(super) fn resume_pending_job(st: Arc<AppState>, state: PersistentJobState) {
             return;
         }
     };
+    let filters = [
+        ("search", &state.search),
+        ("category", &state.category),
+        ("region", &state.region),
+        ("country", &state.country),
+        ("data_type", &state.data_type),
+    ];
+    // Re-apply the original filters: a resumed job never targets more brokers than it started with.
+    let allowed: Option<std::collections::HashSet<String>> =
+        (filters.iter().any(|(_, v)| !v.is_empty()) || !state.status_filter.is_empty()).then(
+            || {
+                let q = FormValues(
+                    filters
+                        .iter()
+                        .map(|(k, v)| (k.to_string(), v.to_string()))
+                        .collect(),
+                );
+                st.brokers_with_status(&q, &state.status_filter)
+                    .into_iter()
+                    .map(|b| b.broker.id)
+                    .collect()
+            },
+        );
     let to_send: Vec<BrokerWithStatus> = state
         .remaining_brokers
         .iter()
+        .filter(|id| {
+            id.starts_with(scanner::BROKER_PREFIX)
+                || allowed.as_ref().is_none_or(|a| a.contains(*id))
+        })
         .filter_map(|id| match id.strip_prefix(scanner::BROKER_PREFIX) {
             Some(domain) => st
                 .history

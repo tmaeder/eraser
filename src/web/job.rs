@@ -213,6 +213,8 @@ pub struct PersistentJobState {
     pub search: String,
     pub category: String,
     pub region: String,
+    pub country: String,
+    pub data_type: String,
     pub status_filter: String,
     /// Absent in older files (= broker job).
     pub kind: JobKind,

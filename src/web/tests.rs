@@ -12,6 +12,15 @@ fn state(cfg: Config, dir: &std::path::Path, mail: MockSender) -> Arc<AppState> 
 }
 
 fn state_with(cfg: Config, dir: &std::path::Path, mail: Box<dyn SenderClone>) -> Arc<AppState> {
+    state_info(cfg, dir, mail, Default::default())
+}
+
+fn state_info(
+    cfg: Config,
+    dir: &std::path::Path,
+    mail: Box<dyn SenderClone>,
+    broker_info: crate::broker::BrokerInfoMap,
+) -> Arc<AppState> {
     let brokers = (1..=4)
         .map(|i| Broker {
             id: format!("b{i}"),
@@ -26,7 +35,7 @@ fn state_with(cfg: Config, dir: &std::path::Path, mail: Box<dyn SenderClone>) ->
         config_error: None,
         config_path: dir.join("config.yaml"),
         brokers: BrokerDatabase { brokers },
-        broker_info: Default::default(),
+        broker_info,
         history: Store::new(dir.join("h.db")).unwrap(),
         data_dir: dir.join("data"),
         port: 8080,
@@ -159,6 +168,65 @@ async fn resumed_job_keeps_its_counters() {
     );
     assert_eq!(j["progress"], 100);
     assert_eq!(mail.0.lock().unwrap().len(), 2);
+}
+
+#[tokio::test]
+async fn resumed_bulk_job_keeps_its_country_filter() {
+    let dir = tempfile::tempdir().unwrap();
+    let mail = MockSender::default();
+    let info = [("b1", "CH"), ("b2", "US"), ("b3", "CH"), ("b4", "DE")]
+        .into_iter()
+        .map(|(id, c)| {
+            let i = crate::broker::BrokerInfo {
+                country: c.into(),
+                ..Default::default()
+            };
+            (id.to_string(), i)
+        })
+        .collect();
+    let st = state_info(configured(), dir.path(), Box::new(mail.clone()), info);
+    // "restart" before the first send: the job stops with its state persisted
+    st.shutting_down.store(true, Ordering::SeqCst);
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        header::CONTENT_TYPE,
+        "application/x-www-form-urlencoded".parse().unwrap(),
+    );
+    let r = handlers::api_send_all(
+        State(st.clone()),
+        Method::POST,
+        headers,
+        Uri::from_static("/api/send-all"),
+        Bytes::from_static(b"status=pending&country=ch"),
+    )
+    .await;
+    assert_eq!(r.status(), axum::http::StatusCode::OK);
+    let old = st.jobs.get_active().expect("job");
+    for _ in 0..100 {
+        if st.job_tasks.load(Ordering::SeqCst) == 0 {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
+    old.cancel();
+    st.shutting_down.store(false, Ordering::SeqCst);
+    assert!(mail.0.lock().unwrap().is_empty());
+
+    let mut saved = st.persistence.load().unwrap().expect("pending job");
+    assert_eq!(saved.country, "ch");
+    assert_eq!(saved.remaining_brokers, ["b1", "b3"]);
+    saved.remaining_brokers = vec!["b1".into(), "b2".into(), "b3".into(), "b4".into()];
+    handlers::resume_pending_job(st.clone(), saved);
+    wait_done(&st.jobs.get_active().expect("resumed job")).await;
+    let mut to: Vec<String> = mail
+        .0
+        .lock()
+        .unwrap()
+        .iter()
+        .map(|m| m.to.clone())
+        .collect();
+    to.sort();
+    assert_eq!(to, ["privacy@b1.example", "privacy@b3.example"]);
 }
 
 #[tokio::test]

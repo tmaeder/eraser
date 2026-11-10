@@ -1130,4 +1130,50 @@ mod tests {
         store.clear_account_block().unwrap();
         assert!(store.account_blocked().unwrap().is_none());
     }
+
+    #[test]
+    fn mailto_unsubscribes_count_toward_the_hourly_cap() {
+        use crate::history::{Record, Status, Store};
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::new(dir.path().join("h.db")).unwrap();
+        let mut cfg = crate::config::Config::default();
+        cfg.account.provider = "icloud".into(); // 25/h
+        let (n, m) = (10, 15);
+        for i in 0..n {
+            let status = if i % 2 == 0 { "ok" } else { "failed" };
+            store
+                .add_company_action("shop.test", "unsubscribe_mailto", "mailto:x", status, "")
+                .unwrap();
+        }
+        // not emails: dry runs and one-click POSTs
+        store
+            .add_company_action("shop.test", "unsubscribe_mailto", "mailto:x", "dry_run", "")
+            .unwrap();
+        store
+            .add_company_action("shop.test", "unsubscribe_one_click", "https://x", "ok", "")
+            .unwrap();
+        let add = || {
+            let mut r = Record {
+                broker_id: "b".into(),
+                status: Status::Sent,
+                sent_at: Some(chrono::Local::now() - chrono::TimeDelta::minutes(5)),
+                ..Default::default()
+            };
+            store.add(&mut r).unwrap();
+        };
+        for _ in 0..m - 1 {
+            add();
+        }
+        let day = chrono::Local::now() - chrono::TimeDelta::hours(1);
+        assert_eq!(store.emails_sent_since(day).unwrap(), n + m - 1);
+        assert!(check_turn(&store, &cfg).is_ok(), "one below the cap");
+        add();
+        assert!(
+            matches!(
+                check_turn(&store, &cfg),
+                Err(Hold::Hourly { per_hour: 25, .. })
+            ),
+            "cap at N+M"
+        );
+    }
 }

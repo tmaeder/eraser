@@ -229,31 +229,33 @@ impl Store {
         Ok(())
     }
 
-    /// Emails sent since `since`: request attempts (any status) plus reminders.
+    /// Emails sent since `since` (see `send_times_since`).
     pub fn emails_sent_since(&self, since: DateTime<Local>) -> Result<i64> {
-        self.db()
-            .query_row(
-                "SELECT (SELECT COUNT(*) FROM removal_requests WHERE sent_at >= ?1)
-                      + (SELECT COUNT(*) FROM removal_requests WHERE reminder_sent_at >= ?1)",
-                [format_time(&since)],
-                |r| r.get(0),
-            )
-            .context("failed to count sent emails")
+        Ok(self.send_times_since(since)?.len() as i64)
     }
 
-    /// Send attempts (requests of any status, reminders) since `since`, oldest first.
+    /// Send attempts since `since`, oldest first: requests of any status, reminders and mailto
+    /// unsubscribes (ok or failed). Single source for the pacing caps.
     pub fn send_times_since(&self, since: DateTime<Local>) -> Result<Vec<DateTime<Local>>> {
-        // String bound with slack for zone abbreviations and DST; exact filter below.
-        let bound = format_time(&(since - TimeDelta::hours(2)));
+        // String bounds with slack for zone abbreviations and DST; exact filter below.
+        // removal_requests stores local time, company_actions RFC 3339 UTC.
+        let slack = since - TimeDelta::hours(2);
+        let bound = format_time(&slack);
+        let utc_bound = slack
+            .with_timezone(&Utc)
+            .to_rfc3339_opts(SecondsFormat::Secs, false);
         let db = self.db();
         let mut stmt = db
             .prepare(
                 "SELECT sent_at FROM removal_requests WHERE sent_at >= ?1
-                 UNION ALL SELECT reminder_sent_at FROM removal_requests WHERE reminder_sent_at >= ?1",
+                 UNION ALL SELECT reminder_sent_at FROM removal_requests WHERE reminder_sent_at >= ?1
+                 UNION ALL SELECT created_at FROM company_actions
+                   WHERE action = 'unsubscribe_mailto' AND status IN ('ok', 'failed')
+                   AND created_at >= ?2",
             )
             .context("failed to query send times")?;
         let rows = stmt
-            .query_map([bound], |r| r.get::<_, String>(0))
+            .query_map([bound, utc_bound], |r| r.get::<_, String>(0))
             .context("failed to query send times")?;
         let mut times: Vec<DateTime<Local>> = rows
             .filter_map(|r| r.ok().as_deref().and_then(super::parse_time))

@@ -15,7 +15,7 @@ path = "src/main.rs"
 [dependencies]
 # --- core ---
 serde = { version = "1.0.229", features = ["derive"] }
-serde_yaml_ng = "0.10.0"
+yaml_serde = "0.10.7"
 serde_json = "1.0.154"
 anyhow = "1.0.104"
 thiserror = "2.0.21"
@@ -43,6 +43,7 @@ tower-http = { version = "0.7.1", features = ["fs", "trace"] }
 minijinja = { version = "3.1.0", features = ["serde", "json", "urlencode", "loop_controls"] }
 rand = "0.10.3"
 base64 = "0.23.1"
+chacha20poly1305 = { version = "0.11.0", default-features = false, features = ["alloc"] }
 futures = "0.3.34"
 
 # --- inbox (IMAP) ---

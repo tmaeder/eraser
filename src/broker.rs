@@ -93,7 +93,7 @@ pub fn load_from_file(path: impl AsRef<Path>) -> Result<BrokerDatabase> {
     let mut db: BrokerDatabase = if data.trim().is_empty() {
         BrokerDatabase::default()
     } else {
-        serde_yaml_ng::from_str(&data).context("failed to parse broker file")?
+        yaml_serde::from_str(&data).context("failed to parse broker file")?
     };
     db.brokers.iter_mut().for_each(sanitize_broker);
     Ok(db)
@@ -164,7 +164,7 @@ impl BrokerDatabase {
     }
 
     pub fn save(&self, path: impl AsRef<Path>) -> Result<()> {
-        let data = serde_yaml_ng::to_string(self).context("failed to serialize brokers")?;
+        let data = yaml_serde::to_string(self).context("failed to serialize brokers")?;
         crate::config::write_with_mode(path.as_ref(), data.as_bytes(), 0o644)?;
         Ok(())
     }

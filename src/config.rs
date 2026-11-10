@@ -233,8 +233,68 @@ pub fn default_config_path() -> PathBuf {
     }
 }
 
+/// `ERASER_CONFIG_KEY` (base64, 32 bytes) turns on at-rest encryption of the config's secrets.
+const KEY_ENV: &str = "ERASER_CONFIG_KEY";
+const ENC_PREFIX: &str = "enc:v1:";
+
+fn env_key() -> Result<Option<[u8; 32]>> {
+    use base64::Engine;
+    let Ok(raw) = std::env::var(KEY_ENV) else {
+        return Ok(None);
+    };
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(raw.trim())
+        .with_context(|| format!("{KEY_ENV} is not valid base64"))?;
+    let key: [u8; 32] = bytes
+        .try_into()
+        .map_err(|_| anyhow::anyhow!("{KEY_ENV} must decode to exactly 32 bytes"))?;
+    Ok(Some(key))
+}
+
+/// "enc:v1:<base64(nonce || ChaCha20-Poly1305 ciphertext)>"
+fn seal(key: &[u8; 32], plain: &str) -> String {
+    use base64::Engine;
+    use chacha20poly1305::aead::{Aead, KeyInit};
+    let mut nonce = [0u8; 12];
+    rand::fill(&mut nonce[..]);
+    let ct = chacha20poly1305::ChaCha20Poly1305::new(key.into())
+        .encrypt(&nonce.into(), plain.as_bytes())
+        .expect("ChaCha20-Poly1305 encryption cannot fail for in-memory buffers");
+    let mut out = nonce.to_vec();
+    out.extend(ct);
+    format!(
+        "{ENC_PREFIX}{}",
+        base64::engine::general_purpose::STANDARD.encode(out)
+    )
+}
+
+fn open(key: Option<&[u8; 32]>, value: &str, field: &str) -> Result<String> {
+    use base64::Engine;
+    use chacha20poly1305::aead::{Aead, KeyInit};
+    let Some(b64) = value.strip_prefix(ENC_PREFIX) else {
+        return Ok(value.to_string()); // plaintext (pre-encryption config)
+    };
+    let Some(key) = key else {
+        bail!("{field} is encrypted but {KEY_ENV} is not set");
+    };
+    let data = base64::engine::general_purpose::STANDARD
+        .decode(b64)
+        .ok()
+        .filter(|d| d.len() > 12)
+        .with_context(|| format!("{field}: malformed encrypted value"))?;
+    let (nonce, ct) = data.split_at(12);
+    let nonce: [u8; 12] = nonce.try_into().expect("split at 12");
+    let plain = chacha20poly1305::ChaCha20Poly1305::new(key.into())
+        .decrypt(&nonce.into(), ct)
+        .map_err(|_| anyhow::anyhow!("{field}: decryption failed (wrong {KEY_ENV}?)"))?;
+    String::from_utf8(plain).with_context(|| format!("{field}: decrypted value is not UTF-8"))
+}
+
 pub fn load(path: impl AsRef<Path>) -> Result<Config> {
-    let path = path.as_ref();
+    load_with_key(path.as_ref(), env_key()?.as_ref())
+}
+
+fn load_with_key(path: &Path, key: Option<&[u8; 32]>) -> Result<Config> {
     if let Err(e) = check_file_permissions(path) {
         eprintln!("WARNING: {e:#}");
     }
@@ -243,8 +303,10 @@ pub fn load(path: impl AsRef<Path>) -> Result<Config> {
     let mut cfg: Config = if data.trim().is_empty() {
         Config::default()
     } else {
-        serde_yaml_ng::from_str(&data).context("failed to parse config file")?
+        yaml_serde::from_str(&data).context("failed to parse config file")?
     };
+    cfg.email.smtp.password = open(key, &cfg.email.smtp.password, "email.smtp.password")?;
+    cfg.inbox.password = open(key, &cfg.inbox.password, "inbox.password")?;
 
     if cfg.options.template.is_empty() {
         cfg.options.template = "generic".into();
@@ -292,11 +354,28 @@ pub fn apply_inbox_defaults(inbox: &mut InboxConfig) {
 }
 
 pub fn save(path: impl AsRef<Path>, cfg: &Config) -> Result<()> {
-    let path = path.as_ref();
+    save_with_key(path.as_ref(), cfg, env_key()?.as_ref())
+}
+
+fn save_with_key(path: &Path, cfg: &Config, key: Option<&[u8; 32]>) -> Result<()> {
+    let sealed;
+    let cfg = match key {
+        Some(key) => {
+            let mut c = cfg.clone();
+            for secret in [&mut c.email.smtp.password, &mut c.inbox.password] {
+                if !secret.is_empty() {
+                    *secret = seal(key, secret);
+                }
+            }
+            sealed = c;
+            &sealed
+        }
+        None => cfg,
+    };
     if let Some(dir) = path.parent().filter(|d| !d.as_os_str().is_empty()) {
         create_private_dir(dir).context("failed to create config directory")?;
     }
-    let data = serde_yaml_ng::to_string(cfg).context("failed to serialize config")?;
+    let data = yaml_serde::to_string(cfg).context("failed to serialize config")?;
     write_with_mode(path, data.as_bytes(), 0o600)?;
     Ok(())
 }
@@ -433,7 +512,7 @@ mod tests {
         assert_eq!(cfg.inbox.server, "imap.mail.me.com");
         assert_eq!(cfg.inbox.port, 993);
 
-        let yaml = serde_yaml_ng::to_string(&Config::default()).unwrap();
+        let yaml = yaml_serde::to_string(&Config::default()).unwrap();
         assert!(!yaml.contains("inbox"));
         assert!(!yaml.contains("pipeline"));
         assert!(!yaml.contains("smtp"));
@@ -487,7 +566,65 @@ mod tests {
         let d = Config::default();
         assert!(!d.autopilot.enabled, "off by default");
         assert!(d.autopilot.check_inbox, "steps default on");
-        let yaml = serde_yaml_ng::to_string(&d).unwrap();
+        let yaml = yaml_serde::to_string(&d).unwrap();
         assert!(!yaml.contains("autopilot"), "default section is omitted");
+    }
+
+    fn secret_config() -> Config {
+        let mut cfg = load(example_path()).unwrap();
+        cfg.email.smtp.password = "smtp-secret".into();
+        cfg.inbox.password = "imap-secret".into();
+        cfg
+    }
+
+    #[test]
+    fn encrypted_secrets_round_trip() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("c.yaml");
+        let key = [7u8; 32];
+        let cfg = secret_config();
+        save_with_key(&path, &cfg, Some(&key)).unwrap();
+        let raw = std::fs::read_to_string(&path).unwrap();
+        assert!(!raw.contains("smtp-secret") && !raw.contains("imap-secret"));
+        assert_eq!(raw.matches(ENC_PREFIX).count(), 2);
+        assert_eq!(load_with_key(&path, Some(&key)).unwrap(), cfg);
+    }
+
+    #[test]
+    fn plaintext_secrets_still_load_and_get_encrypted() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("c.yaml");
+        let key = [1u8; 32];
+        let cfg = secret_config();
+        save_with_key(&path, &cfg, None).unwrap();
+        assert!(
+            std::fs::read_to_string(&path)
+                .unwrap()
+                .contains("smtp-secret")
+        );
+        let loaded = load_with_key(&path, Some(&key)).unwrap();
+        assert_eq!(loaded, cfg);
+        save_with_key(&path, &loaded, Some(&key)).unwrap();
+        assert!(
+            !std::fs::read_to_string(&path)
+                .unwrap()
+                .contains("smtp-secret")
+        );
+    }
+
+    #[test]
+    fn encrypted_secrets_need_the_right_key() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("c.yaml");
+        save_with_key(&path, &secret_config(), Some(&[2u8; 32])).unwrap();
+        let wrong = load_with_key(&path, Some(&[3u8; 32]))
+            .unwrap_err()
+            .to_string();
+        assert!(wrong.contains("wrong ERASER_CONFIG_KEY"), "{wrong}");
+        let missing = load_with_key(&path, None).unwrap_err().to_string();
+        assert!(
+            missing.contains("ERASER_CONFIG_KEY is not set"),
+            "{missing}"
+        );
     }
 }

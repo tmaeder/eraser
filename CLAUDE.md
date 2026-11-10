@@ -13,7 +13,7 @@ Eraser sends GDPR / CCPA / Swiss FADP deletion requests to 1,350+ data brokers f
 - **Inbox**: async-imap + mail-parser
 - **Browser automation**: chromiumoxide (Chrome/Chromium; `CHROME_PATH` overrides)
 - **Database**: SQLite via rusqlite (bundled) at `~/.eraser/history.db`
-- **Config**: YAML (`serde_yaml_ng`) at `~/.eraser/config.yaml`
+- **Config**: YAML (`yaml_serde`) at `~/.eraser/config.yaml`
 
 ## Project Structure
 

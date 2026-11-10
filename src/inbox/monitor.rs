@@ -120,6 +120,9 @@ pub struct Email {
     pub broker_id: String,
     /// Matched broker name (if found)
     pub broker_name: String,
+    /// Read receipt (MDN): the Message-IDs it may refer to (empty when it reports no display,
+    /// e.g. "deleted"). None for every other mail.
+    pub read_receipt_for: Option<Vec<String>>,
 }
 
 /// Handles IMAP connection and email monitoring.
@@ -299,10 +302,7 @@ impl Monitor {
     pub async fn fetch_broker_emails(&mut self, days: i64) -> Result<Vec<Email>> {
         let all = self.fetch_recent_emails(days).await?;
         let total = all.len();
-        let broker_emails: Vec<Email> = all
-            .into_iter()
-            .filter(|e| !e.broker_id.is_empty())
-            .collect();
+        let broker_emails: Vec<Email> = all.into_iter().filter(is_broker_or_receipt).collect();
         info!(
             "Found {} emails from known brokers (out of {total} total)",
             broker_emails.len()
@@ -371,7 +371,7 @@ impl Monitor {
             .iter()
             .filter(|f| f.envelope().is_some())
             .map(|f| self.parse_message(f.uid.unwrap_or(0), f.body().unwrap_or_default()))
-            .filter(|e| !e.broker_id.is_empty())
+            .filter(is_broker_or_receipt)
             .collect();
         info!(
             "Found {} emails from known brokers in {folder} (out of {total} total)",
@@ -693,6 +693,64 @@ fn uid_set(sorted_uids: &[u32]) -> String {
     parts.join(",")
 }
 
+/// Broker replies plus read receipts (a receipt may come from any address; the history store
+/// links it to the request instead of storing it as a reply).
+fn is_broker_or_receipt(email: &Email) -> bool {
+    !email.broker_id.is_empty() || email.read_receipt_for.is_some()
+}
+
+/// Subject prefixes of read receipts sent as plain mails (en, de, fr).
+const RECEIPT_SUBJECTS: &[&str] = &["read:", "gelesen:", "lu :", "lu:", "lu\u{a0}:"];
+
+/// Message-IDs a read receipt refers to: RFC 8098 reports (multipart/report;
+/// report-type=disposition-notification; Original-Message-ID first, then In-Reply-To and
+/// References; emptied unless the disposition is "displayed"), and "Read: <subject>" mails that
+/// reference a message. None for everything else.
+fn read_receipt_refs(message: &mail_parser::Message, subject: &str) -> Option<Vec<String>> {
+    let bracket = |id: &str| format!("<{}>", id.trim().trim_matches(['<', '>']));
+    let mut refs: Vec<String> = message
+        .in_reply_to()
+        .into_iter()
+        .chain(message.references())
+        .flat_map(|list| list.iter().map(bracket).collect::<Vec<_>>())
+        .collect();
+    let is_report = message.content_type().is_some_and(|ct| {
+        ct.ctype().eq_ignore_ascii_case("multipart")
+            && ct
+                .subtype()
+                .is_some_and(|s| s.eq_ignore_ascii_case("report"))
+            && ct
+                .attribute("report-type")
+                .is_some_and(|t| t.eq_ignore_ascii_case("disposition-notification"))
+    });
+    let report = message
+        .root()
+        .parts()
+        .find(|p| p.is_content_type("message", "disposition-notification"));
+    if is_report || report.is_some() {
+        let mut displayed = false;
+        if let Some(part) = report {
+            let fields = String::from_utf8_lossy(&part.decoded()).into_owned();
+            for line in fields.lines() {
+                let Some((name, value)) = line.split_once(':') else {
+                    continue;
+                };
+                match name.trim().to_ascii_lowercase().as_str() {
+                    "original-message-id" => refs.insert(0, bracket(value)),
+                    "disposition" => displayed = value.to_ascii_lowercase().contains("displayed"),
+                    _ => {}
+                }
+            }
+        }
+        if !displayed {
+            refs.clear();
+        }
+        return Some(refs);
+    }
+    let subject = go_lower(subject);
+    (RECEIPT_SUBJECTS.iter().any(|p| subject.starts_with(p)) && !refs.is_empty()).then_some(refs)
+}
+
 fn is_bounce(email: &Email) -> bool {
     let from = go_lower(&email.from);
     let from_name = go_lower(&email.from_name);
@@ -720,6 +778,7 @@ pub fn parse_raw_email(uid: u32, raw: &[u8]) -> Email {
     if let Some(id) = message.message_id() {
         email.message_id = format!("<{id}>"); // IMAP ENVELOPE keeps the brackets
     }
+    email.read_receipt_for = read_receipt_refs(&message, &email.subject);
     if let Some(date) = message.date().filter(|d| d.is_valid()) {
         email.received_at =
             DateTime::<Utc>::from_timestamp(date.to_timestamp(), 0).unwrap_or_default();
@@ -1005,6 +1064,89 @@ pub(crate) mod tests {
         let e = parse_raw_email(9, &crlf("Subject: x\n\nplain default\n"));
         assert_eq!(e.body.trim_end(), "plain default");
         assert_eq!(e.received_at, DateTime::<Utc>::default());
+    }
+
+    /// RFC 8098 MDN as Apple Mail / Thunderbird send it.
+    const MDN_REPORT: &str = "From: Privacy Team <privacy@acme.com>
+To: me@example.com
+Subject: Read: Personal Data Removal Request
+Message-ID: <mdn-1@acme.com>
+Date: Tue, 10 Nov 2026 10:00:00 +0100
+MIME-Version: 1.0
+Content-Type: multipart/report; report-type=disposition-notification;
+ boundary=\"b1\"
+
+--b1
+Content-Type: text/plain; charset=utf-8
+
+The message sent on 10.11.2026 to privacy@acme.com was displayed.
+
+--b1
+Content-Type: message/disposition-notification
+
+Reporting-UA: mail.acme.com; Apple Mail
+Final-Recipient: rfc822;privacy@acme.com
+Original-Message-ID: <AAAAAAAAAAAAAAAAAAAAAA@example.com>
+Disposition: manual-action/MDN-sent-manually; displayed
+
+--b1--
+";
+
+    #[test]
+    fn rfc8098_report_is_a_read_receipt() {
+        let e = parse_raw_email(1, &crlf(MDN_REPORT));
+        assert_eq!(
+            e.read_receipt_for,
+            Some(vec!["<AAAAAAAAAAAAAAAAAAAAAA@example.com>".to_string()])
+        );
+        assert!(is_broker_or_receipt(&e));
+        let c = crate::inbox::classifier::classify_response(&e);
+        assert_eq!(c.reason, "Read receipt (not a reply)");
+        let resp = crate::inbox::response_record(&e, &c);
+        assert_eq!(resp.read_receipt_for, e.read_receipt_for);
+
+        let deleted = MDN_REPORT.replace("; displayed", "; deleted");
+        let e = parse_raw_email(1, &crlf(&deleted));
+        assert_eq!(e.read_receipt_for, Some(vec![]), "receipt, but not read");
+    }
+
+    #[test]
+    fn outlook_style_read_mail_is_a_read_receipt() {
+        let raw = "From: privacy@acme.com
+To: me@example.com
+Subject: Gelesen: Personal Data Removal Request
+In-Reply-To: <AAAAAAAAAAAAAAAAAAAAAA@example.com>
+References: <older@example.com> <AAAAAAAAAAAAAAAAAAAAAA@example.com>
+Content-Type: text/plain
+
+Ihre Nachricht wurde am 10.11.2026 gelesen.
+";
+        let e = parse_raw_email(1, &crlf(raw));
+        assert_eq!(
+            e.read_receipt_for,
+            Some(vec![
+                "<AAAAAAAAAAAAAAAAAAAAAA@example.com>".to_string(),
+                "<older@example.com>".to_string(),
+                "<AAAAAAAAAAAAAAAAAAAAAA@example.com>".to_string(),
+            ])
+        );
+        for subject in ["Read: x", "Lu : x"] {
+            let r = raw.replace("Gelesen: Personal Data Removal Request", subject);
+            assert!(
+                parse_raw_email(1, &crlf(&r)).read_receipt_for.is_some(),
+                "{subject}"
+            );
+        }
+        // A reply quoting our subject, or a "Read:" mail without references, is not a receipt.
+        let reply = raw.replace("Gelesen:", "Re:");
+        assert_eq!(parse_raw_email(1, &crlf(&reply)).read_receipt_for, None);
+        let unlinked = raw
+            .replace("In-Reply-To: <AAAAAAAAAAAAAAAAAAAAAA@example.com>\n", "")
+            .replace(
+                "References: <older@example.com> <AAAAAAAAAAAAAAAAAAAAAA@example.com>\n",
+                "",
+            );
+        assert_eq!(parse_raw_email(1, &crlf(&unlinked)).read_receipt_for, None);
     }
 
     #[test]

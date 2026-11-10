@@ -157,6 +157,9 @@ impl Store {
                 params![status, result.message_id, error, record_id],
             )
             .context("failed to record send result")?;
+        if result.success {
+            self.track_message(record_id, &result.message_id)?;
+        }
         Ok(())
     }
 

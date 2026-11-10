@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   isInternalPath,
+  isPixelRequest,
   limiterKey,
   LOGIN_MAX_FAILURES,
   LOGIN_WINDOW_MS,
@@ -45,4 +46,33 @@ test("limiter key groups IPv6 by /64", () => {
   assert.equal(limiterKey("2001:0db8:0000:0000:ffff::2"), "2001:db8:0:0::/64");
   assert.equal(limiterKey("2001:db8:1:2:3:4:5:6"), "2001:db8:1:2::/64");
   assert.equal(limiterKey("::1"), "0:0:0:0::/64");
+});
+
+test("only exact pixel paths bypass the login", () => {
+  const token = "AAAAAAAAAAAAAAAAAAAAAA";
+  for (const p of [`/p/${token}`, `/p/${token}.gif`, "/p/abcdefghijklmnop", `/p/${"a".repeat(64)}.gif`, "/p/a-b_c-d_e-f_g-h_"]) {
+    assert.equal(isPixelRequest("GET", p), true, p);
+  }
+  assert.equal(isPixelRequest("HEAD", `/p/${token}.gif`), true);
+  for (const m of ["POST", "PUT", "DELETE", "OPTIONS", "get"]) {
+    assert.equal(isPixelRequest(m, `/p/${token}.gif`), false, m);
+  }
+  for (const p of [
+    "/p/",
+    "/p/short",
+    `/p/${"a".repeat(65)}`,
+    `/p/${token}.png`,
+    `/p/${token}/x`,
+    `/p/${token}.gif/`,
+    `//p/${token}`,
+    `/P/${token}`,
+    `/p/${token}%2F..`,
+    `/p/${token}.gif?x=1`,
+    `/x/p/${token}`,
+    "/p/../settings",
+    `/p/${token}.gifx`,
+    `/p/${token}\n`,
+  ]) {
+    assert.equal(isPixelRequest("GET", p), false, p);
+  }
 });

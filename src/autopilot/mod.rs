@@ -277,6 +277,9 @@ async fn reminders(d: &Deps<'_>, dry_run: bool, budget: &mut i64, r: &mut RoundR
         let res = send(d, &msg).await;
         if res.success {
             r.reminders_sent += 1;
+            if let Err(e) = d.store.track_message(rec.id, &res.message_id) {
+                r.errors.push(format!("reminder {}: {e:#}", rec.broker_id));
+            }
         } else {
             let _ = d.store.release_reminder(rec.id);
             let what = format!("reminder {}", rec.broker_id);
@@ -487,6 +490,12 @@ async fn check_inbox(d: &Deps<'_>, m: &mut Monitor, dry_run: bool, r: &mut Round
                     .push(format!("reply from {}: {e:#}", email.broker_id));
                 continue;
             }
+            if folder == &inbox.folder {
+                archive_uids.push(email.uid);
+            }
+            if email.read_receipt_for.is_some() {
+                continue; // stored as the request's read receipt, not a reply
+            }
             r.replies += 1;
             let _ = d.store.update_pipeline_status(
                 &email.broker_id,
@@ -504,9 +513,6 @@ async fn check_inbox(d: &Deps<'_>, m: &mut Monitor, dry_run: bool, r: &mut Round
                         ..Default::default()
                     },
                 );
-            }
-            if folder == &inbox.folder {
-                archive_uids.push(email.uid);
             }
         }
     }

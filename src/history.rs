@@ -168,6 +168,10 @@ pub struct BrokerResponse {
     pub received_at: Option<DateTime<Local>>,
     pub processed_at: Option<DateTime<Local>>,
     pub created_at: Option<DateTime<Local>>,
+    /// Set for read receipts (MDNs): the Message-IDs they may refer to. Such a "response" is
+    /// stored as the request's read_receipt_at by [`Store::add_broker_response`], never as a reply.
+    #[serde(skip)]
+    pub read_receipt_for: Option<Vec<String>>,
 }
 
 /// A task that needs human intervention.
@@ -391,6 +395,7 @@ fn scan_response(row: &Row) -> rusqlite::Result<BrokerResponse> {
         received_at: time_col(row, 11)?,
         processed_at: time_col(row, 12)?,
         created_at: time_col(row, 13)?,
+        read_receipt_for: None,
     })
 }
 
@@ -516,6 +521,8 @@ impl Store {
             .context("failed to migrate company tables")?;
         db.execute_batch(rounds::SCHEMA)
             .context("failed to migrate autopilot table")?;
+        db.execute_batch(tracking::SCHEMA)
+            .context("failed to migrate tracking table")?;
 
         // The Go schema never created email_body although AddBrokerResponse writes it.
         let _ = db.execute(
@@ -554,6 +561,9 @@ impl Store {
         )
         .context("failed to insert record")?;
         record.id = db.last_insert_rowid();
+        if record.status == Status::Sent {
+            tracking::track(&db, record.id, &record.message_id)?;
+        }
         Ok(())
     }
 
@@ -645,7 +655,15 @@ impl Store {
     // ==================== Broker Response Methods ====================
 
     /// Stores a classified response and sets `resp.id`.
+    /// Read receipts ([`BrokerResponse::read_receipt_for`]) only update the tracked request.
     pub fn add_broker_response(&self, resp: &mut BrokerResponse) -> Result<()> {
+        if let Some(ids) = &resp.read_receipt_for {
+            let at = resp
+                .received_at
+                .map_or_else(Utc::now, |t| t.with_timezone(&Utc));
+            self.record_read_receipt(ids, at)?;
+            return Ok(());
+        }
         let db = self.db();
         let now = now_str();
         db.execute(
@@ -1037,12 +1055,14 @@ impl Store {
 mod companies;
 mod rounds;
 mod stats;
+mod tracking;
 pub use companies::{Company, CompanyAction, CompanyAggregate, ScannedMessage};
 pub use rounds::{AutopilotRound, INTERRUPTED, Progress, STALE_ROUND, TODO_TYPES};
 pub use stats::{
     Chip, ChipKind, DEADLINE_DAYS, Funnel, INTERRUPTED_LABEL, RequestState, STAGES, TimelineEvent,
     stage_label,
 };
+pub use tracking::{CLIENT_OTHER, OPEN_RATE_LIMIT_SECS, Tracking, TrackingStats};
 
 #[cfg(test)]
 mod tests;

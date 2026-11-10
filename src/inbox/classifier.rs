@@ -333,6 +333,11 @@ pub fn classify_response(email: &Email) -> ClassifiedResponse {
         needs_review: false,
     };
 
+    if email.read_receipt_for.is_some() {
+        result.reason = "Read receipt (not a reply)".into();
+        return result;
+    }
+
     let content = go_lower(&if email.body.is_empty() {
         strip_html(&email.html_body)
     } else {

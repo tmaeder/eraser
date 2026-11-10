@@ -4,6 +4,7 @@ mod companies;
 mod csrf;
 mod handlers;
 mod job;
+mod pixel;
 mod session;
 mod today;
 mod views;
@@ -163,6 +164,7 @@ pub fn app(opts: AppOptions) -> Result<(Router, Arc<AppState>)> {
     // Outside the CSRF layer: the handler accepts only a valid X-Autopilot-Token.
     let internal = Router::new()
         .route("/internal/autopilot/tick", post(today::tick))
+        .route("/p/{token}", get(pixel::pixel))
         .with_state(state.clone());
     let api = Router::new()
         .route("/stats", get(h::api_stats))

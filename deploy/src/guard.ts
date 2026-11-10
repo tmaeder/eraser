@@ -9,6 +9,11 @@ export function isInternalPath(pathname: string): boolean {
   return /^\/+internal(\/|$)/i.test(path);
 }
 
+/** The open-tracking pixel: public (no login), GET/HEAD and exactly /p/<token>[.gif] only. */
+export function isPixelRequest(method: string, pathname: string): boolean {
+  return (method === "GET" || method === "HEAD") && /^\/p\/[A-Za-z0-9_-]{16,64}(\.gif)?$/.test(pathname);
+}
+
 export const LOGIN_MAX_FAILURES = 10;
 export const LOGIN_WINDOW_MS = 15 * 60_000;
 

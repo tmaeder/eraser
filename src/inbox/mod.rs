@@ -36,6 +36,7 @@ pub fn response_record(email: &Email, c: &ClassifiedResponse) -> BrokerResponse 
         confidence: c.confidence,
         needs_review: c.needs_review,
         received_at: Some(email.received_at.with_timezone(&Local)),
+        read_receipt_for: email.read_receipt_for.clone(),
         ..Default::default()
     }
 }

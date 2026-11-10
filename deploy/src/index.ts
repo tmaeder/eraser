@@ -1,7 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
 import { Container, getContainer } from "@cloudflare/containers";
 export { ContainerProxy } from "@cloudflare/containers";
-import { isInternalPath, limiterKey, LOGIN_WINDOW_MS, recentFailures, retryAfterSeconds } from "./guard";
+import { isInternalPath, isPixelRequest, limiterKey, LOGIN_WINDOW_MS, recentFailures, retryAfterSeconds } from "./guard";
 
 interface Env {
   ERASER: DurableObjectNamespace<EraserContainer>;
@@ -153,6 +153,16 @@ export default {
     // Only the cron trigger (scheduled handler) talks to /internal/*.
     if (isInternalPath(url.pathname)) return new Response("Not found", { status: 404 });
     if (!password) return new Response("Not configured", { status: 503 });
+    // Mail clients load the pixel without credentials; forward only the path and User-Agent
+    // (no cookies, auth or client IP reach the container).
+    if (isPixelRequest(request.method, url.pathname)) {
+      const headers = new Headers();
+      const ua = request.headers.get("User-Agent");
+      if (ua) headers.set("User-Agent", ua);
+      return getContainer(env.ERASER, "main").fetch(
+        new Request(`http://container${url.pathname}`, { method: request.method, headers }),
+      );
+    }
 
     if (url.pathname === "/__login" && request.method === "POST") {
       const form = await request.formData();

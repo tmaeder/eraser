@@ -361,3 +361,137 @@ async fn confirm_links_only_on_broker_domain_and_once() {
     f.round(false, None).await;
     assert_eq!(hits.lock().unwrap().len(), 2, "each link at most once");
 }
+
+#[tokio::test]
+async fn keep_list_blocks_requests() {
+    let mut c = cfg();
+    c.autopilot.keep_domains = vec!["club.test".into()];
+    c.autopilot.broker_requests = false;
+    let f = fixture(c, vec![]);
+    company(&f.store, "ubs.com", "UBS", false, 400, "privacy@ubs.com");
+    company(
+        &f.store,
+        "club.test",
+        "Club",
+        false,
+        400,
+        "privacy@club.test",
+    );
+    company(
+        &f.store,
+        "meinebank.test",
+        "Meine Bank",
+        false,
+        400,
+        "dpo@meinebank.test",
+    );
+    company(
+        &f.store,
+        "shop.test",
+        "Shop",
+        false,
+        400,
+        "privacy@shop.test",
+    );
+
+    let dry = f.round(true, None).await;
+    assert_eq!((dry.kept, dry.company_requests), (3, 1));
+    assert!(f.sent().is_empty(), "dry run sends nothing");
+    assert!(
+        f.store
+            .get_company("shop.test")
+            .unwrap()
+            .unwrap()
+            .requested_at
+            .is_none()
+    );
+
+    let r = f.round(false, None).await;
+    assert_eq!((r.kept, r.company_requests), (3, 1));
+    let to: Vec<String> = f.sent().into_iter().map(|m| m.to).collect();
+    assert_eq!(
+        to,
+        ["privacy@shop.test"],
+        "only the company not on the keep list"
+    );
+    assert!(
+        f.store
+            .get_company("shop.test")
+            .unwrap()
+            .unwrap()
+            .requested_at
+            .is_some()
+    );
+    assert_eq!(
+        f.round(false, None).await.company_requests,
+        0,
+        "requested once"
+    );
+}
+
+#[tokio::test]
+async fn only_inactive_or_newsletter_only_companies_with_contact() {
+    let mut c = cfg();
+    c.autopilot.broker_requests = false;
+    let f = fixture(c, vec![]);
+    company(
+        &f.store,
+        "active.test",
+        "Active",
+        false,
+        10,
+        "privacy@active.test",
+    );
+    company(&f.store, "news.test", "News", true, 10, "privacy@news.test");
+    company(&f.store, "nocontact.test", "NoContact", false, 400, "");
+    let r = f.round(false, None).await;
+    assert_eq!(r.company_requests, 1);
+    let to: Vec<String> = f.sent().into_iter().map(|m| m.to).collect();
+    assert_eq!(to, ["privacy@news.test"]);
+}
+
+#[tokio::test]
+async fn plain_unsubscribe_links_become_todos_once() {
+    let mut c = cfg();
+    c.autopilot.broker_requests = false;
+    c.autopilot.company_requests = false;
+    let f = fixture(c, vec![]);
+    let msg = ScannedMessage {
+        key: "<n@x>".into(),
+        domain: "news.test".into(),
+        from_addr: "n@news.test".into(),
+        from_name: "News".into(),
+        date: Some(Utc::now()),
+        is_list: true,
+        unsub_https: "https://news.test/unsub?u=1".into(),
+        ..Default::default()
+    };
+    f.store.add_scanned_messages(&[msg]).unwrap();
+    let domains = std::collections::BTreeSet::from(["news.test".to_string()]);
+    scanner::recompute(&f.store, &scanner::Identity::default(), &domains).unwrap();
+
+    assert_eq!(f.round(false, None).await.todos_added, 1);
+    assert_eq!(
+        f.round(false, None).await.todos_added,
+        0,
+        "one to-do per link"
+    );
+    let t = &f.store.todo_tasks(Local::now()).unwrap()[0];
+    assert_eq!(
+        (t.task_type, t.broker_id.as_str(), t.form_url.as_str()),
+        (
+            TaskType::UnsubscribeLink,
+            "company:news.test",
+            "https://news.test/unsub?u=1"
+        )
+    );
+    assert!(f.sent().is_empty());
+    assert!(
+        f.store
+            .get_company("news.test")
+            .unwrap()
+            .unwrap()
+            .unsubscribed_at
+            .is_none()
+    );
+}

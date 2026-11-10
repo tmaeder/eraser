@@ -12,9 +12,10 @@ use crate::broker::{Broker, BrokerDatabase};
 use crate::browser::{ConfirmationHandler, detect_captcha_from_html, extract_confirmation_status};
 use crate::config::Config;
 use crate::email::{self, Message, SendResult, Sender};
-use crate::history::{PendingTask, PipelineStatus, Record, Store, TaskType};
+use crate::history::{Company, PendingTask, PipelineStatus, Record, Store, TaskType};
 use crate::inbox::classifier::ResponseType;
 use crate::inbox::monitor::Monitor;
+use crate::scanner::actions::{self, Unsubscribe};
 use crate::scanner::{self, discovery::Discoverer, domain};
 use crate::template::Engine;
 use chrono::{DateTime, Datelike, Local, TimeDelta, TimeZone, Timelike, Utc};
@@ -422,6 +423,114 @@ async fn confirm_links(d: &Deps<'_>, dry_run: bool, r: &mut RoundReport) {
     }
 }
 
+fn active(c: &Company) -> bool {
+    c.excluded_reason.is_empty() && c.decision != "ignored"
+}
+
+/// Every scanned message from the domain carries mailing-list headers.
+fn newsletter_only(store: &Store, domain: &str) -> bool {
+    store
+        .scanned_messages_for(domain)
+        .is_ok_and(|m| !m.is_empty() && m.iter().all(|x| x.is_list))
+}
+
+/// Companies steps 5 and 6 may act on: shown (not excluded/ignored), not on the keep list
+/// (counted in `kept`), and inactive for `inactive_months` or newsletter-only.
+fn candidates(d: &Deps<'_>, r: &mut RoundReport) -> Vec<Company> {
+    let cutoff = Utc::now() - TimeDelta::days(30 * d.cfg.autopilot.inactive_months);
+    let companies = match d.store.list_companies() {
+        Ok(c) => c,
+        Err(e) => {
+            r.errors.push(format!("companies: {e:#}"));
+            return Vec::new();
+        }
+    };
+    let mut out = Vec::new();
+    for c in companies.into_iter().filter(active) {
+        if keep::keep_reason(&c.agg.domain, &c.agg.display_name, d.cfg).is_some() {
+            r.kept += 1;
+            continue;
+        }
+        let inactive = c.agg.last_seen.is_some_and(|t| t < cutoff);
+        if inactive || newsletter_only(d.store, &c.agg.domain) {
+            out.push(c);
+        }
+    }
+    out
+}
+
+/// Step 5: RFC 8058 one-click unsubscribes; mailto and plain links become to-dos.
+async fn unsubscribe(d: &Deps<'_>, cands: &[Company], dry_run: bool, r: &mut RoundReport) {
+    for c in cands
+        .iter()
+        .filter(|c| c.agg.is_mailing_list && c.unsubscribed_at.is_none())
+    {
+        match Unsubscribe::for_company(c) {
+            Unsubscribe::OneClick(_) => {
+                let res = actions::unsubscribe(d.store, d.http, d.sender, d.cfg, c, dry_run).await;
+                if res.success {
+                    r.unsubscribed += 1;
+                } else {
+                    let err = res.error.unwrap_or_default();
+                    r.errors
+                        .push(format!("unsubscribe {}: {err}", c.agg.domain));
+                }
+            }
+            Unsubscribe::Mailto(link) | Unsubscribe::Manual(link) => {
+                if matches!(
+                    d.store.find_task_by_url(TaskType::UnsubscribeLink, &link),
+                    Ok(None)
+                ) {
+                    let b = scanner::company_broker(c);
+                    add_todo(
+                        d.store,
+                        r,
+                        PendingTask {
+                            broker_id: b.id,
+                            broker_name: b.name,
+                            task_type: TaskType::UnsubscribeLink,
+                            form_url: link,
+                            notes: "Not a one-click list: open the link and unsubscribe yourself."
+                                .into(),
+                            ..Default::default()
+                        },
+                    );
+                }
+            }
+            Unsubscribe::None => {}
+        }
+    }
+}
+
+/// Step 6: deletion requests to candidates with a verified privacy contact.
+async fn company_requests(
+    d: &Deps<'_>,
+    cands: &[Company],
+    dry_run: bool,
+    budget: &mut i64,
+    r: &mut RoundReport,
+) {
+    let verified = |c: &&Company| {
+        c.requested_at.is_none()
+            && matches!(c.contact_status.as_str(), "broker" | "website")
+            && actions::request_target(c).is_ok()
+    };
+    for c in cands.iter().filter(verified) {
+        if !take_budget(budget, r) {
+            return;
+        }
+        let res = actions::send_request(d.store, d.engine, d.sender, d.cfg, c, dry_run).await;
+        if res.success {
+            r.company_requests += 1;
+        } else {
+            record_failure(r, &c.agg.domain, res.error.as_deref().unwrap_or(""));
+        }
+        if !dry_run {
+            pause(d.cfg).await;
+        }
+    }
+}
+
 /// Web-form replies without a to-do get one (forms are always filled by the user).
 fn sync_form_todos(store: &Store, r: &mut RoundReport) {
     let forms = match store.get_forms_with_status() {
@@ -492,6 +601,17 @@ pub async fn run_round(
     if steps.broker_requests {
         reminders(d, dry_run, &mut budget, &mut r).await;
         broker_requests(d, dry_run, &mut budget, &mut r).await;
+    }
+    let cands = if steps.unsubscribe || steps.company_requests {
+        candidates(d, &mut r)
+    } else {
+        Vec::new()
+    };
+    if steps.unsubscribe {
+        unsubscribe(d, &cands, dry_run, &mut r).await;
+    }
+    if steps.company_requests {
+        company_requests(d, &cands, dry_run, &mut budget, &mut r).await;
     }
     sync_form_todos(d.store, &mut r);
 

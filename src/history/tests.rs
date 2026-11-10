@@ -490,3 +490,152 @@ fn go_database_gains_autopilot_columns() {
         "Go captcha task unchanged"
     );
 }
+
+#[test]
+fn autopilot_rounds_lock_and_stale() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = Store::new(dir.path().join("h.db")).unwrap();
+    let id = store
+        .begin_round(true)
+        .unwrap()
+        .expect("first round starts");
+    assert!(store.round_running().unwrap());
+    assert_eq!(
+        store.begin_round(false).unwrap(),
+        None,
+        "one round at a time"
+    );
+    store.finish_round(id, r#"{"dry_run":true}"#).unwrap();
+    assert!(!store.round_running().unwrap());
+
+    let id2 = store.begin_round(false).unwrap().unwrap();
+    store
+        .db()
+        .execute(
+            "UPDATE autopilot_rounds SET started_at = '2000-01-01T00:00:00Z' WHERE id = ?",
+            [id2],
+        )
+        .unwrap();
+    assert!(!store.round_running().unwrap(), "stale rounds do not count");
+    assert!(store.begin_round(false).unwrap().is_some());
+
+    let rounds = store.recent_rounds(5).unwrap();
+    assert_eq!(rounds.len(), 3);
+    assert_eq!(rounds[2].id, id);
+    assert_eq!(rounds[2].report, r#"{"dry_run":true}"#);
+    assert!(rounds[2].dry_run && rounds[2].finished_at.is_some());
+    assert!(rounds[0].finished_at.is_none());
+}
+
+#[test]
+fn reminders_todos_and_progress() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = Store::new(dir.path().join("h.db")).unwrap();
+    let add = |id: &str, status: Status| {
+        let mut r = Record {
+            broker_id: id.into(),
+            broker_name: id.into(),
+            email: format!("p@{id}.test"),
+            template: "gdpr".into(),
+            status,
+            sent_at: Some(Local::now()),
+            ..Default::default()
+        };
+        store.add(&mut r).unwrap();
+        r
+    };
+    let a = add("a", Status::Sent);
+    add("b", Status::Sent);
+    add("c", Status::Failed);
+    add("company:shop.test", Status::Sent);
+    let mut resp = BrokerResponse {
+        broker_id: "b".into(),
+        broker_name: "b".into(),
+        response_type: "pending".into(),
+        ..Default::default()
+    };
+    store.add_broker_response(&mut resp).unwrap();
+
+    let ids: Vec<String> = store
+        .reminder_candidates()
+        .unwrap()
+        .into_iter()
+        .map(|r| r.broker_id)
+        .collect();
+    assert_eq!(ids, ["a", "company:shop.test"], "b replied, c failed");
+    let hour_ago = Local::now() - chrono::TimeDelta::hours(1);
+    assert_eq!(store.emails_sent_since(hour_ago).unwrap(), 4);
+    store.mark_reminder_sent(a.id).unwrap();
+    assert_eq!(
+        store.emails_sent_since(hour_ago).unwrap(),
+        5,
+        "reminders count"
+    );
+    assert_eq!(
+        store.reminder_candidates().unwrap().len(),
+        1,
+        "one reminder per request"
+    );
+
+    store
+        .update_pipeline_status("b", PipelineStatus::Confirmed)
+        .unwrap();
+    assert_eq!(
+        store.progress(false).unwrap(),
+        Progress {
+            contacted: 2,
+            confirmed: 1,
+            rejected: 0,
+            no_response: 1,
+            waiting: 0
+        }
+    );
+    assert_eq!(store.progress(true).unwrap().contacted, 1);
+
+    let mut link = PendingTask {
+        broker_id: "a".into(),
+        broker_name: "A".into(),
+        task_type: TaskType::Confirm,
+        form_url: "https://a.test/c".into(),
+        ..Default::default()
+    };
+    store.add_pending_task(&mut link).unwrap();
+    let mut review = PendingTask {
+        broker_id: "a".into(),
+        broker_name: "A".into(),
+        task_type: TaskType::Review,
+        ..Default::default()
+    };
+    store.add_pending_task(&mut review).unwrap();
+    assert_eq!(
+        store
+            .find_task_by_url(TaskType::Confirm, "https://a.test/c")
+            .unwrap()
+            .unwrap()
+            .id,
+        link.id
+    );
+    assert!(
+        store
+            .find_task_by_url(TaskType::UnsubscribeLink, "https://a.test/c")
+            .unwrap()
+            .is_none()
+    );
+    let now = Local::now();
+    assert_eq!(
+        store.todo_tasks(now).unwrap().len(),
+        1,
+        "review items are not to-dos"
+    );
+    store
+        .skip_task_until(link.id, now + chrono::TimeDelta::days(30))
+        .unwrap();
+    assert!(store.todo_tasks(now).unwrap().is_empty());
+    assert_eq!(
+        store
+            .todo_tasks(now + chrono::TimeDelta::days(31))
+            .unwrap()
+            .len(),
+        1
+    );
+}

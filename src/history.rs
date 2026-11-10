@@ -488,6 +488,8 @@ impl Store {
 
         db.execute_batch(companies::SCHEMA)
             .context("failed to migrate company tables")?;
+        db.execute_batch(rounds::SCHEMA)
+            .context("failed to migrate autopilot table")?;
 
         // The Go schema never created email_body although AddBrokerResponse writes it.
         let _ = db.execute(
@@ -1007,7 +1009,9 @@ impl Store {
 }
 
 mod companies;
+mod rounds;
 pub use companies::{Company, CompanyAction, CompanyAggregate, ScannedMessage};
+pub use rounds::{AutopilotRound, Progress, STALE_ROUND, TODO_TYPES};
 
 #[cfg(test)]
 mod tests;

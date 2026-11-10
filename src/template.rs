@@ -14,6 +14,8 @@ const TEMPLATES: [(&str, &str); 4] = [
     ("generic", include_str!("../templates/email/generic.txt")),
 ];
 
+const REMINDER: &str = include_str!("../templates/email/reminder.txt");
+
 /// All data available to email templates (field names match the Go struct).
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "PascalCase")]
@@ -66,6 +68,8 @@ impl Engine {
             env.add_template(name, src)
                 .with_context(|| format!("failed to parse template {name}"))?;
         }
+        env.add_template("reminder", REMINDER)
+            .context("failed to parse template reminder")?;
         Ok(Self { env })
     }
 
@@ -88,29 +92,7 @@ impl Engine {
         let Ok(tmpl) = self.env.get_template(template_name) else {
             bail!("unknown template: {template_name}");
         };
-
-        let data = EmailData {
-            first_name: profile.first_name.clone(),
-            last_name: profile.last_name.clone(),
-            full_name: profile.full_name(),
-            email: profile.email.clone(),
-            address: profile.address.clone(),
-            city: profile.city.clone(),
-            state: profile.state.clone(),
-            zip_code: profile.zip_code.clone(),
-            country: profile.country.clone(),
-            phone: profile.phone.clone(),
-            date_of_birth: profile.date_of_birth.clone(),
-            broker_name: broker.name.clone(),
-            broker_email: broker.email.clone(),
-            broker_website: broker.website.clone(),
-            broker_opt_out: broker.opt_out_url.clone(),
-            date: now.format("%B %-d, %Y").to_string(), // Go: "January 2, 2006"
-            year: now.year(),
-            month: now.format("%B").to_string(),
-            template: template_name.to_string(),
-        };
-
+        let data = email_data(template_name, profile, broker, &now);
         let body = tmpl
             .render(minijinja::value::Serde(&data))
             .context("failed to render template")?;
@@ -121,8 +103,93 @@ impl Engine {
         })
     }
 
+    /// The single reminder for a request sent on `original`, `days_since` days ago. The law
+    /// follows `template_name` like [`Engine::render`] ("auto" picks it by broker region).
+    pub fn render_reminder(
+        &self,
+        template_name: &str,
+        profile: &Profile,
+        broker: &Broker,
+        original: DateTime<Local>,
+        days_since: i64,
+    ) -> Result<Email> {
+        self.render_reminder_at(
+            template_name,
+            profile,
+            broker,
+            original,
+            days_since,
+            Local::now(),
+        )
+    }
+
+    /// Same as [`Engine::render_reminder`] with an explicit "now".
+    pub fn render_reminder_at<Tz: TimeZone>(
+        &self,
+        template_name: &str,
+        profile: &Profile,
+        broker: &Broker,
+        original: DateTime<Local>,
+        days_since: i64,
+        now: DateTime<Tz>,
+    ) -> Result<Email>
+    where
+        Tz::Offset: std::fmt::Display,
+    {
+        let law = for_broker(template_name, broker);
+        let original = original.format("%B %-d, %Y").to_string();
+        let data = serde_json::to_value(email_data(law, profile, broker, &now))?;
+        let ctx = minijinja::context! {
+            OriginalDate => original.clone(),
+            DaysSince => days_since,
+            ..minijinja::Value::from(minijinja::value::Serde(data))
+        };
+        let body = self
+            .env
+            .get_template("reminder")?
+            .render(ctx)
+            .context("failed to render reminder")?;
+        Ok(Email {
+            subject: format!("Reminder: data deletion request of {original}"),
+            body,
+            template: law.to_string(),
+        })
+    }
+
     pub fn available_templates(&self) -> Vec<String> {
         TEMPLATES.iter().map(|(n, _)| n.to_string()).collect()
+    }
+}
+
+fn email_data<Tz: TimeZone>(
+    template_name: &str,
+    profile: &Profile,
+    broker: &Broker,
+    now: &DateTime<Tz>,
+) -> EmailData
+where
+    Tz::Offset: std::fmt::Display,
+{
+    EmailData {
+        first_name: profile.first_name.clone(),
+        last_name: profile.last_name.clone(),
+        full_name: profile.full_name(),
+        email: profile.email.clone(),
+        address: profile.address.clone(),
+        city: profile.city.clone(),
+        state: profile.state.clone(),
+        zip_code: profile.zip_code.clone(),
+        country: profile.country.clone(),
+        phone: profile.phone.clone(),
+        date_of_birth: profile.date_of_birth.clone(),
+        broker_name: broker.name.clone(),
+        broker_email: broker.email.clone(),
+        broker_website: broker.website.clone(),
+        broker_opt_out: broker.opt_out_url.clone(),
+        date: now.format("%B %-d, %Y").to_string(), // Go: "January 2, 2006"
+        year: now.year(),
+        month: now.format("%B").to_string(),
+        template: template_name.to_string(),
     }
 }
 
@@ -257,5 +324,50 @@ mod tests {
         for (name, _) in TEMPLATES {
             assert!(subject(name).is_ascii(), "{name}");
         }
+    }
+    #[test]
+    fn reminder_cites_original_date_deadline_and_law() {
+        let engine = Engine::new().unwrap();
+        let now = Utc.with_ymd_and_hms(2026, 2, 10, 12, 0, 0).unwrap();
+        let original = Local.with_ymd_and_hms(2026, 1, 5, 12, 0, 0).unwrap();
+        for (region, law, cite) in [
+            ("eu", "gdpr", "Article 12(3) GDPR you must act"),
+            (
+                "ch",
+                "fadp",
+                "Art. 18 para. 1 of the Data Protection Ordinance",
+            ),
+            ("us", "generic", "one month under Article 12(3) GDPR"),
+        ] {
+            let b = Broker {
+                region: region.into(),
+                ..broker()
+            };
+            let r = engine
+                .render_reminder_at("auto", &full_profile(), &b, original, 36, now)
+                .unwrap();
+            assert_eq!(r.template, law);
+            assert_eq!(
+                r.subject,
+                "Reminder: data deletion request of January 5, 2026"
+            );
+            assert!(r.subject.is_ascii());
+            assert!(
+                r.body.contains("On January 5, 2026 I sent you"),
+                "{}",
+                r.body
+            );
+            assert!(r.body.contains("36 days have passed"), "{}", r.body);
+            assert!(r.body.contains(cite), "{law}: {}", r.body);
+            assert!(r.body.contains("Full Name: Jane Döe"));
+            assert!(r.body.ends_with("February 10, 2026\n"), "{:?}", r.body);
+        }
+        assert_eq!(
+            engine
+                .render_reminder_at("ccpa", &full_profile(), &broker(), original, 36, now)
+                .unwrap()
+                .template,
+            "ccpa"
+        );
     }
 }

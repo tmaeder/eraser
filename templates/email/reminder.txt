@@ -1,0 +1,35 @@
+To the Data Protection Officer / Controller, {{ BrokerName }}
+
+Reminder: my request of {{ OriginalDate }} to delete my personal data
+
+On {{ OriginalDate }} I sent you a request to delete my personal data and an objection to its processing. {{ DaysSince }} days have passed and I have not received a reply.
+
+{% if Template == "gdpr" -%}
+Under Article 12(3) GDPR you must act on such a request without undue delay and in any event within one month of receipt. That period may be extended by two further months only if you inform me of the extension and the reasons within the first month. I have received no such notice.
+{%- elif Template == "fadp" -%}
+Under Art. 25 FADP and Art. 18 para. 1 of the Data Protection Ordinance (DPO, SR 235.11), the information I requested must be provided within 30 days of receipt, and my data must not be processed further against my express objection (Art. 30 para. 2 lit. b FADP). Any restriction or deferral must be justified to me (Art. 26 para. 4 FADP).
+{%- elif Template == "ccpa" -%}
+Under the California Consumer Privacy Act (Cal. Civ. Code § 1798.130(a)(2)) you must respond to a request to delete within 45 days of receipt.
+{%- else -%}
+Data protection laws set fixed response periods for such requests, for example one month under Article 12(3) GDPR, 30 days under the Swiss FADP (Art. 18 para. 1 DPO) and 45 days under the CCPA.
+{%- endif %}
+
+Please carry out the deletion and confirm it to me in writing. If you are not going to act on my request, please tell me the reasons.
+
+{% if Template == "gdpr" -%}
+If I do not receive a reply, I may lodge a complaint with a supervisory authority (Article 77 GDPR).
+{%- elif Template == "fadp" -%}
+If I do not receive a reply, I may report the matter to the Federal Data Protection and Information Commissioner (FDPIC / EDÖB).
+{%- else -%}
+If I do not receive a reply, I may contact the competent data protection authority.
+{%- endif %}
+
+To identify my records:
+- Full Name: {{ FullName }}
+- Email Address: {{ Email }}
+
+Please send your reply to {{ Email }}.
+
+Yours faithfully,
+{{ FullName }}
+{{ Date }}

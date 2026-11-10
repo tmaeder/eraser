@@ -3,7 +3,7 @@
 use chromiumoxide::Page;
 use serde_json::Value;
 
-use super::confirm::go_to_lower;
+use crate::inbox::go_lower;
 
 /// Information about a detected CAPTCHA.
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -248,7 +248,7 @@ impl CaptchaInfo {
 
 /// Checks HTML content for CAPTCHA indicators.
 pub fn detect_captcha_from_html(html: &str) -> CaptchaInfo {
-    let html = go_to_lower(html);
+    let html = go_lower(html);
     if html.contains("recaptcha") || html.contains("g-recaptcha") {
         return info(
             CAPTCHA_TYPE_RECAPTCHA_V2,

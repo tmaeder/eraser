@@ -6,6 +6,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use super::DEFAULT_USER_AGENT;
+use crate::inbox::{go_lower, go_url};
 
 /// Outcome of clicking a confirmation link.
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -75,18 +76,18 @@ impl ConfirmationHandler {
     }
 
     /// Checks whether the URL belongs to a known broker domain.
-    /// Returns `(valid, matched_domain_or_host)`; errors where Go's `url.Parse` errors.
+    /// Returns `(valid, matched_domain_or_host)`; errors on unparsable URLs.
     pub fn validate_domain(&self, confirm_url: &str) -> Result<(bool, String)> {
-        let host =
-            go_url_host(confirm_url).ok_or_else(|| anyhow!("invalid URL: {confirm_url:?}"))?;
-        let mut host = go_to_lower(&host);
+        let url =
+            go_url::parse(confirm_url).ok_or_else(|| anyhow!("invalid URL: {confirm_url:?}"))?;
+        let mut host = go_lower(&String::from_utf8_lossy(&url.host));
         if let Some(i) = host.find(':') {
             host.truncate(i);
         }
         if self.broker_domains.contains(&host) {
             return Ok((true, host));
         }
-        // ponytail: Go iterates a map here (random pick among several matching parents); we take the first in sorted order.
+        // Several matching parents: the first in sorted order wins.
         for domain in &self.broker_domains {
             if host.ends_with(&format!(".{domain}")) {
                 return Ok((true, domain.clone()));
@@ -185,7 +186,7 @@ pub fn is_success_response(status_code: u16, body: &str) -> bool {
     if !(200..400).contains(&status_code) {
         return false;
     }
-    let body = go_to_lower(body);
+    let body = go_lower(body);
     if SUCCESS_PATTERNS.iter().any(|p| body.contains(p)) {
         return true;
     }
@@ -200,7 +201,7 @@ pub fn extract_confirmation_status(result: &ConfirmationResult) -> &'static str 
     if result.success {
         return "Confirmation successful";
     }
-    let body = go_to_lower(&result.response_body);
+    let body = go_lower(&result.response_body);
     if body.contains("expired") {
         "Link expired"
     } else if body.contains("already") {
@@ -213,197 +214,6 @@ pub fn extract_confirmation_status(result: &ConfirmationResult) -> &'static str 
         "Server error"
     } else {
         "Unknown status"
-    }
-}
-
-/// Go's strings.ToLower is per-rune simple case mapping; Rust's to_lowercase is close enough
-/// for ASCII patterns, but 'İ' expands to two chars in Rust. Map it the way Go does.
-pub(crate) fn go_to_lower(s: &str) -> String {
-    s.chars()
-        .map(|c| match c {
-            'İ' => 'i',
-            c => c.to_lowercase().next().unwrap_or(c),
-        })
-        .collect()
-}
-
-// ---- Go net/url.Parse host extraction (subset) ----
-// The `url` crate applies WHATWG rules (IDNA, percent-decoding, IPv6 normalisation) that change
-// which hosts validate, so mirror Go's parser: return the unescaped Host, or None where Go errors.
-
-fn go_url_host(raw: &str) -> Option<String> {
-    let raw = raw.as_bytes();
-    let (u, frag) = match raw.iter().position(|&b| b == b'#') {
-        Some(i) => (&raw[..i], &raw[i + 1..]),
-        None => (raw, &b""[..]),
-    };
-    if !valid_percent(frag) || u.iter().any(|&b| b < b' ' || b == 0x7f) {
-        return None;
-    }
-    if u == b"*" {
-        return Some(String::new());
-    }
-    let (scheme, rest) = split_scheme(u)?;
-    let mut rest = match rest.iter().position(|&b| b == b'?') {
-        Some(i) => &rest[..i],
-        None => rest,
-    };
-    if !rest.starts_with(b"/") {
-        if !scheme.is_empty() {
-            return Some(String::new()); // opaque
-        }
-        let seg_end = rest.iter().position(|&b| b == b'/').unwrap_or(rest.len());
-        if rest[..seg_end].contains(&b':') {
-            return None;
-        }
-    }
-    let mut host = Vec::new();
-    if (!scheme.is_empty() || !rest.starts_with(b"///")) && rest.starts_with(b"//") {
-        let mut authority = &rest[2..];
-        rest = b"";
-        if let Some(i) = authority.iter().position(|&b| b == b'/') {
-            rest = &authority[i..];
-            authority = &authority[..i];
-        }
-        let at = authority.iter().rposition(|&b| b == b'@');
-        host = parse_host(at.map_or(authority, |i| &authority[i + 1..]))?;
-        if let Some(i) = at {
-            let userinfo = &authority[..i];
-            if !userinfo.iter().all(|&c| valid_userinfo_byte(c)) || !valid_percent(userinfo) {
-                return None;
-            }
-        }
-    }
-    if !valid_percent(rest) {
-        return None;
-    }
-    Some(String::from_utf8_lossy(&host).into_owned())
-}
-
-fn split_scheme(raw: &[u8]) -> Option<(&[u8], &[u8])> {
-    for (i, &c) in raw.iter().enumerate() {
-        match c {
-            b'a'..=b'z' | b'A'..=b'Z' => {}
-            b'0'..=b'9' | b'+' | b'-' | b'.' if i == 0 => return Some((b"", raw)),
-            b'0'..=b'9' | b'+' | b'-' | b'.' => {}
-            b':' if i == 0 => return None,
-            b':' => return Some((&raw[..i], &raw[i + 1..])),
-            _ => return Some((b"", raw)),
-        }
-    }
-    Some((b"", raw))
-}
-
-/// Every '%' is followed by two hex digits (Go's unescape check for non-host modes).
-fn valid_percent(s: &[u8]) -> bool {
-    let mut i = 0;
-    while i < s.len() {
-        if s[i] == b'%' {
-            if i + 2 >= s.len() || !s[i + 1].is_ascii_hexdigit() || !s[i + 2].is_ascii_hexdigit() {
-                return false;
-            }
-            i += 3;
-        } else {
-            i += 1;
-        }
-    }
-    true
-}
-
-fn valid_userinfo_byte(c: u8) -> bool {
-    c.is_ascii_alphanumeric() || b"-._:~!$&'()*+,;=%@".contains(&c)
-}
-
-fn unhex(c: u8) -> u8 {
-    match c {
-        b'0'..=b'9' => c - b'0',
-        b'a'..=b'f' => c - b'a' + 10,
-        _ => c - b'A' + 10,
-    }
-}
-
-/// Go's shouldEscape(c, encodeHost) for ASCII bytes.
-fn host_should_escape(c: u8) -> bool {
-    !(c.is_ascii_alphanumeric() || b"-_.~!$&'()*+,;=:[]<>\"".contains(&c))
-}
-
-/// Go's unescape(s, encodeHost) (zone handling folded in: zone bytes after "%25" are permissive).
-fn unescape_host(s: &[u8], zone: bool) -> Option<Vec<u8>> {
-    let mut out = Vec::with_capacity(s.len());
-    let mut i = 0;
-    while i < s.len() {
-        let c = s[i];
-        if c == b'%' {
-            if i + 2 >= s.len() || !s[i + 1].is_ascii_hexdigit() || !s[i + 2].is_ascii_hexdigit() {
-                return None;
-            }
-            let v = (unhex(s[i + 1]) << 4) | unhex(s[i + 2]);
-            let is25 = &s[i..i + 3] == b"%25";
-            if !zone && unhex(s[i + 1]) < 8 && !is25 {
-                return None;
-            }
-            if zone && !is25 && v != b' ' && host_should_escape(v) {
-                return None;
-            }
-            out.push(v);
-            i += 3;
-        } else {
-            if c < 0x80 && c != b'+' && host_should_escape(c) {
-                return None;
-            }
-            out.push(c);
-            i += 1;
-        }
-    }
-    Some(out)
-}
-
-fn valid_optional_port(port: &[u8]) -> bool {
-    match port.split_first() {
-        None => true,
-        Some((b':', digits)) => digits.iter().all(u8::is_ascii_digit),
-        Some(_) => false,
-    }
-}
-
-fn parse_host(host: &[u8]) -> Option<Vec<u8>> {
-    match host.iter().rposition(|&b| b == b'[') {
-        Some(i) if i > 0 => None,
-        Some(_) => {
-            let close = host.iter().rposition(|&b| b == b']')?;
-            let colon_port = &host[close + 1..];
-            if !valid_optional_port(colon_port) {
-                return None;
-            }
-            let hostname = &host[1..close];
-            let mut out = match hostname.windows(3).position(|w| w == b"%25") {
-                Some(z) => {
-                    let mut h = unescape_host(&hostname[..z], false)?;
-                    h.extend(unescape_host(&hostname[z..], true)?);
-                    h
-                }
-                None => unescape_host(hostname, false)?,
-            };
-            let addr = std::str::from_utf8(&out).ok()?;
-            let addr = match addr.split_once('%') {
-                Some((_, "")) => return None,
-                Some((a, _)) => a,
-                None => addr,
-            };
-            addr.parse::<std::net::Ipv6Addr>().ok()?;
-            out.insert(0, b'[');
-            out.push(b']');
-            out.extend_from_slice(colon_port);
-            Some(out)
-        }
-        None => {
-            if let Some(i) = host.iter().rposition(|&b| b == b':')
-                && !valid_optional_port(&host[i..])
-            {
-                return None;
-            }
-            unescape_host(host, false)
-        }
     }
 }
 

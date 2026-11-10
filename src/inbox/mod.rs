@@ -4,7 +4,7 @@ pub mod classifier;
 pub mod monitor;
 pub mod parser;
 
-mod go_url;
+pub(crate) mod go_url;
 
 pub use monitor::Email;
 

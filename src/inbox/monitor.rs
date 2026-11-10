@@ -957,7 +957,11 @@ pub(crate) mod tests {
         let e = from("noreply@mail.acme.com");
         assert_eq!(e.from_domain, "mail.acme.com");
         assert_eq!(e.broker_id, "acme", "subdomain matches parent");
-        assert_eq!(from("x@a.eu.acme.com").broker_id, "eu", "closest parent wins");
+        assert_eq!(
+            from("x@a.eu.acme.com").broker_id,
+            "eu",
+            "closest parent wins"
+        );
         assert_eq!(from("x@notacme.com").broker_id, "");
         assert_eq!(from("x@acme.org").broker_id, "");
 

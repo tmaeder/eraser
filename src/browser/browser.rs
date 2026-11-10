@@ -1,4 +1,4 @@
-//! Port of internal/browser/browser.go: headless Chrome automation via chromiumoxide.
+//! Headless Chrome automation via chromiumoxide.
 
 use anyhow::{Context, Result, anyhow, bail};
 use chromiumoxide::Page;
@@ -70,7 +70,7 @@ pub struct FormResult {
     pub submit_attempted: bool,
 }
 
-/// One Chrome instance with a single tab, like the Go chromedp context.
+/// One Chrome instance with a single tab.
 pub struct Browser {
     browser: CdpBrowser,
     handler: JoinHandle<()>,

@@ -1,4 +1,4 @@
-//! Port of internal/browser/confirm.go: clicks confirmation links from broker emails.
+//! Clicks confirmation links from broker emails.
 
 use anyhow::{Result, anyhow, bail};
 use std::collections::BTreeSet;

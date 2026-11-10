@@ -1,4 +1,4 @@
-//! Port of internal/broker/broker.go.
+//! Broker database: loading, sanitizing, filtering.
 
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Deserializer, Serialize};

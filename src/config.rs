@@ -1,4 +1,4 @@
-//! Port of internal/config/config.go.
+//! Config structs, load/save (0600) and provider defaults.
 
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -326,7 +326,7 @@ fn load_with_key(path: &Path, key: Option<&[u8; 32]>) -> Result<Config> {
     if cfg.autopilot.inactive_months <= 0 {
         cfg.autopilot.inactive_months = DEFAULT_INACTIVE_MONTHS;
     }
-    cfg.pipeline.browser_headless = true; // Default to headless (Go overrides unconditionally)
+    cfg.pipeline.browser_headless = true; // always headless, whatever the file says
 
     Ok(cfg)
 }
@@ -394,7 +394,7 @@ pub(crate) fn create_private_dir(dir: &Path) -> std::io::Result<()> {
     std::fs::create_dir_all(dir)
 }
 
-/// Like Go's os.WriteFile: the mode only applies when the file is created.
+/// The mode only applies when the file is created.
 pub(crate) fn write_with_mode(path: &Path, data: &[u8], _mode: u32) -> std::io::Result<()> {
     use std::io::Write;
     let mut opts = std::fs::OpenOptions::new();

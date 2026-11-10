@@ -1,5 +1,4 @@
-//! Port of internal/template/template.go. Templates are embedded minijinja ports of the Go
-//! text/template files and render byte-identical output.
+//! Request templates (embedded minijinja). Output is pinned by golden files.
 
 use crate::broker::Broker;
 use crate::config::Profile;
@@ -16,7 +15,7 @@ const TEMPLATES: [(&str, &str); 4] = [
 
 const REMINDER: &str = include_str!("../templates/email/reminder.txt");
 
-/// All data available to email templates (field names match the Go struct).
+/// All data available to email templates.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct EmailData {
@@ -60,7 +59,7 @@ impl Engine {
     pub fn new() -> Result<Self> {
         let mut env = minijinja::Environment::new();
         let syntax = minijinja::syntax::SyntaxConfig::builder()
-            .keep_trailing_newline(true) // Go text/template keeps it
+            .keep_trailing_newline(true)
             .build()?;
         env.set_syntax(syntax);
         env.set_auto_escape_callback(|_| minijinja::AutoEscape::None);
@@ -186,7 +185,7 @@ where
         broker_email: broker.email.clone(),
         broker_website: broker.website.clone(),
         broker_opt_out: broker.opt_out_url.clone(),
-        date: now.format("%B %-d, %Y").to_string(), // Go: "January 2, 2006"
+        date: now.format("%B %-d, %Y").to_string(), // "January 2, 2006"
         year: now.year(),
         month: now.format("%B").to_string(),
         template: template_name.to_string(),

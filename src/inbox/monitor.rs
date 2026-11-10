@@ -1,4 +1,4 @@
-//! IMAP inbox monitoring (port of `internal/inbox/monitor.go`).
+//! IMAP inbox monitoring.
 
 use std::collections::HashMap;
 use std::future::Future;
@@ -1045,7 +1045,10 @@ pub(crate) mod tests {
             "<a href=\"https://peoplefinder.com/confirm?t=1\">Confirm</a>\n",
         ));
         let e = parse_raw_email(1, &raw);
-        assert_eq!(e.body, "", "Go leaves Body empty for HTML-only mail");
+        assert_eq!(
+            e.body, "",
+            "HTML-only mail: classifier strips html_body itself"
+        );
         assert!(e.html_body.contains("https://peoplefinder.com/confirm?t=1"));
     }
 
@@ -1073,11 +1076,7 @@ pub(crate) mod tests {
             "--OUT--\n",
         ));
         let e = parse_raw_email(1, &raw);
-        assert_eq!(
-            e.body.trim_end(),
-            "real body",
-            "empty first part skipped like Go"
-        );
+        assert_eq!(e.body.trim_end(), "real body", "empty first part skipped");
         assert_eq!(e.html_body, "", "nested message/rfc822 ignored");
     }
 

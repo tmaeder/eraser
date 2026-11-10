@@ -1,4 +1,4 @@
-//! Port of internal/email/sender.go + smtp.go.
+//! Sender trait and SMTP sender.
 
 use crate::config::{EmailConfig, SmtpConfig};
 use anyhow::{Result, anyhow, bail};
@@ -41,7 +41,7 @@ pub struct Message {
     pub body: String,
 }
 
-/// Go's `email.Result`.
+/// Outcome of one send.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct SendResult {
     pub success: bool,
@@ -146,7 +146,7 @@ fn build_email(
 }
 
 pub trait Sender: Send + Sync {
-    /// `sequence` is kept for API parity with Go; the SMTP sender generates its own Message-ID.
+    /// `sequence` is unused by the SMTP sender (it generates its own Message-ID).
     fn send<'a>(&'a self, msg: &'a Message, sequence: Option<usize>) -> BoxFuture<'a, SendResult>;
     fn name(&self) -> &'static str;
 }
@@ -161,10 +161,7 @@ pub fn daily_limit(provider: &str) -> i64 {
 
 pub fn new_sender(cfg: &EmailConfig) -> Result<Box<dyn Sender>> {
     if cfg.provider.is_empty() || cfg.provider == "smtp" {
-        return Ok(Box::new(SmtpSender::new(
-            cfg.smtp.clone(),
-            cfg.from.clone(),
-        )));
+        return Ok(Box::new(SmtpSender::new(cfg.smtp.clone())));
     }
     bail!(
         "unknown email provider: {} (only smtp is supported)",
@@ -193,16 +190,13 @@ pub struct SmtpSender {
     config: SmtpConfig,
     /// Embeds the open-tracking pixel when set (see [`set_public_origin`]).
     public_origin: Option<String>,
-    #[allow(dead_code)] // kept for parity with Go; the From header comes from Message.from
-    from: String,
 }
 
 impl SmtpSender {
-    pub fn new(config: SmtpConfig, from: String) -> Self {
+    pub fn new(config: SmtpConfig) -> Self {
         Self {
             config,
             public_origin: public_origin(),
-            from,
         }
     }
 
@@ -271,7 +265,7 @@ impl SmtpSender {
                 .authentication(vec![Mechanism::Plain])
                 .build()
         } else {
-            // Like Go's smtp.SendMail: no auth, STARTTLS if the server offers it.
+            // No auth: STARTTLS if the server offers it.
             let tls = TlsParameters::new(host.to_string())
                 .map_err(|e| SmtpFailure::permanent(sanitize_smtp_error(&e)))?;
             AsyncSmtpTransport::<Tokio1Executor>::builder_dangerous(host)
@@ -320,8 +314,8 @@ fn is_transient(err: &lettre::transport::smtp::Error) -> bool {
 
 /// Maps transport errors to messages that never leak server responses or credentials.
 fn sanitize_smtp_error(err: &lettre::transport::smtp::Error) -> String {
-    // Go wraps every auth-stage failure in "authentication failed: ..."; lettre does not, so
-    // treat 53x replies (auth required / rejected) as auth failures too.
+    // lettre does not tag auth-stage failures, so treat 53x replies (auth required /
+    // rejected) as auth failures too.
     let auth_code = err
         .status()
         .is_some_and(|c| c.to_string().starts_with("53"));
@@ -354,16 +348,13 @@ mod tests {
     }
 
     fn smtp(port: i64, use_tls: bool, username: &str) -> SmtpSender {
-        SmtpSender::new(
-            SmtpConfig {
-                host: "127.0.0.1".into(),
-                port,
-                username: username.into(),
-                password: "pw".into(),
-                use_tls,
-            },
-            "me@example.com".into(),
-        )
+        SmtpSender::new(SmtpConfig {
+            host: "127.0.0.1".into(),
+            port,
+            username: username.into(),
+            password: "pw".into(),
+            use_tls,
+        })
     }
 
     #[test]

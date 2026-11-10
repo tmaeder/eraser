@@ -1,4 +1,4 @@
-//! Keyword-based classification of broker replies (port of `internal/inbox/classifier.go`).
+//! Keyword-based classification of broker replies.
 
 use std::sync::LazyLock;
 
@@ -11,7 +11,7 @@ use super::parser::{
 };
 use super::{Email, go_lower, go_regex};
 
-/// The type of broker response. String values match the Go/DB representation.
+/// The type of broker response. String values are the DB representation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ResponseType {
@@ -285,8 +285,7 @@ const BOUNCE_SENDERS: &[&str] = &[
     "mailsystem",
 ];
 
-/// Score slots in fixed order. Go iterated a map here, so ties were broken
-/// randomly; we break them deterministically in this (Go declaration) order.
+/// Score slots in fixed order; ties go to the earlier slot.
 const SCORED_TYPES: [ResponseType; 5] = [
     ResponseType::Success,
     ResponseType::FormRequired,

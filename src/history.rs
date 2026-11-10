@@ -1,5 +1,5 @@
-//! Port of internal/history/history.go: SQLite-backed record of removal requests, broker
-//! responses and pending tasks. Schema-compatible with databases written by the Go version.
+//! SQLite-backed record of removal requests, broker responses and pending tasks.
+//! Schema-compatible with databases written by the earlier Go version.
 //!
 //! Timestamps are stored as TEXT in Go's `time.Time.String()` layout, which is what the Go
 //! modernc sqlite driver writes: `2026-03-14 09:26:53.589793238 +0100 CET` (Go may append
@@ -236,7 +236,7 @@ pub struct FormWithStatus {
     pub status: String,
     /// Pending task id, 0 if none
     pub task_id: i64,
-    /// None when the broker has no removal request (Go: "")
+    /// None when the broker has no removal request
     pub pipeline_status: Option<PipelineStatus>,
 }
 
@@ -524,7 +524,7 @@ impl Store {
         db.execute_batch(tracking::SCHEMA)
             .context("failed to migrate tracking table")?;
 
-        // The Go schema never created email_body although AddBrokerResponse writes it.
+        // Databases from the Go version lack email_body.
         let _ = db.execute(
             "ALTER TABLE broker_responses ADD COLUMN email_body TEXT",
             [],
@@ -766,8 +766,8 @@ impl Store {
             .context("failed to scan broker response")
     }
 
-    /// Responses filtered by type and/or needs_review, newest first. Like Go, the returned
-    /// responses have an empty `email_body`.
+    /// Responses filtered by type and/or needs_review, newest first, without `email_body`
+    /// (list views only; [`Self::get_all_broker_responses`] includes it).
     pub fn get_broker_responses(
         &self,
         response_type: Option<&str>,
@@ -1042,7 +1042,7 @@ impl Store {
         let mut stats = HashMap::new();
         for row in rows {
             let (status, count) = row.context("failed to scan pipeline stat")?;
-            // ponytail: unknown non-NULL values are folded into email_sent (Go keeps the raw string).
+            // Unknown non-NULL values count as email_sent.
             let status = status
                 .and_then(|s| s.parse().ok())
                 .unwrap_or(PipelineStatus::EmailSent);

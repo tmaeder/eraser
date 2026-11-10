@@ -1,4 +1,4 @@
-//! Eraser: automated personal data removal requests (Rust port of the Go implementation).
+//! Eraser: automated personal data removal requests.
 
 pub mod autopilot;
 pub mod broker;

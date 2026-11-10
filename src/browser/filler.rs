@@ -1,4 +1,4 @@
-//! Port of internal/browser/filler.go: form field detection and auto-filling.
+//! Form field detection and auto-filling.
 
 use anyhow::{Result, anyhow};
 use chromiumoxide::Page;

@@ -1,4 +1,4 @@
-//! Port of internal/browser/captcha.go. Detection only: a detected CAPTCHA is handed to a human.
+//! CAPTCHA detection only: a detected CAPTCHA is handed to a human.
 
 use chromiumoxide::Page;
 use serde_json::Value;
@@ -153,7 +153,7 @@ async fn run(page: &Page, js: &str) -> Option<Value> {
     (v.get("found").and_then(Value::as_bool) == Some(true)).then_some(v)
 }
 
-/// Checks the live page for CAPTCHA types, in the same order as Go.
+/// Checks the live page for CAPTCHA types, most specific first.
 pub async fn detect_captcha(page: &Page) -> CaptchaInfo {
     if let Some(v) = run(page, JS_RECAPTCHA_V2).await {
         let mut i = info(

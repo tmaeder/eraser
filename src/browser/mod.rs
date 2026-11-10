@@ -1,4 +1,4 @@
-//! Browser automation for opt-out forms (port of internal/browser).
+//! Browser automation for opt-out forms.
 //! CAPTCHAs are only detected, so the task can be handed to a human.
 
 #[allow(clippy::module_inception)]

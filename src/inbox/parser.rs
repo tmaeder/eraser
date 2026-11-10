@@ -1,4 +1,4 @@
-//! URL extraction and bounce parsing for broker reply emails (port of `internal/inbox/parser.go`).
+//! URL extraction and bounce parsing for broker reply emails.
 
 use std::collections::HashSet;
 use std::sync::LazyLock;
@@ -229,7 +229,7 @@ fn extract_urls_from_html(html: &str) -> Vec<String> {
     urls
 }
 
-/// Normalizes a URL the way Go's `url.Parse(..).String()` does; empty if not absolute http(s).
+/// Normalizes a URL (see [`go_url`]); empty if not absolute http(s).
 pub(crate) fn clean_url(raw: &str) -> String {
     let raw = raw.trim_end_matches(['.', ',', ';', ':', '!', '?', ')']);
     match go_url::parse(raw) {
